@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>GPX2MAPS Web</title>
+<style>
+  :root{--bg:#0b1220;--card:#121a2b;--muted:#93a0b6;--text:#e9eef7;--accent:#4ea1ff;--bad:#ffe5e5;--mid:#fff4cc}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,Segoe UI,Roboto,Arial}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  header{padding:18px 16px;border-bottom:1px solid #1b263d;display:flex;align-items:center;gap:12px}
+  .logo{width:28px;height:28px;border-radius:6px;background:#21304e;display:grid;place-items:center;font-weight:700}
+  .wrap{max-width:1000px;margin:24px auto;padding:0 16px}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+  .tab{border:1px solid #243356;background:#16213a;padding:8px 12px;border-radius:10px;cursor:pointer}
+  .tab.active{background:#1b2946;border-color:#355082}
+  .card{background:var(--card);border:1px solid #1b263d;border-radius:14px;padding:16px;margin-bottom:16px}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .grow{flex:1 1 320px}
+  textarea,input,select{width:100%;background:#0e1526;border:1px solid #223358;color:var(--text);border-radius:10px;padding:10px}
+  button{border:1px solid #355082;background:#203158;color:#fff;border-radius:10px;padding:10px 14px;cursor:pointer}
+  button:hover{filter:brightness(1.08)}
+  .muted{color:var(--muted)}
+  .list{display:grid;gap:8px}
+  .urlitem{padding:10px;border:1px solid #243356;border-radius:10px;background:#0f172a;display:flex;justify-content:space-between;gap:8px;align-items:center}
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
+  .wxgrid{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;min-width:760px}
+  .wxgrid th,.wxgrid td{border:1px solid #263450;padding:6px 8px;text-align:center;font-size:13px;vertical-align:middle}
+  .wxgrid thead th{background:#142137;position:sticky;top:0;z-index:5}
+  .loccol{min-width:180px;max-width:260px;position:sticky;left:0;z-index:6;background:#101a2f;text-align:left}
+  td.wx-bad{background:var(--bad)} td.wx-mid{background:var(--mid)}
+  .center{display:flex;justify-content:center;gap:8px;align-items:center}
+  .note{background:#0d162b;border:1px dashed #2a3f69;padding:10px;border-radius:10px}
+  .footer{color:#7f8aa5;padding:24px;border-top:1px solid #1b263d;text-align:center}
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
+  .modal{background:#0f1a31;border:1px solid #2a3f69;border-radius:14px;max-width:520px;width:100%;padding:16px}
+  .modal h3{margin:0 0 6px 0}
+  .modal .muted{font-size:14px}
+  .badge{padding:2px 8px;border-radius:999px;border:1px solid #2a3f69;background:#0e1830;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">G2M</div>
+  <div>
+    <div style="font-weight:700">GPX2MAPS Web</div>
+    <div class="muted" style="font-size:13px">by Pieghello — tutto locale + Worker cloud gratis</div>
+  </div>
+  <div style="margin-left:auto" class="actions">
+    <a id="amazonLink" class="badge" target="_blank" rel="noopener">Amazon (affiliato)</a>
+    <a id="paypalLink" class="badge" target="_blank" rel="noopener">Dona ♥</a>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="note">
+    <b>Nota bene Google Maps:</b> l’editor manuale mostra max 10 tappe, ma il vero limite <i>navigabile</i> è <b>25</b>.  
+    Con questa web-app crei link <b>già navigabili</b> (tasto <i>Avvia</i>) e puoi arrivare a 25 punti.
+  </div>
+
+  <div class="card">
+    <div class="tabs">
+      <button class="tab active" data-tab="merge">Fusione Link</button>
+      <button class="tab" data-tab="gpx2maps">GPX → Google Maps</button>
+      <button class="tab" data-tab="meteo">Meteo + Info percorso</button>
+    </div>
+
+    <!-- MERGE -->
+    <section id="tab-merge">
+      <div class="row">
+        <div class="grow">
+          <label>Incolla 1+ link Google Maps (uno per riga)</label>
+          <textarea id="mergeInput" rows="6" placeholder="https://www.google.com/maps/dir/....&#10;https://www.google.com/maps/dir/...."></textarea>
+          <div class="muted" style="margin-top:6px">
+            Shortlink <code>maps.app.goo.gl</code>? Il Worker integrato li risolve automaticamente.
+          </div>
+        </div>
+      </div>
+      <div class="actions" style="margin-top:10px">
+        <button id="btnMerge">Unisci</button>
+        <button id="btnMergeOptimize">Ottimizza a 25</button>
+        <button id="btnSplit25">Dividi in blocchi da 25</button>
+      </div>
+      <div id="mergeOut" class="list" style="margin-top:12px"></div>
+    </section>
+
+    <!-- GPX -> MAPS -->
+    <section id="tab-gpx2maps" style="display:none">
+      <div class="row">
+        <div class="grow">
+          <label>Carica file GPX</label>
+          <input type="file" id="gpxFile" accept=".gpx,application/gpx+xml" />
+        </div>
+        <div>
+          <label>Tag da usare</label>
+          <select id="gpxTag">
+            <option value="auto">Auto (scegli meglio)</option>
+            <option value="wpt">WPT (waypoints)</option>
+            <option value="rtept">RTE (rotta)</option>
+            <option value="trkpt">TRK (traccia)</option>
+          </select>
+        </div>
+      </div>
+      <div class="note" style="margin-top:10px">
+        <b>Legenda:</b>
+        <ul style="margin:6px 0 0 18px">
+          <li><b>WPT</b>: punti “nominali” (come le tappe in Google Maps).</li>
+          <li><b>RTE</b>: rotta con alcuni punti intermedi → più affidabile (consigliato).</li>
+          <li><b>TRK</b>: moltissimi punti → percorso rigido (sconsigliato se c’è traffico/chiusure).</li>
+        </ul>
+      </div>
+      <div class="actions" style="margin-top:10px">
+        <button id="btnGpx2Maps">Crea link</button>
+        <button id="btnGpxSplit">Dividi in blocchi da 25</button>
+      </div>
+      <div id="gpxOut" class="list" style="margin-top:12px"></div>
+    </section>
+
+    <!-- METEO -->
+    <section id="tab-meteo" style="display:none">
+      <div class="row">
+        <div class="grow">
+          <label>Link Google Maps</label>
+          <input id="meteoLink" placeholder="https://www.google.com/maps/dir/..." />
+        </div>
+      </div>
+      <div class="actions" style="margin-top:10px">
+        <button id="btnMeteo">Genera Meteo + Info percorso</button>
+        <span class="muted">Dati gratuiti: Open-Meteo + OSRM.</span>
+      </div>
+      <div id="meteoWrap" style="margin-top:12px"></div>
+    </section>
+
+  </div>
+
+  <div class="card">
+    <div class="muted">
+      Hosting: <b>Cloudflare Pages</b> (gratis).  
+      Backend leggero: <b>Cloudflare Worker</b> (gratis) già integrato in questa build.
+    </div>
+  </div>
+</div>
+
+<!-- Confirm modal -->
+<div class="modal-bg" id="confirmBg">
+  <div class="modal">
+    <h3>Confermi l’azione?</h3>
+    <div class="muted" id="confirmTxt">Apriremo un link esterno.</div>
+    <div class="actions" style="margin-top:10px">
+      <button id="btnConfirmOk">Procedi</button>
+      <button id="btnConfirmCancel">Annulla</button>
+      <a id="btnDonate" class="badge" target="_blank" rel="noopener">Dona ♥</a>
+      <a id="btnAmazon" class="badge" target="_blank" rel="noopener">Amazon</a>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =======================
+   CONFIG
+======================= */
+const CONFIG = {
+  workerBase: 'https://gpx2maps-worker.stefano-vitro.workers.dev', // <- sostituisci dopo il deploy del Worker
+  paypalDonateUrl: 'https://www.paypal.com/donate?business=stefano.vitro%40gmail.com&no_recurring=0&item_name=Supporto+sviluppo+GPX2MAPS&currency_code=EUR',
+  amazonAffiliateUrl: 'https://amzn.to/3JKu1mS'
+};
+
+document.getElementById('paypalLink').href = CONFIG.paypalDonateUrl;
+document.getElementById('amazonLink').href = CONFIG.amazonAffiliateUrl;
+
+/* =======================
+   UI helpers
+======================= */
+const qs = (s,el=document)=>el.querySelector(s);
+const qsa = (s,el=document)=>[...el.querySelectorAll(s)];
+
+qsa('.tab').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    qsa('.tab').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    const id = b.dataset.tab;
+    qsa('section[id^="tab-"]').forEach(s=>s.style.display='none');
+    qs('#tab-'+id).style.display='block';
+  });
+});
+
+/* Confirm modal */
+let __pendingAction = null;
+const confirmBg = qs('#confirmBg');
+qs('#btnConfirmOk').onclick = ()=>{ confirmBg.style.display='none'; if(__pendingAction){ __pendingAction(); __pendingAction=null; } };
+qs('#btnConfirmCancel').onclick = ()=>{ confirmBg.style.display='none'; __pendingAction=null; };
+qs('#btnDonate').href = CONFIG.paypalDonateUrl;
+qs('#btnAmazon').href = CONFIG.amazonAffiliateUrl;
+
+function confirmAction(text, fn){
+  qs('#confirmTxt').textContent = text || 'Procedere?';
+  __pendingAction = fn;
+  confirmBg.style.display='flex';
+}
+function openWithConfirm(url, why='Apriremo Google Maps.'){
+  confirmAction(why, ()=> window.open(url, '_blank','noopener'));
+}
+function downloadWithConfirm(filename, data, why='Scaricheremo un file.'){
+  confirmAction(why, ()=>{
+    const blob = new Blob([data], {type:'application/octet-stream'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+  });
+}
+
+/* =======================
+   Core utils (parsing/URL)
+======================= */
+const reCoord = /^\s*-?\d{1,3}\.\d+,\s*-?\d{1,3}\.\d+\s*$/;
+const isCoordToken = t => reCoord.test(t);
+const parseCoord = t => {
+  const [lat,lon] = t.split(',').map(s=>parseFloat(s.trim()));
+  return {lat,lon};
+};
+function cleanLongLink(link){
+  let x = (link||'').trim();
+  x = x.replace(/\/@.*$/,'');
+  x = x.replace(/^https?:\/\/www\.google\.[^/]+\/maps\/dir\/\//,''); // rimuove // iniziale
+  x = x.replace(/^https?:\/\/www\.google\.[^/]+\/maps\/dir\//,'');
+  return x.replace(/\/+$/,'');
+}
+function extractDirSegment(longLink){
+  const m = /\/maps\/dir\/(.*?)(?:\/@|$)/.exec(longLink);
+  return m ? m[1] : null;
+}
+function tokensFromLink(link){
+  const long = link.includes('/maps/dir/') ? link : ('https://www.google.com/maps/dir/'+link);
+  const seg = extractDirSegment(long);
+  if(!seg) return [];
+  return seg.split('/').filter(Boolean);
+}
+function buildGMapsUrl(parts){ return 'https://www.google.com/maps/dir/'+parts.join('/'); }
+
+/* =======================
+   Worker-backed fetches
+======================= */
+async function resolveIfShort(url){
+  if (!url || !/maps\.app\.goo\.gl/.test(url)) return url;
+  const r = await fetch(`${CONFIG.workerBase}/resolve?u=${encodeURIComponent(url)}`);
+  const j = await r.json().catch(()=>({}));
+  return j.url || url;
+}
+async function geocodeName(name){
+  const r = await fetch(`${CONFIG.workerBase}/geocode?q=${encodeURIComponent(name)}`);
+  const j = await r.json().catch(()=>null);
+  return j && j.ok ? j.result : null;
+}
+async function reverseGeocode(lat,lon){
+  const r = await fetch(`${CONFIG.workerBase}/reverse?lat=${lat}&lon=${lon}`);
+  const j = await r.json().catch(()=>null);
+  return j && j.ok ? j.label : "Localita'";
+}
+async function osrmRoute(coords, opts={overview:'false', steps:'false', alternatives:'false'}){
+  const coordParam = coords.map(c=>`${c.lon.toFixed(6)},${c.lat.toFixed(6)}`).join(';');
+  const q = new URLSearchParams(opts).toString();
+  const r = await fetch(`${CONFIG.workerBase}/osrm?path=${encodeURIComponent(coordParam)}&${q}`);
+  return r.json();
+}
+
+/* =======================
+   Merge Links
+======================= */
+function splitAllPointsFromLinks(links){
+  const pieces=[];
+  for (let raw of links){
+    if(!raw.trim()) continue;
+    pieces.push(...cleanLongLink(raw).split('/').filter(Boolean));
+  }
+  return [''].concat(pieces); // prima “tua posizione”
+}
+function optimizeTo25(parts){
+  if (parts.length<=25) return parts;
+  const keep=[parts[0],parts[1]];
+  const middle=parts.slice(2,-1);
+  const middleCount = 22;
+  const step = Math.max(1, Math.floor(middle.length / middleCount));
+  for(let i=0;i<middleCount;i++){
+    const idx = i*step;
+    if (idx < middle.length) keep.push(middle[idx]);
+  }
+  keep.push(parts[parts.length-1]);
+  return keep;
+}
+
+qs('#btnMerge').onclick = async ()=>{
+  const lines = qs('#mergeInput').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  if (!lines.length){ qs('#mergeOut').innerHTML=''; return; }
+
+  // risoluzione shortlink via Worker
+  const resolved = [];
+  for (const l of lines) resolved.push(await resolveIfShort(l));
+
+  // se 1 solo link: rendilo navigabile con //
+  if (resolved.length===1) {
+    const hasDoubleSlash = /\/maps\/dir\/\//.test(resolved[0]);
+    const url = hasDoubleSlash ? resolved[0] : resolved[0].replace('/maps/dir/','/maps/dir//');
+    renderUrls('#mergeOut', [{url, label:'Link (navigabile)'}]);
+    return;
+  }
+
+  const points = splitAllPointsFromLinks(resolved);
+  if (points.length<=25){
+    renderUrls('#mergeOut', [{url:buildGMapsUrl(points), label:'Link unificato (≤25)'}]);
+  } else {
+    renderInfo('#mergeOut', 'Sono stati superati i 25 punti. Usa “Ottimizza” o “Dividi”.');
+  }
+};
+
+qs('#btnMergeOptimize').onclick = ()=>{
+  const lines = qs('#mergeInput').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  if (!lines.length){ qs('#mergeOut').innerHTML=''; return; }
+  const keep = optimizeTo25(splitAllPointsFromLinks(lines));
+  renderUrls('#mergeOut', [{url:buildGMapsUrl(keep), label:'Link ottimizzato (25)'}]);
+};
+qs('#btnSplit25').onclick = ()=>{
+  const lines = qs('#mergeInput').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  if (!lines.length){ qs('#mergeOut').innerHTML=''; return; }
+  const points = splitAllPointsFromLinks(lines);
+  const urls=[];
+  for (let i=0;i<points.length;i+=25){
+    const chunk = points.slice(i, i+25);
+    if (i===0 && chunk[0]!=='' ) chunk.unshift('');
+    urls.push({url:buildGMapsUrl(chunk), label:`Blocco ${Math.floor(i/25)+1}`});
+  }
+  renderUrls('#mergeOut', urls);
+};
+
+/* =======================
+   GPX -> MAPS
+======================= */
+function parseGpxPoints(xml, tagName){
+  const nodes = [...xml.getElementsByTagName(tagName)];
+  return nodes.filter(n=>n.hasAttribute('lat')&&n.hasAttribute('lon'))
+              .map(n=>({lat:+n.getAttribute('lat'),lon:+n.getAttribute('lon')}));
+}
+function pickBestTag(xml, pref='auto'){
+  if (pref!=='auto') return pref;
+  const has = t=>xml.getElementsByTagName(t).length>0;
+  if (has('rtept')) return 'rtept';
+  if (has('wpt')) return 'wpt';
+  if (has('trkpt')) return 'trkpt';
+  return 'wpt';
+}
+qs('#btnGpx2Maps').onclick = ()=>{
+  const f = qs('#gpxFile').files[0];
+  if (!f) return;
+  const pref = qs('#gpxTag').value;
+
+  const fr = new FileReader();
+  fr.onload = ()=>{
+    const xml = new DOMParser().parseFromString(fr.result, 'application/xml');
+    const tag = pickBestTag(xml, pref);
+    const arr = parseGpxPoints(xml, tag);
+    if (!arr.length){ renderInfo('#gpxOut','Nessun punto valido.'); return; }
+
+    const coords = [''].concat(arr.map(p=>`${p.lat},${p.lon}`));
+    if (coords.length<=25){
+      renderUrls('#gpxOut', [{url:buildGMapsUrl(coords), label:`Link da GPX (${tag})`}]);
+    } else {
+      renderInfo('#gpxOut','Punti >25. Usa “Dividi in blocchi da 25”.');
+    }
+  };
+  fr.readAsText(f);
+};
+
+qs('#btnGpxSplit').onclick = ()=>{
+  const f = qs('#gpxFile').files[0];
+  if (!f) return;
+  const pref = qs('#gpxTag').value;
+  const fr = new FileReader();
+  fr.onload = ()=>{
+    const xml = new DOMParser().parseFromString(fr.result,'application/xml');
+    const tag = pickBestTag(xml, pref);
+    const arr = parseGpxPoints(xml, tag);
+    if (!arr.length){ renderInfo('#gpxOut','Nessun punto valido.'); return; }
+    const coords = [''].concat(arr.map(p=>`${p.lat},${p.lon}`));
+    const out=[];
+    for (let i=0;i<coords.length;i+=25){
+      const sub = coords.slice(i, i+25);
+      if (i===0 && sub[0]!=='' ) sub.unshift('');
+      out.push({url:buildGMapsUrl(sub), label:`Blocco ${Math.floor(i/25)+1}`});
+    }
+    renderUrls('#gpxOut', out);
+  };
+  fr.readAsText(f);
+};
+
+/* =======================
+   METEO + INFO
+======================= */
+function wxDescFromCode(c){
+  c = +c;
+  if (c===0) return 'Sereno';
+  if (c===1) return 'Preval. sereno';
+  if (c===2) return 'Parz. nuvoloso';
+  if (c===3) return 'Nuvoloso';
+  if (c===45) return 'Nebbia';
+  if (c===48) return 'Nebbia con brina';
+  if (c>=51&&c<=55) return 'Pioviggine';
+  if (c>=61&&c<=65) return 'Pioggia';
+  if (c===66||c===67) return 'Pioggia ghiacciata';
+  if (c>=71&&c<=75) return 'Neve';
+  if (c>=80&&c<=82) return 'Rovesci';
+  if (c===85||c===86) return 'Rovesci di neve';
+  if (c===95) return 'Temporali';
+  if (c>=96&&c<=99) return 'Temporali forti';
+  return 'N/D';
+}
+function sevClass(desc){
+  if (/^(Pioggia|Rovesci|Pioggia\s+ghiacciata|Temporali(?:\s+forti)?|Neve|Rovesci\s+di\s+neve)$/.test(desc)) return 'wx-bad';
+  if (/^(Nuvoloso|Nebbia)/.test(desc)) return 'wx-mid';
+  return '';
+}
+
+async function computeMeteo(link){
+  // 1) normalizza + risolvi shortlink via Worker
+  let raw = (link||'').trim();
+  raw = await resolveIfShort(raw);
+  let long = raw.includes('/maps/dir/') ? raw : `https://www.google.com/maps/dir/${raw}`;
+  long = long.replace(/\/@.*$/,'').replace(/\/+$/,'');
+  const seg = extractDirSegment(long);
+  if (!seg) throw new Error('Link non valido (manca /maps/dir/).');
+
+  // 1bis) gestione partenza mancante ("/maps/dir//")
+  const startIsBlank = /\/maps\/dir\/\//.test(long);
+  let userStartObj = null;
+  if (startIsBlank){
+    const userStart = window.prompt("Il link non specifica la partenza.\nInserisci 'città provincia' (es: 'arluno milano'):", "");
+    if (userStart && userStart.trim()){
+      const gs = await geocodeName(userStart.trim());
+      if (gs) userStartObj = {lat:+gs.lat, lon:+gs.lon, label:gs.label};
+    }
+  }
+
+  // 2) token → coord (nome o "lat,lon")
+  const tokens = seg.split('/').filter(Boolean);
+  const coordItems=[];
+  if (userStartObj) coordItems.push(userStartObj);
+
+  for (const t of tokens){
+    if (isCoordToken(t)){
+      const {lat,lon} = parseCoord(t);
+      const label = await reverseGeocode(lat,lon);
+      coordItems.push({lat,lon,label});
+    } else {
+      const g = await geocodeName(decodeURIComponent(t.replace(/\+/g,' ')));
+      if (g) coordItems.push({lat:g.lat, lon:g.lon, label:g.label});
+      await new Promise(r=>setTimeout(r,250));
+    }
+  }
+  if (!coordItems.length) throw new Error('Nessun punto valido estratto.');
+
+  // 3) Liste: meteo (dedup) e route (no dedup)
+  const seen = new Set();
+  const meteoPts=[];
+  for (const p of coordItems){
+    const key = `${(+p.lat).toFixed(2)},${(+p.lon).toFixed(2)}`;
+    if (!seen.has(key)){ seen.add(key); meteoPts.push(p); }
+  }
+  const routePts = coordItems.slice();
+
+  // 4) OSRM cumulative km/sec
+  const coordsOSRM = routePts.map(p=>({lat:+p.lat, lon:+p.lon}));
+  let cumKm=[0], cumSec=[0];
+  try{
+    const j = await osrmRoute(coordsOSRM, {overview:'false', steps:'false', alternatives:'false'});
+    if (j.code!=='Ok' || !j.routes || !j.routes[0]) throw 0;
+    const legs = j.routes[0].legs || [];
+    let accKm=0, accSec=0;
+    for (const lg of legs){
+      accKm += (+lg.distance)/1000;
+      accSec += (+lg.duration);
+      cumKm.push(Math.round(accKm*10)/10);
+      cumSec.push(accSec);
+    }
+  }catch{ /* fallback zeroes */ }
+
+  // 5) Open-Meteo 7gg / 4 fasce
+  const partDefs = [
+    {name:'Notte',from:0,to:5},
+    {name:'Mattino',from:6,to:11},
+    {name:'Pomeriggio',from:12,to:17},
+    {name:'Sera',from:18,to:23}
+  ];
+  async function fetchWx(p){
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&timezone=auto&daily=temperature_2m_max,temperature_2m_min,weathercode&hourly=temperature_2m,weathercode`;
+    const j = await fetch(u).then(r=>r.json()).catch(()=>null);
+    if (!j || !j.daily || !j.hourly) return null;
+
+    const days=[];
+    const dcount = Math.min(7, j.daily.time.length);
+    for (let d=0; d<dcount; d++){
+      const date = new Date(j.daily.time[d]);
+      const entry = { label: date.toLocaleDateString('it-IT', {weekday:'short', day:'2-digit', month:'2-digit'}), Min:Math.round(j.daily.temperature_2m_min[d]*10)/10, Max:Math.round(j.daily.temperature_2m_max[d]*10)/10, Parts:[] };
+      for (const pd of partDefs){
+        const temps=[], codes=[];
+        for (let h=0; h<j.hourly.time.length; h++){
+          const th = new Date(j.hourly.time[h]);
+          if (th.getFullYear()===date.getFullYear() && th.getMonth()===date.getMonth() && th.getDate()===date.getDate() && th.getHours()>=pd.from && th.getHours()<=pd.to){
+            temps.push(+j.hourly.temperature_2m[h]);
+            codes.push(+j.hourly.weathercode[h]);
+          }
+        }
+        if (temps.length){
+          const avg = Math.round((temps.reduce((a,b)=>a+b,0)/temps.length)*10)/10;
+          const mode = codes.sort((a,b)=>codes.filter(v=>v===a).length - codes.filter(v=>v===b).length).pop();
+          entry.Parts.push({Name:pd.name,Temp:avg,Desc:wxDescFromCode(mode)});
+        } else entry.Parts.push({Name:pd.name,Temp:'',Desc:'N/D'});
+      }
+      days.push(entry);
+    }
+    return {place:p.label, days};
+  }
+
+  const rows = [];
+  for (const p of meteoPts){ const r = await fetchWx(p); if (r) rows.push(r); await new Promise(r=>setTimeout(r,200)); }
+
+  // 6) Start/End labels
+  const startLabel = await reverseGeocode(routePts[0].lat, routePts[0].lon);
+  const endLabel   = await reverseGeocode(routePts[routePts.length-1].lat, routePts[routePts.length-1].lon);
+
+  return {rows, routePts, cumKm, cumSec, startLabel, endLabel};
+}
+
+qs('#btnMeteo').onclick = async ()=>{
+  const out = qs('#meteoWrap'); out.innerHTML='';
+  const link = qs('#meteoLink').value.trim();
+  if (!link){ renderInfo('#meteoWrap','Inserisci un link.'); return; }
+
+  renderInfo('#meteoWrap','Elaboro… Attendi.', true);
+  try{
+    const r = await computeMeteo(link);
+    renderMeteo(out, r);
+  }catch(e){
+    renderInfo('#meteoWrap','Errore: '+(e.message||'imprevisto'));
+  }
+};
+
+function renderMeteo(container, data){
+  const {rows, routePts, cumKm, cumSec, startLabel, endLabel} = data;
+  container.innerHTML='';
+
+  // TXT/CSV info percorso
+  const infoRows = [];
+  for (let i=0;i<routePts.length;i++){
+    const totKm = `${(cumKm[i]||0).toFixed(1)} km`;
+    const totH = Math.floor((cumSec[i]||0)/3600);
+    const totM = Math.floor(((cumSec[i]||0)%3600)/60);
+    const totTm = `${totH} h ${totM} m`;
+
+    let legKm='0.0 km', legTm='0 h 0 m';
+    if (i>0){
+      const dKm = (cumKm[i]-cumKm[i-1]).toFixed(1);
+      const dSec = (cumSec[i]-cumSec[i-1]);
+      const lH = Math.floor(dSec/3600), lM=Math.floor((dSec%3600)/60);
+      legKm = `${dKm} km`; legTm = `${lH} h ${lM} m`;
+    }
+    infoRows.push({i:i+1, place:routePts[i].label, totKm, totTm, legKm, legTm});
+  }
+
+  // tabella meteo
+  const daysCount = rows.length? rows[0].days.length : 0;
+  const table = document.createElement('div');
+  table.innerHTML = `
+    <h3>Meteo da: ${escapeHtml(startLabel)} a: ${escapeHtml(endLabel)} (7 giorni, 4 fasce)</h3>
+    <div class="card" style="overflow:auto">
+      <table class="wxgrid">
+        <thead>
+          <tr>
+            <th class="loccol" rowspan="2">Località</th>
+            ${rows.length && rows[0].days.map((d,i)=>`<th colspan="4">${d.label}</th>`).join('') || ''}
+          </tr>
+          <tr>
+            ${rows.length && rows[0].days.map(()=>['Notte','Mattino','Pomeriggio','Sera'].map(n=>`<th>${n}</th>`).join('')).join('') || ''}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r=>`
+            <tr>
+              <td class="loccol">${escapeHtml(r.place)}</td>
+              ${r.days.map(d=>d.Parts.map(pp=>{
+                const cls = sevClass(pp.Desc);
+                const title = `min ${d.Min} / max ${d.Max}`;
+                return `<td class="${cls}" title="${title}"><div>${pp.Desc}<div class="muted">${pp.Temp}</div></div></td>`
+              }).join('')).join('')}
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+  container.appendChild(table);
+
+  // TXT + CSV
+  const sbTxt = [];
+  const totKmSum = cumKm[cumKm.length-1]||0;
+  const totSecSum = cumSec[cumSec.length-1]||0;
+  const allH = Math.floor(totSecSum/3600), allM = Math.floor((totSecSum%3600)/60);
+
+  sbTxt.push(`Percorso da: ${startLabel} a: ${endLabel}`);
+  sbTxt.push(`Punti totali: ${routePts.length} | Distanza totale: ${totKmSum.toFixed(1)} km | Tempo totale: ${allH} h ${allM} m`);
+  sbTxt.push('');
+  sbTxt.push(`Punto | Localita | Totale Km | Totale Tempo | Parziale Km | Parziale Tempo`);
+  sbTxt.push(`----- | -------- | --------- | ------------ | ----------- | --------------`);
+  for (const r of infoRows){
+    sbTxt.push(`${String(r.i).padStart(5)} | ${r.place} | ${r.totKm.padStart(9)} | ${r.totTm.padStart(12)} | ${r.legKm.padStart(11)} | ${r.legTm.padStart(14)}`);
+  }
+
+  const csv = ['Punto;Localita;Totale Km;Totale Tempo;Parziale Km;Parziale Tempo']
+    .concat(infoRows.map(r=>`${r.i};"${r.place.replace(/"/g,'""')}";${r.totKm};${r.totTm};${r.legKm};${r.legTm}`))
+    .join('\n');
+
+  const actions = document.createElement('div');
+  actions.className='actions';
+  const fnameSlug = (s)=>s.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,40);
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,15);
+  const baseName = `percorso_${fnameSlug(startLabel)}_${fnameSlug(endLabel)}_${ts}`;
+
+  const b1 = document.createElement('button'); b1.textContent='Scarica TXT';
+  b1.onclick = ()=>downloadWithConfirm(`${baseName}.txt`, sbTxt.join('\n'));
+  const b2 = document.createElement('button'); b2.textContent='Scarica CSV';
+  b2.onclick = ()=>downloadWithConfirm(`${baseName}.csv`, csv);
+  const b3 = document.createElement('button'); b3.textContent='Apri link Maps originale';
+  b3.onclick = ()=>{
+    const url = qs('#meteoLink').value.trim();
+    if (url) openWithConfirm(url,'Apriremo Google Maps.');
+  };
+
+  actions.append(b1,b2,b3);
+  container.appendChild(actions);
+}
+
+/* =======================
+   Render helpers
+======================= */
+function renderUrls(sel, items){
+  const div = qs(sel);
+  div.innerHTML='';
+  for (const it of items){
+    const row = document.createElement('div'); row.className='urlitem';
+    const left = document.createElement('div'); left.innerHTML = `<b>${escapeHtml(it.label)}</b><div class="muted" style="font-size:12px">${escapeHtml(it.url)}</div>`;
+    const btn = document.createElement('button'); btn.textContent='Apri';
+    btn.onclick = ()=> openWithConfirm(it.url, 'Apriremo Google Maps.');
+    row.append(left,btn);
+    div.appendChild(row);
+  }
+}
+function renderInfo(sel, text, spin=false){
+  const div = qs(sel); div.innerHTML='';
+  const box = document.createElement('div'); box.className='note';
+  box.innerHTML = (spin?'⏳ ':'') + escapeHtml(text);
+  div.appendChild(box);
+}
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+</script>
+</body>
+</html>
