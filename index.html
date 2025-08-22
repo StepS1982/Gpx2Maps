@@ -29,7 +29,6 @@
   .wxgrid thead th{background:#142137;position:sticky;top:0;z-index:5}
   .loccol{min-width:180px;max-width:260px;position:sticky;left:0;z-index:6;background:#101a2f;text-align:left}
   td.wx-bad{background:var(--bad)} td.wx-mid{background:var(--mid)}
-  .center{display:flex;justify-content:center;gap:8px;align-items:center}
   .note{background:#0d162b;border:1px dashed #2a3f69;padding:10px;border-radius:10px}
   .footer{color:#7f8aa5;padding:24px;border-top:1px solid #1b263d;text-align:center}
   .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
@@ -72,7 +71,7 @@
           <label>Incolla 1+ link Google Maps (uno per riga)</label>
           <textarea id="mergeInput" rows="6" placeholder="https://www.google.com/maps/dir/....&#10;https://www.google.com/maps/dir/...."></textarea>
           <div class="muted" style="margin-top:6px">
-            Shortlink <code>maps.app.goo.gl</code>? Il Worker integrato li risolve automaticamente.
+            Shortlink <code>maps.app.goo.gl</code>? Il Worker li risolve automaticamente.
           </div>
         </div>
       </div>
@@ -160,7 +159,9 @@
    CONFIG
 ======================= */
 const CONFIG = {
-  workerBase: 'https://gpx2maps-worker.stefano-vitro.workers.dev', // <- sostituisci dopo il deploy del Worker
+  // Se il Worker è su dominio separato: metti il tuo *.workers.dev
+  // Se lo instradi dietro Pages (stesso dominio), lascia stringa vuota.
+  workerBase: 'https://gpx2maps-worker.stefano-vitro.workers.dev',
   paypalDonateUrl: 'https://www.paypal.com/donate?business=stefano.vitro%40gmail.com&no_recurring=0&item_name=Supporto+sviluppo+GPX2MAPS&currency_code=EUR',
   amazonAffiliateUrl: 'https://amzn.to/3JKu1mS'
 };
@@ -220,16 +221,16 @@ const parseCoord = t => {
   const [lat,lon] = t.split(',').map(s=>parseFloat(s.trim()));
   return {lat,lon};
 };
+function extractDirSegment(longLink){
+  const m = /\/maps\/dir\/(.*?)(?:\/@|$)/.exec(longLink);
+  return m ? m[1] : null;
+}
 function cleanLongLink(link){
   let x = (link||'').trim();
   x = x.replace(/\/@.*$/,'');
   x = x.replace(/^https?:\/\/www\.google\.[^/]+\/maps\/dir\/\//,''); // rimuove // iniziale
   x = x.replace(/^https?:\/\/www\.google\.[^/]+\/maps\/dir\//,'');
   return x.replace(/\/+$/,'');
-}
-function extractDirSegment(longLink){
-  const m = /\/maps\/dir\/(.*?)(?:\/@|$)/.exec(longLink);
-  return m ? m[1] : null;
 }
 function tokensFromLink(link){
   const long = link.includes('/maps/dir/') ? link : ('https://www.google.com/maps/dir/'+link);
@@ -242,26 +243,28 @@ function buildGMapsUrl(parts){ return 'https://www.google.com/maps/dir/'+parts.j
 /* =======================
    Worker-backed fetches
 ======================= */
+function wurl(p){ return (CONFIG.workerBase||'') + p; }
+
 async function resolveIfShort(url){
   if (!url || !/maps\.app\.goo\.gl/.test(url)) return url;
-  const r = await fetch(`${CONFIG.workerBase}/resolve?u=${encodeURIComponent(url)}`);
+  const r = await fetch(wurl(`/resolve?u=${encodeURIComponent(url)}`));
   const j = await r.json().catch(()=>({}));
   return j.url || url;
 }
 async function geocodeName(name){
-  const r = await fetch(`${CONFIG.workerBase}/geocode?q=${encodeURIComponent(name)}`);
+  const r = await fetch(wurl(`/geocode?q=${encodeURIComponent(name)}`));
   const j = await r.json().catch(()=>null);
   return j && j.ok ? j.result : null;
 }
 async function reverseGeocode(lat,lon){
-  const r = await fetch(`${CONFIG.workerBase}/reverse?lat=${lat}&lon=${lon}`);
+  const r = await fetch(wurl(`/reverse?lat=${lat}&lon=${lon}`));
   const j = await r.json().catch(()=>null);
   return j && j.ok ? j.label : "Localita'";
 }
 async function osrmRoute(coords, opts={overview:'false', steps:'false', alternatives:'false'}){
   const coordParam = coords.map(c=>`${c.lon.toFixed(6)},${c.lat.toFixed(6)}`).join(';');
   const q = new URLSearchParams(opts).toString();
-  const r = await fetch(`${CONFIG.workerBase}/osrm?path=${encodeURIComponent(coordParam)}&${q}`);
+  const r = await fetch(wurl(`/osrm?path=${encodeURIComponent(coordParam)}&${q}`));
   return r.json();
 }
 
@@ -289,14 +292,38 @@ function optimizeTo25(parts){
   keep.push(parts[parts.length-1]);
   return keep;
 }
+async function resolveAll(links){
+  const out=[];
+  for (const l of links){ out.push(await resolveIfShort(l)); }
+  return out;
+}
 
+function renderUrls(sel, items){
+  const div = qs(sel);
+  div.innerHTML='';
+  for (const it of items){
+    const row = document.createElement('div'); row.className='urlitem';
+    const left = document.createElement('div'); left.innerHTML = `<b>${escapeHtml(it.label)}</b><div class="muted" style="font-size:12px">${escapeHtml(it.url)}</div>`;
+    const btn = document.createElement('button'); btn.textContent='Apri';
+    btn.onclick = ()=> openWithConfirm(it.url, 'Apriremo Google Maps.');
+    row.append(left,btn);
+    div.appendChild(row);
+  }
+}
+function renderInfo(sel, text){
+  const div = qs(sel); div.innerHTML='';
+  const box = document.createElement('div'); box.className='note';
+  box.innerHTML = escapeHtml(text);
+  div.appendChild(box);
+}
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+/* Buttons: MERGE */
 qs('#btnMerge').onclick = async ()=>{
   const lines = qs('#mergeInput').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
   if (!lines.length){ qs('#mergeOut').innerHTML=''; return; }
 
-  // risoluzione shortlink via Worker
-  const resolved = [];
-  for (const l of lines) resolved.push(await resolveIfShort(l));
+  const resolved = await resolveAll(lines);
 
   // se 1 solo link: rendilo navigabile con //
   if (resolved.length===1) {
@@ -314,16 +341,19 @@ qs('#btnMerge').onclick = async ()=>{
   }
 };
 
-qs('#btnMergeOptimize').onclick = ()=>{
+qs('#btnMergeOptimize').onclick = async ()=>{
   const lines = qs('#mergeInput').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
   if (!lines.length){ qs('#mergeOut').innerHTML=''; return; }
-  const keep = optimizeTo25(splitAllPointsFromLinks(lines));
+  const resolved = await resolveAll(lines);
+  const keep = optimizeTo25(splitAllPointsFromLinks(resolved));
   renderUrls('#mergeOut', [{url:buildGMapsUrl(keep), label:'Link ottimizzato (25)'}]);
 };
-qs('#btnSplit25').onclick = ()=>{
+
+qs('#btnSplit25').onclick = async ()=>{
   const lines = qs('#mergeInput').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
   if (!lines.length){ qs('#mergeOut').innerHTML=''; return; }
-  const points = splitAllPointsFromLinks(lines);
+  const resolved = await resolveAll(lines);
+  const points = splitAllPointsFromLinks(resolved);
   const urls=[];
   for (let i=0;i<points.length;i+=25){
     const chunk = points.slice(i, i+25);
@@ -370,7 +400,6 @@ qs('#btnGpx2Maps').onclick = ()=>{
   };
   fr.readAsText(f);
 };
-
 qs('#btnGpxSplit').onclick = ()=>{
   const f = qs('#gpxFile').files[0];
   if (!f) return;
@@ -419,9 +448,8 @@ function sevClass(desc){
   if (/^(Nuvoloso|Nebbia)/.test(desc)) return 'wx-mid';
   return '';
 }
-
 async function computeMeteo(link){
-  // 1) normalizza + risolvi shortlink via Worker
+  // normalizza + risolvi shortlink via Worker
   let raw = (link||'').trim();
   raw = await resolveIfShort(raw);
   let long = raw.includes('/maps/dir/') ? raw : `https://www.google.com/maps/dir/${raw}`;
@@ -429,7 +457,7 @@ async function computeMeteo(link){
   const seg = extractDirSegment(long);
   if (!seg) throw new Error('Link non valido (manca /maps/dir/).');
 
-  // 1bis) gestione partenza mancante ("/maps/dir//")
+  // partenza mancante ("/maps/dir//")
   const startIsBlank = /\/maps\/dir\/\//.test(long);
   let userStartObj = null;
   if (startIsBlank){
@@ -440,7 +468,7 @@ async function computeMeteo(link){
     }
   }
 
-  // 2) token → coord (nome o "lat,lon")
+  // token → coord
   const tokens = seg.split('/').filter(Boolean);
   const coordItems=[];
   if (userStartObj) coordItems.push(userStartObj);
@@ -451,14 +479,15 @@ async function computeMeteo(link){
       const label = await reverseGeocode(lat,lon);
       coordItems.push({lat,lon,label});
     } else {
-      const g = await geocodeName(decodeURIComponent(t.replace(/\+/g,' ')));
+      const name = decodeURIComponent(t.replace(/\+/g,' '));
+      const g = await geocodeName(name);
       if (g) coordItems.push({lat:g.lat, lon:g.lon, label:g.label});
       await new Promise(r=>setTimeout(r,250));
     }
   }
   if (!coordItems.length) throw new Error('Nessun punto valido estratto.');
 
-  // 3) Liste: meteo (dedup) e route (no dedup)
+  // liste meteo (dedup) e route (no dedup)
   const seen = new Set();
   const meteoPts=[];
   for (const p of coordItems){
@@ -467,7 +496,7 @@ async function computeMeteo(link){
   }
   const routePts = coordItems.slice();
 
-  // 4) OSRM cumulative km/sec
+  // OSRM cumulative
   const coordsOSRM = routePts.map(p=>({lat:+p.lat, lon:+p.lon}));
   let cumKm=[0], cumSec=[0];
   try{
@@ -483,7 +512,7 @@ async function computeMeteo(link){
     }
   }catch{ /* fallback zeroes */ }
 
-  // 5) Open-Meteo 7gg / 4 fasce
+  // Open-Meteo 7gg / 4 fasce
   const partDefs = [
     {name:'Notte',from:0,to:5},
     {name:'Mattino',from:6,to:11},
@@ -523,7 +552,6 @@ async function computeMeteo(link){
   const rows = [];
   for (const p of meteoPts){ const r = await fetchWx(p); if (r) rows.push(r); await new Promise(r=>setTimeout(r,200)); }
 
-  // 6) Start/End labels
   const startLabel = await reverseGeocode(routePts[0].lat, routePts[0].lon);
   const endLabel   = await reverseGeocode(routePts[routePts.length-1].lat, routePts[routePts.length-1].lon);
 
@@ -535,7 +563,7 @@ qs('#btnMeteo').onclick = async ()=>{
   const link = qs('#meteoLink').value.trim();
   if (!link){ renderInfo('#meteoWrap','Inserisci un link.'); return; }
 
-  renderInfo('#meteoWrap','Elaboro… Attendi.', true);
+  renderInfo('#meteoWrap','Elaboro… Attendi.');
   try{
     const r = await computeMeteo(link);
     renderMeteo(out, r);
@@ -548,7 +576,7 @@ function renderMeteo(container, data){
   const {rows, routePts, cumKm, cumSec, startLabel, endLabel} = data;
   container.innerHTML='';
 
-  // TXT/CSV info percorso
+  // righe info percorso
   const infoRows = [];
   for (let i=0;i<routePts.length;i++){
     const totKm = `${(cumKm[i]||0).toFixed(1)} km`;
@@ -567,7 +595,6 @@ function renderMeteo(container, data){
   }
 
   // tabella meteo
-  const daysCount = rows.length? rows[0].days.length : 0;
   const table = document.createElement('div');
   table.innerHTML = `
     <h3>Meteo da: ${escapeHtml(startLabel)} a: ${escapeHtml(endLabel)} (7 giorni, 4 fasce)</h3>
@@ -576,7 +603,7 @@ function renderMeteo(container, data){
         <thead>
           <tr>
             <th class="loccol" rowspan="2">Località</th>
-            ${rows.length && rows[0].days.map((d,i)=>`<th colspan="4">${d.label}</th>`).join('') || ''}
+            ${rows.length && rows[0].days.map(d=>`<th colspan="4">${d.label}</th>`).join('') || ''}
           </tr>
           <tr>
             ${rows.length && rows[0].days.map(()=>['Notte','Mattino','Pomeriggio','Sera'].map(n=>`<th>${n}</th>`).join('')).join('') || ''}
@@ -637,30 +664,6 @@ function renderMeteo(container, data){
   actions.append(b1,b2,b3);
   container.appendChild(actions);
 }
-
-/* =======================
-   Render helpers
-======================= */
-function renderUrls(sel, items){
-  const div = qs(sel);
-  div.innerHTML='';
-  for (const it of items){
-    const row = document.createElement('div'); row.className='urlitem';
-    const left = document.createElement('div'); left.innerHTML = `<b>${escapeHtml(it.label)}</b><div class="muted" style="font-size:12px">${escapeHtml(it.url)}</div>`;
-    const btn = document.createElement('button'); btn.textContent='Apri';
-    btn.onclick = ()=> openWithConfirm(it.url, 'Apriremo Google Maps.');
-    row.append(left,btn);
-    div.appendChild(row);
-  }
-}
-function renderInfo(sel, text, spin=false){
-  const div = qs(sel); div.innerHTML='';
-  const box = document.createElement('div'); box.className='note';
-  box.innerHTML = (spin?'⏳ ':'') + escapeHtml(text);
-  div.appendChild(box);
-}
-function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-
 </script>
 </body>
 </html>
