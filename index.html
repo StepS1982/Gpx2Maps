@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>GPX2MAPS Web</title>
 <style>
-  :root{--bg:#0b1220;--card:#121a2b;--muted:#93a0b6;--text:#e9eef7;--accent:#4ea1ff;--bad:#ffe5e5;--mid:#fff4cc}
+  :root{--bg:#0b1220;--card:#121a2b;--muted:#93a0b6;--text:#e9eef7;--accent:#4ea1ff;--bad:#ffe5e5;--mid:#fff4cc;--ok:#1a7cff}
   *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,Segoe UI,Roboto,Arial}
   a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
   header{padding:18px 16px;border-bottom:1px solid #1b263d;display:flex;align-items:center;gap:12px}
@@ -36,6 +36,12 @@
   .modal{background:#0f1a31;border:1px solid #2a3f69;border-radius:14px;max-width:520px;width:100%;padding:16px}
   .modal h3{margin:0 0 6px 0}
   .modal .muted{font-size:14px}
+  /* Pill/CTA migliorati (soft) */
+  .cta{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;font-weight:600;font-size:14px;border:1px solid #2a3f69;background:linear-gradient(180deg,#0e1830,#0a1326)}
+  .cta:hover{box-shadow:0 0 0 3px rgba(78,161,255,0.15)}
+  .cta .emoji{opacity:.95}
+  .cta--accent{border-color:#3a63a6;background:linear-gradient(180deg,#153057,#102547)}
+  .cta--donate{border-color:#5b2a5f;background:linear-gradient(180deg,#24112a,#1a0d20)}
   .badge{padding:2px 8px;border-radius:999px;border:1px solid #2a3f69;background:#0e1830;font-size:12px}
 </style>
 </head>
@@ -47,8 +53,12 @@
     <div class="muted" style="font-size:13px">by Pieghello — tutto locale + Worker cloud gratis</div>
   </div>
   <div style="margin-left:auto" class="actions">
-    <a id="amazonLink" class="badge" target="_blank" rel="noopener">Amazon (affiliato)</a>
-    <a id="paypalLink" class="badge" target="_blank" rel="noopener">Dona ♥</a>
+    <a id="amazonLink" class="cta cta--accent" target="_blank" rel="noopener">
+      <span class="emoji">🏷️</span> Offerte e Coupon Amazon (Affiliazione)
+    </a>
+    <a id="paypalLink" class="cta cta--donate" target="_blank" rel="noopener">
+      <span class="emoji">💙</span> Dona
+    </a>
   </div>
 </header>
 
@@ -197,12 +207,16 @@
    CONFIG (stesse costanti)
 ======================= */
 const CONFIG = {
-  workerBase: 'https://gpx2maps-worker.stefano-vitro.workers.dev', // <- sostituisci col tuo Worker se serve
+  workerBase: 'https://gpx2maps-worker.stefano-vitro.workers.dev',
   paypalDonateUrl: 'https://www.paypal.com/donate?business=stefano.vitro%40gmail.com&no_recurring=0&item_name=Supporto+sviluppo+GPX2MAPS&currency_code=EUR',
-  amazonAffiliateUrl: 'https://amzn.to/3JKu1mS'
+  amazonAffiliateUrl: 'https://amzn.to/41o2XjA' // <-- nuovo link
 };
 document.getElementById('paypalLink').href = CONFIG.paypalDonateUrl;
 document.getElementById('amazonLink').href = CONFIG.amazonAffiliateUrl;
+
+/* anche nella modale */
+document.getElementById('btnDonate').href = CONFIG.paypalDonateUrl;
+document.getElementById('btnAmazon').href = CONFIG.amazonAffiliateUrl;
 
 /* =======================
    UI helpers
@@ -225,8 +239,6 @@ let __pendingAction = null;
 const confirmBg = qs('#confirmBg');
 qs('#btnConfirmOk').onclick = ()=>{ confirmBg.style.display='none'; if(__pendingAction){ __pendingAction(); __pendingAction=null; } };
 qs('#btnConfirmCancel').onclick = ()=>{ confirmBg.style.display='none'; __pendingAction=null; };
-qs('#btnDonate').href = CONFIG.paypalDonateUrl;
-qs('#btnAmazon').href = CONFIG.amazonAffiliateUrl;
 
 function confirmAction(text, fn){
   qs('#confirmTxt').textContent = text || 'Procedere?';
@@ -377,14 +389,12 @@ qs('#btnMaps2Gpx').onclick = async ()=>{
 
   renderInfo('#maps2gpxOut','Elaboro… Attendi.', true);
   try{
-    // normalizza + risolvi shortlink
     raw = await resolveIfShort(raw);
     let long = raw.includes('/maps/dir/') ? raw : `https://www.google.com/maps/dir/${raw}`;
     long = long.replace(/\/@.*$/,'').replace(/\/+$/,'');
     const seg = extractDirSegment(long);
     if (!seg) throw new Error('Link non valido (manca /maps/dir/).');
 
-    // partenza vuota?
     const startIsBlank = /\/maps\/dir\/\//.test(long);
     let userStartObj = null;
     if (startIsBlank){
@@ -395,7 +405,6 @@ qs('#btnMaps2Gpx').onclick = async ()=>{
       }
     }
 
-    // tokens → coord + label
     const tokens = seg.split('/').filter(Boolean);
     const coordItems=[];
     if (userStartObj) coordItems.push(userStartObj);
@@ -413,13 +422,11 @@ qs('#btnMaps2Gpx').onclick = async ()=>{
     }
     if (!coordItems.length) throw new Error('Nessun punto valido estratto.');
 
-    // OSRM: steps + geometry
     const coordsOSRM = coordItems.map(p=>({lat:+p.lat, lon:+p.lon}));
     const j = await osrmRoute(coordsOSRM, {overview:'full', steps:'true', geometries:'geojson'});
     if (!j || j.code!=='Ok' || !j.routes || !j.routes[0]) throw new Error('OSRM non ha restituito una rotta valida.');
     const route = j.routes[0];
 
-    // RTE (maneuver.location) con dedup consecutivo
     const rteFull = [];
     for (const leg of route.legs||[]){
       for (const st of leg.steps||[]){
@@ -434,13 +441,11 @@ qs('#btnMaps2Gpx').onclick = async ()=>{
     }
     if (rteFull.length<2) throw new Error('RTE: nessun passo utilizzabile.');
 
-    // TRK (geometry GeoJSON)
     const trk = (route.geometry && route.geometry.type==='LineString' && Array.isArray(route.geometry.coordinates))
       ? route.geometry.coordinates.map(c=>({lon:+(+c[0]).toFixed(6), lat:+(+c[1]).toFixed(6)}))
       : [];
     if (trk.length<2) throw new Error('TRK: geometria non disponibile.');
 
-    // titoli + file name
     const startLabel = await reverseGeocode(coordItems[0].lat, coordItems[0].lon);
     const endLabel   = await reverseGeocode(coordItems[coordItems.length-1].lat, coordItems[coordItems.length-1].lon);
     const titleRoute = `GPX da: ${startLabel} a: ${endLabel}`;
@@ -448,7 +453,6 @@ qs('#btnMaps2Gpx').onclick = async ()=>{
     const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,15);
     const base = `maps2gpx_osrm_${slug(startLabel)}_${slug(endLabel)}_${ts}`;
 
-    // WPT comune
     const wptLines = coordItems.map((p,i)=>{
       const latS = p.lat.toFixed(6), lonS = p.lon.toFixed(6);
       const name = `WP${String(i+1).padStart(2,'0')}`;
@@ -458,7 +462,6 @@ qs('#btnMaps2Gpx').onclick = async ()=>{
 
     const meta = `  <metadata><time>${new Date().toISOString().slice(0,19)}Z</time></metadata>`;
 
-    // GPX RTE
     const rtePts = rteFull.map(p=>{
       const latS = p.lat.toFixed(6), lonS = p.lon.toFixed(6);
       const label = p.type || 'via';
@@ -476,7 +479,6 @@ ${rtePts}
 </gpx>
 `;
 
-    // GPX TRK
     const trkPts = trk.map(p=>`    <trkpt lat="${p.lat.toFixed(6)}" lon="${p.lon.toFixed(6)}" />`).join('\n');
     const gpxTrk =
 `<?xml version="1.0" encoding="UTF-8"?>
@@ -489,7 +491,6 @@ ${trkPts}
 </gpx>
 `;
 
-    // Download con conferma
     const outBtns = document.createElement('div'); outBtns.className='actions';
     const b1 = document.createElement('button'); b1.textContent='Scarica GPX (RTE)';
     b1.onclick = ()=>downloadWithConfirm(`${base}_rotta.gpx`, gpxRte);
