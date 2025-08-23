@@ -10,7 +10,7 @@
   a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
   header{padding:18px 16px;border-bottom:1px solid #1b263d;display:flex;align-items:center;gap:12px}
   .logo{width:28px;height:28px;border-radius:6px;background:#21304e;display:grid;place-items:center;font-weight:700}
-  .wrap{max-width:1000px;margin:24px auto;padding:0 16px}
+  .wrap{max-width:1100px;margin:24px auto;padding:0 16px}
   .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
   .tab{border:1px solid #243356;background:#16213a;padding:8px 12px;border-radius:10px;cursor:pointer}
   .tab.active{background:#1b2946;border-color:#355082}
@@ -29,6 +29,7 @@
   .wxgrid thead th{background:#142137;position:sticky;top:0;z-index:5}
   .loccol{min-width:180px;max-width:260px;position:sticky;left:0;z-index:6;background:#101a2f;text-align:left}
   td.wx-bad{background:var(--bad)} td.wx-mid{background:var(--mid)}
+  .center{display:flex;justify-content:center;gap:8px;align-items:center}
   .note{background:#0d162b;border:1px dashed #2a3f69;padding:10px;border-radius:10px}
   .footer{color:#7f8aa5;padding:24px;border-top:1px solid #1b263d;text-align:center}
   .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
@@ -61,6 +62,8 @@
     <div class="tabs">
       <button class="tab active" data-tab="merge">Fusione Link</button>
       <button class="tab" data-tab="gpx2maps">GPX → Google Maps</button>
+      <button class="tab" data-tab="maps2gpx">Google Maps → GPX</button>
+      <button class="tab" data-tab="sanitize">Sanitizza GPX</button>
       <button class="tab" data-tab="meteo">Meteo + Info percorso</button>
     </div>
 
@@ -71,7 +74,7 @@
           <label>Incolla 1+ link Google Maps (uno per riga)</label>
           <textarea id="mergeInput" rows="6" placeholder="https://www.google.com/maps/dir/....&#10;https://www.google.com/maps/dir/...."></textarea>
           <div class="muted" style="margin-top:6px">
-            Shortlink <code>maps.app.goo.gl</code>? Il Worker li risolve automaticamente.
+            Shortlink <code>maps.app.goo.gl</code>? Il Worker integrato li risolve automaticamente.
           </div>
         </div>
       </div>
@@ -113,6 +116,40 @@
         <button id="btnGpxSplit">Dividi in blocchi da 25</button>
       </div>
       <div id="gpxOut" class="list" style="margin-top:12px"></div>
+    </section>
+
+    <!-- MAPS -> GPX -->
+    <section id="tab-maps2gpx" style="display:none">
+      <div class="row">
+        <div class="grow">
+          <label>Link Google Maps</label>
+          <input id="mapsLink" placeholder="https://www.google.com/maps/dir/..." />
+          <div class="muted" style="margin-top:6px">Genera due file: <b>WPT+RTE</b> (steps OSRM) e <b>WPT+TRK</b> (geometria completa).</div>
+        </div>
+      </div>
+      <div class="actions" style="margin-top:10px">
+        <button id="btnMaps2Gpx">Genera GPX (RTE + TRK)</button>
+      </div>
+      <div id="maps2gpxOut" class="list" style="margin-top:12px"></div>
+    </section>
+
+    <!-- SANITIZE -->
+    <section id="tab-sanitize" style="display:none">
+      <div class="row">
+        <div class="grow">
+          <label>Carica GPX da sanitizzare (rimozione <wpt>…</wpt>)</label>
+          <input type="file" id="sanFile" accept=".gpx,application/gpx+xml" />
+        </div>
+      </div>
+      <div class="note" style="margin-top:10px">
+        Talvolta i GPX non sono letti da tutti i navigatori.  
+        La sanitizzazione elimina i <b>WPT</b> e produce un file generalmente più compatibile.  
+        Usa questa opzione solo se necessario.
+      </div>
+      <div class="actions" style="margin-top:10px">
+        <button id="btnSanitize">Sanitizza GPX</button>
+      </div>
+      <div id="sanOut" class="list" style="margin-top:12px"></div>
     </section>
 
     <!-- METEO -->
@@ -159,9 +196,7 @@
    CONFIG
 ======================= */
 const CONFIG = {
-  // Se il Worker è su dominio separato: metti il tuo *.workers.dev
-  // Se lo instradi dietro Pages (stesso dominio), lascia stringa vuota.
-  workerBase: 'https://gpx2maps-worker.stefano-vitro.workers.dev',
+  workerBase: 'https://gpx2maps-worker.stefano-vitro.workers.dev', // <- il tuo Worker
   paypalDonateUrl: 'https://www.paypal.com/donate?business=stefano.vitro%40gmail.com&no_recurring=0&item_name=Supporto+sviluppo+GPX2MAPS&currency_code=EUR',
   amazonAffiliateUrl: 'https://amzn.to/3JKu1mS'
 };
@@ -201,9 +236,9 @@ function confirmAction(text, fn){
 function openWithConfirm(url, why='Apriremo Google Maps.'){
   confirmAction(why, ()=> window.open(url, '_blank','noopener'));
 }
-function downloadWithConfirm(filename, data, why='Scaricheremo un file.'){
+function downloadWithConfirm(filename, data, mime='application/octet-stream', why='Scaricheremo un file.'){
   confirmAction(why, ()=>{
-    const blob = new Blob([data], {type:'application/octet-stream'});
+    const blob = new Blob([data], {type:mime});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = filename;
@@ -221,16 +256,17 @@ const parseCoord = t => {
   const [lat,lon] = t.split(',').map(s=>parseFloat(s.trim()));
   return {lat,lon};
 };
-function extractDirSegment(longLink){
-  const m = /\/maps\/dir\/(.*?)(?:\/@|$)/.exec(longLink);
-  return m ? m[1] : null;
-}
+function xmlEscape(s){ return (s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[m])); }
 function cleanLongLink(link){
   let x = (link||'').trim();
   x = x.replace(/\/@.*$/,'');
   x = x.replace(/^https?:\/\/www\.google\.[^/]+\/maps\/dir\/\//,''); // rimuove // iniziale
   x = x.replace(/^https?:\/\/www\.google\.[^/]+\/maps\/dir\//,'');
   return x.replace(/\/+$/,'');
+}
+function extractDirSegment(longLink){
+  const m = /\/maps\/dir\/(.*?)(?:\/@|$)/.exec(longLink);
+  return m ? m[1] : null;
 }
 function tokensFromLink(link){
   const long = link.includes('/maps/dir/') ? link : ('https://www.google.com/maps/dir/'+link);
@@ -243,28 +279,26 @@ function buildGMapsUrl(parts){ return 'https://www.google.com/maps/dir/'+parts.j
 /* =======================
    Worker-backed fetches
 ======================= */
-function wurl(p){ return (CONFIG.workerBase||'') + p; }
-
 async function resolveIfShort(url){
   if (!url || !/maps\.app\.goo\.gl/.test(url)) return url;
-  const r = await fetch(wurl(`/resolve?u=${encodeURIComponent(url)}`));
+  const r = await fetch(`${CONFIG.workerBase}/resolve?u=${encodeURIComponent(url)}`);
   const j = await r.json().catch(()=>({}));
   return j.url || url;
 }
 async function geocodeName(name){
-  const r = await fetch(wurl(`/geocode?q=${encodeURIComponent(name)}`));
+  const r = await fetch(`${CONFIG.workerBase}/geocode?q=${encodeURIComponent(name)}`);
   const j = await r.json().catch(()=>null);
   return j && j.ok ? j.result : null;
 }
 async function reverseGeocode(lat,lon){
-  const r = await fetch(wurl(`/reverse?lat=${lat}&lon=${lon}`));
+  const r = await fetch(`${CONFIG.workerBase}/reverse?lat=${lat}&lon=${lon}`);
   const j = await r.json().catch(()=>null);
   return j && j.ok ? j.label : "Localita'";
 }
-async function osrmRoute(coords, opts={overview:'false', steps:'false', alternatives:'false'}){
-  const coordParam = coords.map(c=>`${c.lon.toFixed(6)},${c.lat.toFixed(6)}`).join(';');
+async function osrmRoute(coords, opts={overview:'false', steps:'false', alternatives:'false', geometries:'geojson'}){
+  const coordParam = coords.map(c=>`${(+c.lon).toFixed(6)},${(+c.lat).toFixed(6)}`).join(';');
   const q = new URLSearchParams(opts).toString();
-  const r = await fetch(wurl(`/osrm?path=${encodeURIComponent(coordParam)}&${q}`));
+  const r = await fetch(`${CONFIG.workerBase}/osrm?path=${encodeURIComponent(coordParam)}&${q}`);
   return r.json();
 }
 
@@ -292,38 +326,13 @@ function optimizeTo25(parts){
   keep.push(parts[parts.length-1]);
   return keep;
 }
-async function resolveAll(links){
-  const out=[];
-  for (const l of links){ out.push(await resolveIfShort(l)); }
-  return out;
-}
 
-function renderUrls(sel, items){
-  const div = qs(sel);
-  div.innerHTML='';
-  for (const it of items){
-    const row = document.createElement('div'); row.className='urlitem';
-    const left = document.createElement('div'); left.innerHTML = `<b>${escapeHtml(it.label)}</b><div class="muted" style="font-size:12px">${escapeHtml(it.url)}</div>`;
-    const btn = document.createElement('button'); btn.textContent='Apri';
-    btn.onclick = ()=> openWithConfirm(it.url, 'Apriremo Google Maps.');
-    row.append(left,btn);
-    div.appendChild(row);
-  }
-}
-function renderInfo(sel, text){
-  const div = qs(sel); div.innerHTML='';
-  const box = document.createElement('div'); box.className='note';
-  box.innerHTML = escapeHtml(text);
-  div.appendChild(box);
-}
-function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-
-/* Buttons: MERGE */
 qs('#btnMerge').onclick = async ()=>{
   const lines = qs('#mergeInput').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
   if (!lines.length){ qs('#mergeOut').innerHTML=''; return; }
 
-  const resolved = await resolveAll(lines);
+  const resolved = [];
+  for (const l of lines) resolved.push(await resolveIfShort(l));
 
   // se 1 solo link: rendilo navigabile con //
   if (resolved.length===1) {
@@ -341,19 +350,16 @@ qs('#btnMerge').onclick = async ()=>{
   }
 };
 
-qs('#btnMergeOptimize').onclick = async ()=>{
+qs('#btnMergeOptimize').onclick = ()=>{
   const lines = qs('#mergeInput').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
   if (!lines.length){ qs('#mergeOut').innerHTML=''; return; }
-  const resolved = await resolveAll(lines);
-  const keep = optimizeTo25(splitAllPointsFromLinks(resolved));
+  const keep = optimizeTo25(splitAllPointsFromLinks(lines));
   renderUrls('#mergeOut', [{url:buildGMapsUrl(keep), label:'Link ottimizzato (25)'}]);
 };
-
-qs('#btnSplit25').onclick = async ()=>{
+qs('#btnSplit25').onclick = ()=>{
   const lines = qs('#mergeInput').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
   if (!lines.length){ qs('#mergeOut').innerHTML=''; return; }
-  const resolved = await resolveAll(lines);
-  const points = splitAllPointsFromLinks(resolved);
+  const points = splitAllPointsFromLinks(lines);
   const urls=[];
   for (let i=0;i<points.length;i+=25){
     const chunk = points.slice(i, i+25);
@@ -400,6 +406,7 @@ qs('#btnGpx2Maps').onclick = ()=>{
   };
   fr.readAsText(f);
 };
+
 qs('#btnGpxSplit').onclick = ()=>{
   const f = qs('#gpxFile').files[0];
   if (!f) return;
@@ -418,6 +425,176 @@ qs('#btnGpxSplit').onclick = ()=>{
       out.push({url:buildGMapsUrl(sub), label:`Blocco ${Math.floor(i/25)+1}`});
     }
     renderUrls('#gpxOut', out);
+  };
+  fr.readAsText(f);
+};
+
+/* =======================
+   MAPS -> GPX
+======================= */
+async function coordsFromGmapsLink(link){
+  // normalizza + risolvi shortlink via Worker
+  let raw = (link||'').trim();
+  raw = await resolveIfShort(raw);
+  let long = raw.includes('/maps/dir/') ? raw : `https://www.google.com/maps/dir/${raw}`;
+  long = long.replace(/\/@.*$/,'').replace(/\/+$/,'');
+  const seg = extractDirSegment(long);
+  if (!seg) throw new Error('Link non valido (manca /maps/dir/).');
+
+  // partenza mancante (//)
+  const startIsBlank = /\/maps\/dir\/\//.test(long);
+  let userStartObj = null;
+  if (startIsBlank){
+    const userStart = window.prompt("Il link non specifica la partenza.\nInserisci 'città provincia' (es: 'arluno milano'):", "");
+    if (userStart && userStart.trim()){
+      const gs = await geocodeName(userStart.trim());
+      if (gs) userStartObj = {lat:+gs.lat, lon:+gs.lon, label:gs.label};
+    }
+  }
+
+  // token → coord
+  const tokens = seg.split('/').filter(Boolean);
+  const coordItems=[];
+  if (userStartObj) coordItems.push(userStartObj);
+
+  for (const t of tokens){
+    if (isCoordToken(t)){
+      const {lat,lon} = parseCoord(t);
+      const label = await reverseGeocode(lat,lon);
+      coordItems.push({lat,lon,label});
+    } else {
+      const g = await geocodeName(decodeURIComponent(t.replace(/\+/g,' ')));
+      if (g) coordItems.push({lat:g.lat, lon:g.lon, label:g.label});
+      await new Promise(r=>setTimeout(r,250));
+    }
+  }
+  if (coordItems.length < 2) throw new Error('Servono almeno 2 punti validi.');
+
+  // labels inizio/fine
+  const startLabel = await reverseGeocode(coordItems[0].lat, coordItems[0].lon);
+  const endLabel   = await reverseGeocode(coordItems[coordItems.length-1].lat, coordItems[coordItems.length-1].lon);
+
+  return {routePts:coordItems, startLabel, endLabel};
+}
+
+function buildGPX_WPT_RTE(wpts, rtePts, title){
+  const now = new Date().toISOString().replace(/\.\d{3}Z$/,'Z');
+  let sb = '';
+  sb += `<?xml version="1.0" encoding="UTF-8"?>\n`;
+  sb += `<gpx version="1.1" creator="GPX2MAPS Web" xmlns="http://www.topografix.com/GPX/1/1">\n`;
+  sb += `  <metadata><time>${now}</time></metadata>\n`;
+  wpts.forEach((p,i)=>{
+    const lat = (+p.lat).toFixed(6), lon=(+p.lon).toFixed(6);
+    const name = `WP${String(i+1).padStart(2,'0')}`;
+    const desc = p.label || `${lat},${lon}`;
+    sb += `  <wpt lat="${lat}" lon="${lon}"><name>${xmlEscape(name)}</name><desc>${xmlEscape(desc)}</desc></wpt>\n`;
+  });
+  sb += `  <rte><name>${xmlEscape(title)}</name>\n`;
+  rtePts.forEach(p=>{
+    const lat=(+p.lat).toFixed(6), lon=(+p.lon).toFixed(6);
+    const label = p.type || 'via';
+    sb += `    <rtept lat="${lat}" lon="${lon}"><name>${xmlEscape(label)}</name></rtept>\n`;
+  });
+  sb += `  </rte>\n</gpx>\n`;
+  return sb;
+}
+function buildGPX_WPT_TRK(wpts, trkCoords, title){
+  const now = new Date().toISOString().replace(/\.\d{3}Z$/,'Z');
+  let sb = '';
+  sb += `<?xml version="1.0" encoding="UTF-8"?>\n`;
+  sb += `<gpx version="1.1" creator="GPX2MAPS Web" xmlns="http://www.topografix.com/GPX/1/1">\n`;
+  sb += `  <metadata><time>${now}</time></metadata>\n`;
+  wpts.forEach((p,i)=>{
+    const lat = (+p.lat).toFixed(6), lon=(+p.lon).toFixed(6);
+    const name = `WP${String(i+1).padStart(2,'0')}`;
+    const desc = p.label || `${lat},${lon}`;
+    sb += `  <wpt lat="${lat}" lon="${lon}"><name>${xmlEscape(name)}</name><desc>${xmlEscape(desc)}</desc></wpt>\n`;
+  });
+  sb += `  <trk><name>${xmlEscape(title)}</name><trkseg>\n`;
+  trkCoords.forEach(c=>{
+    const lon = (+c[0]).toFixed(6), lat=(+c[1]).toFixed(6);
+    sb += `    <trkpt lat="${lat}" lon="${lon}" />\n`;
+  });
+  sb += `  </trkseg></trk>\n</gpx>\n`;
+  return sb;
+}
+
+qs('#btnMaps2Gpx').onclick = async ()=>{
+  const out = qs('#maps2gpxOut'); out.innerHTML='';
+  const link = qs('#mapsLink').value.trim();
+  if (!link){ renderInfo('#maps2gpxOut','Inserisci un link.'); return; }
+
+  renderInfo('#maps2gpxOut','Elaboro… Attendi.', true);
+  try{
+    const {routePts, startLabel, endLabel} = await coordsFromGmapsLink(link);
+
+    // OSRM con steps + geometria
+    const osrm = await osrmRoute(routePts.map(p=>({lat:+p.lat,lon:+p.lon})), {overview:'full', geometries:'geojson', steps:'true'});
+    if (!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]) throw new Error('OSRM non ha restituito una rotta valida.');
+
+    // RTE: tutti gli step (dedup consecutivo)
+    const rteFull = [];
+    for (const leg of (osrm.routes[0].legs||[])){
+      for (const step of (leg.steps||[])){
+        if (step.maneuver && step.maneuver.location){
+          const lon = +step.maneuver.location[0], lat=+step.maneuver.location[1];
+          if (!rteFull.length || Math.abs(rteFull[rteFull.length-1].lat-lat)>1e-7 || Math.abs(rteFull[rteFull.length-1].lon-lon)>1e-7){
+            rteFull.push({lat,lon,type:String(step.maneuver.type||'via')});
+          }
+        }
+      }
+    }
+    if (rteFull.length < 2) throw new Error('RTE full: nessun passo utilizzabile.');
+
+    // TRK: geometria LineString
+    let trkCoords = null;
+    if (osrm.routes[0].geometry && osrm.routes[0].geometry.type==='LineString' && osrm.routes[0].geometry.coordinates){
+      trkCoords = osrm.routes[0].geometry.coordinates;
+    } else if (osrm.routes[0].geometry && osrm.routes[0].geometry.coordinates){
+      trkCoords = osrm.routes[0].geometry.coordinates;
+    }
+    if (!trkCoords || trkCoords.length<2) throw new Error('TRK full: geometria non disponibile.');
+
+    const title = `GPX da: ${startLabel} a: ${endLabel}`;
+    const gpxRte = buildGPX_WPT_RTE(routePts, rteFull, title);
+    const gpxTrk = buildGPX_WPT_TRK(routePts, trkCoords, title);
+
+    // UI: 2 download
+    out.innerHTML='';
+    const actions = document.createElement('div'); actions.className='actions';
+    const slug = s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,40);
+    const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,15);
+    const base = `maps2gpx_${slug(startLabel)}_${slug(endLabel)}_${ts}`;
+
+    const b1 = document.createElement('button'); b1.textContent='Scarica GPX RTE (WPT+RTE)';
+    b1.onclick = ()=> downloadWithConfirm(`${base}_rotta.gpx`, gpxRte, 'application/gpx+xml', 'Scaricheremo il file GPX (RTE).');
+    const b2 = document.createElement('button'); b2.textContent='Scarica GPX TRK (WPT+TRK)';
+    b2.onclick = ()=> downloadWithConfirm(`${base}_traccia.gpx`, gpxTrk, 'application/gpx+xml', 'Scaricheremo il file GPX (TRK).');
+    const b3 = document.createElement('button'); b3.textContent='Apri link Maps';
+    b3.onclick = ()=> openWithConfirm(link, 'Apriremo Google Maps.');
+
+    actions.append(b1,b2,b3);
+    out.appendChild(actions);
+  }catch(e){
+    renderInfo('#maps2gpxOut','Errore: '+(e.message||'imprevisto'));
+  }
+};
+
+/* =======================
+   SANITIZE GPX
+======================= */
+qs('#btnSanitize').onclick = ()=>{
+  const f = qs('#sanFile').files[0];
+  if (!f) return;
+  const fr = new FileReader();
+  fr.onload = ()=>{
+    const original = String(fr.result);
+    const noWpt = original.replace(/<wpt\b[^>]*>[\s\S]*?<\/wpt>/g, '');
+    const lines = noWpt.split(/\r?\n/).filter(l=>l.trim()!=='');
+    const sanitized = lines.join('\n') + '\n';
+    const name = f.name.replace(/\.gpx$/i,'') + '_sanitize.gpx';
+    downloadWithConfirm(name, sanitized, 'application/gpx+xml', 'Scaricheremo il GPX sanitizzato (senza WPT).');
+    qs('#sanOut').innerHTML = `<div class="note">Creato: <b>${escapeHtml(name)}</b></div>`;
   };
   fr.readAsText(f);
 };
@@ -448,8 +625,8 @@ function sevClass(desc){
   if (/^(Nuvoloso|Nebbia)/.test(desc)) return 'wx-mid';
   return '';
 }
+
 async function computeMeteo(link){
-  // normalizza + risolvi shortlink via Worker
   let raw = (link||'').trim();
   raw = await resolveIfShort(raw);
   let long = raw.includes('/maps/dir/') ? raw : `https://www.google.com/maps/dir/${raw}`;
@@ -457,7 +634,6 @@ async function computeMeteo(link){
   const seg = extractDirSegment(long);
   if (!seg) throw new Error('Link non valido (manca /maps/dir/).');
 
-  // partenza mancante ("/maps/dir//")
   const startIsBlank = /\/maps\/dir\/\//.test(long);
   let userStartObj = null;
   if (startIsBlank){
@@ -468,7 +644,6 @@ async function computeMeteo(link){
     }
   }
 
-  // token → coord
   const tokens = seg.split('/').filter(Boolean);
   const coordItems=[];
   if (userStartObj) coordItems.push(userStartObj);
@@ -479,15 +654,13 @@ async function computeMeteo(link){
       const label = await reverseGeocode(lat,lon);
       coordItems.push({lat,lon,label});
     } else {
-      const name = decodeURIComponent(t.replace(/\+/g,' '));
-      const g = await geocodeName(name);
+      const g = await geocodeName(decodeURIComponent(t.replace(/\+/g,' ')));
       if (g) coordItems.push({lat:g.lat, lon:g.lon, label:g.label});
       await new Promise(r=>setTimeout(r,250));
     }
   }
   if (!coordItems.length) throw new Error('Nessun punto valido estratto.');
 
-  // liste meteo (dedup) e route (no dedup)
   const seen = new Set();
   const meteoPts=[];
   for (const p of coordItems){
@@ -496,11 +669,9 @@ async function computeMeteo(link){
   }
   const routePts = coordItems.slice();
 
-  // OSRM cumulative
-  const coordsOSRM = routePts.map(p=>({lat:+p.lat, lon:+p.lon}));
   let cumKm=[0], cumSec=[0];
   try{
-    const j = await osrmRoute(coordsOSRM, {overview:'false', steps:'false', alternatives:'false'});
+    const j = await osrmRoute(routePts.map(p=>({lat:+p.lat, lon:+p.lon})), {overview:'false', steps:'false', alternatives:'false'});
     if (j.code!=='Ok' || !j.routes || !j.routes[0]) throw 0;
     const legs = j.routes[0].legs || [];
     let accKm=0, accSec=0;
@@ -510,9 +681,8 @@ async function computeMeteo(link){
       cumKm.push(Math.round(accKm*10)/10);
       cumSec.push(accSec);
     }
-  }catch{ /* fallback zeroes */ }
+  }catch{ /* fallback */ }
 
-  // Open-Meteo 7gg / 4 fasce
   const partDefs = [
     {name:'Notte',from:0,to:5},
     {name:'Mattino',from:6,to:11},
@@ -563,7 +733,7 @@ qs('#btnMeteo').onclick = async ()=>{
   const link = qs('#meteoLink').value.trim();
   if (!link){ renderInfo('#meteoWrap','Inserisci un link.'); return; }
 
-  renderInfo('#meteoWrap','Elaboro… Attendi.');
+  renderInfo('#meteoWrap','Elaboro… Attendi.', true);
   try{
     const r = await computeMeteo(link);
     renderMeteo(out, r);
@@ -576,7 +746,7 @@ function renderMeteo(container, data){
   const {rows, routePts, cumKm, cumSec, startLabel, endLabel} = data;
   container.innerHTML='';
 
-  // righe info percorso
+  // TXT/CSV info percorso
   const infoRows = [];
   for (let i=0;i<routePts.length;i++){
     const totKm = `${(cumKm[i]||0).toFixed(1)} km`;
@@ -594,7 +764,7 @@ function renderMeteo(container, data){
     infoRows.push({i:i+1, place:routePts[i].label, totKm, totTm, legKm, legTm});
   }
 
-  // tabella meteo
+  const daysCount = rows.length? rows[0].days.length : 0;
   const table = document.createElement('div');
   table.innerHTML = `
     <h3>Meteo da: ${escapeHtml(startLabel)} a: ${escapeHtml(endLabel)} (7 giorni, 4 fasce)</h3>
@@ -603,7 +773,7 @@ function renderMeteo(container, data){
         <thead>
           <tr>
             <th class="loccol" rowspan="2">Località</th>
-            ${rows.length && rows[0].days.map(d=>`<th colspan="4">${d.label}</th>`).join('') || ''}
+            ${rows.length && rows[0].days.map((d)=>`<th colspan="4">${d.label}</th>`).join('') || ''}
           </tr>
           <tr>
             ${rows.length && rows[0].days.map(()=>['Notte','Mattino','Pomeriggio','Sera'].map(n=>`<th>${n}</th>`).join('')).join('') || ''}
@@ -664,6 +834,30 @@ function renderMeteo(container, data){
   actions.append(b1,b2,b3);
   container.appendChild(actions);
 }
+
+/* =======================
+   Render helpers
+======================= */
+function renderUrls(sel, items){
+  const div = qs(sel);
+  div.innerHTML='';
+  for (const it of items){
+    const row = document.createElement('div'); row.className='urlitem';
+    const left = document.createElement('div'); left.innerHTML = `<b>${escapeHtml(it.label)}</b><div class="muted" style="font-size:12px">${escapeHtml(it.url)}</div>`;
+    const btn = document.createElement('button'); btn.textContent='Apri';
+    btn.onclick = ()=> openWithConfirm(it.url, 'Apriremo Google Maps.');
+    row.append(left,btn);
+    div.appendChild(row);
+  }
+}
+function renderInfo(sel, text, spin=false){
+  const div = qs(sel); div.innerHTML='';
+  const box = document.createElement('div'); box.className='note';
+  box.innerHTML = (spin?'⏳ ':'') + escapeHtml(text);
+  div.appendChild(box);
+}
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
 </script>
 </body>
 </html>
