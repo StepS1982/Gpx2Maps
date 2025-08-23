@@ -11,6 +11,16 @@
   header{padding:18px 16px;border-bottom:1px solid #1b263d;display:flex;align-items:center;gap:12px}
   .logo{width:28px;height:28px;border-radius:6px;background:#21304e;display:grid;place-items:center;font-weight:700}
   .wrap{max-width:1000px;margin:24px auto;padding:0 16px}
+
+  /* CTA centrali */
+  .support{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;margin:18px auto 8px auto}
+  .cta{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;font-weight:600;font-size:15px;
+       border:1px solid #2a3f69;background:linear-gradient(180deg,#0e1830,#0a1326)}
+  .cta:hover{box-shadow:0 0 0 3px rgba(78,161,255,0.15)}
+  .cta .emoji{opacity:.95}
+  .cta--accent{border-color:#3a63a6;background:linear-gradient(180deg,#153057,#102547)}
+  .cta--donate{border-color:#5b2a5f;background:linear-gradient(180deg,#24112a,#1a0d20)}
+
   .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
   .tab{border:1px solid #243356;background:#16213a;padding:8px 12px;border-radius:10px;cursor:pointer}
   .tab.active{background:#1b2946;border-color:#355082}
@@ -29,19 +39,12 @@
   .wxgrid thead th{background:#142137;position:sticky;top:0;z-index:5}
   .loccol{min-width:180px;max-width:260px;position:sticky;left:0;z-index:6;background:#101a2f;text-align:left}
   td.wx-bad{background:var(--bad)} td.wx-mid{background:var(--mid)}
-  .center{display:flex;justify-content:center;gap:8px;align-items:center}
   .note{background:#0d162b;border:1px dashed #2a3f69;padding:10px;border-radius:10px}
   .footer{color:#7f8aa5;padding:24px;border-top:1px solid #1b263d;text-align:center}
   .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
   .modal{background:#0f1a31;border:1px solid #2a3f69;border-radius:14px;max-width:520px;width:100%;padding:16px}
   .modal h3{margin:0 0 6px 0}
   .modal .muted{font-size:14px}
-  /* Pill/CTA migliorati (soft) */
-  .cta{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;font-weight:600;font-size:14px;border:1px solid #2a3f69;background:linear-gradient(180deg,#0e1830,#0a1326)}
-  .cta:hover{box-shadow:0 0 0 3px rgba(78,161,255,0.15)}
-  .cta .emoji{opacity:.95}
-  .cta--accent{border-color:#3a63a6;background:linear-gradient(180deg,#153057,#102547)}
-  .cta--donate{border-color:#5b2a5f;background:linear-gradient(180deg,#24112a,#1a0d20)}
   .badge{padding:2px 8px;border-radius:999px;border:1px solid #2a3f69;background:#0e1830;font-size:12px}
 </style>
 </head>
@@ -52,7 +55,11 @@
     <div style="font-weight:700">GPX2MAPS Web</div>
     <div class="muted" style="font-size:13px">by Pieghello — tutto locale + Worker cloud gratis</div>
   </div>
-  <div style="margin-left:auto" class="actions">
+</header>
+
+<div class="wrap">
+  <!-- CTA centrali -->
+  <div class="support">
     <a id="amazonLink" class="cta cta--accent" target="_blank" rel="noopener">
       <span class="emoji">🏷️</span> Offerte e Coupon Amazon (Affiliazione)
     </a>
@@ -60,9 +67,7 @@
       <span class="emoji">💙</span> Dona
     </a>
   </div>
-</header>
 
-<div class="wrap">
   <div class="note">
     <b>Nota bene Google Maps:</b> l’editor manuale mostra max 10 tappe, ma il vero limite <i>navigabile</i> è <b>25</b>.  
     Con questa web-app crei link <b>già navigabili</b> (tasto <i>Avvia</i>) e puoi arrivare a 25 punti.
@@ -209,11 +214,10 @@
 const CONFIG = {
   workerBase: 'https://gpx2maps-worker.stefano-vitro.workers.dev',
   paypalDonateUrl: 'https://www.paypal.com/donate?business=stefano.vitro%40gmail.com&no_recurring=0&item_name=Supporto+sviluppo+GPX2MAPS&currency_code=EUR',
-  amazonAffiliateUrl: 'https://amzn.to/41o2XjA' // <-- nuovo link
+  amazonAffiliateUrl: 'https://amzn.to/41o2XjA'
 };
 document.getElementById('paypalLink').href = CONFIG.paypalDonateUrl;
 document.getElementById('amazonLink').href = CONFIG.amazonAffiliateUrl;
-
 /* anche nella modale */
 document.getElementById('btnDonate').href = CONFIG.paypalDonateUrl;
 document.getElementById('btnAmazon').href = CONFIG.amazonAffiliateUrl;
