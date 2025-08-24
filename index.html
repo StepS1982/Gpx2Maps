@@ -58,6 +58,14 @@
     #toasts { position: fixed; right: 12px; bottom: 12px; display:flex; flex-direction:column; gap:8px; z-index: 50; }
     .toast { background: #111827; color:#fff; padding: 10px 12px; border-radius: 10px; font-size: 14px; box-shadow: 0 6px 16px rgba(0,0,0,0.28); }
 
+    /* NEW: Toast centrale (overlay) */
+    #toastsCenter { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 60; }
+    .toast.center { padding: 12px 16px; font-size: 15px; background: rgba(17,24,39,0.95); backdrop-filter: blur(3px); animation: fadePop 0.28s ease-out; }
+    @keyframes fadePop {
+      from { opacity: 0; transform: translateY(6px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0)   scale(1); }
+    }
+
     footer { margin: 36px auto 24px; max-width: 1100px; color: var(--muted); font-size: 13px; padding: 0 16px; }
   </style>
 </head>
@@ -212,7 +220,9 @@
     </form>
   </dialog>
 
+  <!-- Toast containers -->
   <div id="toasts" aria-live="polite" aria-atomic="true"></div>
+  <div id="toastsCenter" aria-live="polite" aria-atomic="true"></div>
 
   <script>
     // === CONFIG ===
@@ -238,13 +248,24 @@
       });
     }));
 
-    // Toast
+    // Toasts
     function toast(msg){
       const t = document.createElement('div');
       t.className = 'toast';
       t.textContent = msg;
       document.getElementById('toasts').appendChild(t);
       setTimeout(() => t.remove(), 3400);
+    }
+    // NEW: toast centrale
+    function toastCenter(msg){
+      const t = document.createElement('div');
+      t.className = 'toast center';
+      t.textContent = msg;
+      const box = document.getElementById('toastsCenter');
+      // rimpiazza l’eventuale precedente per evitare stacking al centro
+      while (box.firstChild) box.removeChild(box.firstChild);
+      box.appendChild(t);
+      setTimeout(() => { if (t.parentNode) t.parentNode.removeChild(t); }, 2200);
     }
 
     // Confirm
@@ -280,7 +301,7 @@
       return out;
     }
 
-    // FIX precedente: rimuovi slash iniziali per evitare /dir///
+    // FIX: rimuovo slash iniziali del segmento dopo /maps/dir/ per evitare "/dir///"
     function extractDirSegment(longLink){
       const s = stripAtTail(longLink.trim());
       const re = /^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i;
@@ -320,7 +341,7 @@
       URL.revokeObjectURL(url);
     }
 
-    // NEW: messaggio e orario ogni volta che aggiorniamo i risultati
+    // Messaggio + orario ogni volta che aggiorniamo i risultati
     function renderOutput(urls){
       const out = document.getElementById('output');
       const stats = document.getElementById('stats');
@@ -350,10 +371,10 @@
       });
       document.getElementById('btnOpenAll').style.display = n > 1 ? '' : 'none';
       document.getElementById('btnDownloadAll').style.display = '';
-      toast(`Risultati aggiornati (${n} link)`);
+      toastCenter(`Risultati aggiornati (${n} link)`);
     }
 
-    // Mini-dedup per sampling (rimane com’era)
+    // Mini-dedup per sampling (invariato)
     function evenSample(inner, need){
       if (need <= 0) return [];
       if (inner.length <= need) return inner.slice();
@@ -377,7 +398,7 @@
       return [first, ...sampled, last].slice(0, 25);
     }
 
-    // NEW: dedup a monte (solo duplicati ADIACENTI)
+    // Dedup a monte (solo duplicati ADIACENTI)
     function dedupeAdjacent(arr){
       const out = [];
       let prev = null;
@@ -430,7 +451,7 @@
       let allPoints = [""];
       for (const seg of cleanParts){ allPoints.push(...seg.split('/')); }
 
-      // 3b) NEW: dedup a monte (riduce i duplicati tra la “coda” del link A e la “testa” del link B)
+      // Dedup a monte
       allPoints = dedupeAdjacent(allPoints);
 
       // 4) soglia 25 DOPO il dedup
