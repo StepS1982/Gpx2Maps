@@ -7,15 +7,15 @@
   <meta name="description" content="Software per gestire al 100% itinerati con Google Maps in modalità navigabile" />
   <style>
     :root {
-      --accent: #e11d48;
-      --fg: #0f172a;
-      --muted: #475569;
-      --bg: #f8fafc;
+      --accent: #e11d48; /* rosso per 'by Pieghello' */
+      --fg: #0f172a; /* slate-900 */
+      --muted: #475569; /* slate-600 */
+      --bg: #f8fafc; /* slate-50 */
       --card: #ffffff;
-      --border: #e2e8f0;
-      --btn: #0ea5e9;
-      --btn2: #22c55e;
-      --btnDanger: #ef4444;
+      --border: #e2e8f0; /* slate-200 */
+      --btn: #0ea5e9; /* sky-500 */
+      --btn2: #22c55e; /* green-500 */
+      --btnDanger: #ef4444; /* red-500 */
     }
     * { box-sizing: border-box; }
     body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; color: var(--fg); background: var(--bg); }
@@ -33,10 +33,12 @@
     .container { max-width: 1100px; margin: 0 auto; padding: 16px; }
     .note { margin: 14px 0 6px; color: var(--muted); font-size: 14px; }
 
+    /* Tabs */
     .tabs { display:flex; gap:8px; flex-wrap: wrap; border-bottom: 1px solid var(--border); margin-top: 12px; }
     .tab { padding: 10px 12px; cursor:pointer; border:1px solid var(--border); border-bottom:none; border-radius: 10px 10px 0 0; background:#f1f5f9; font-weight:700; }
     .tab.active { background:#fff; color:#0ea5e9; }
 
+    /* Cards / sections */
     .card { background: var(--card); border:1px solid var(--border); border-radius: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
     .card .hd { padding: 14px 16px; border-bottom:1px solid var(--border); font-weight: 800; }
     .card .bd { padding: 16px; }
@@ -48,9 +50,11 @@
     .row { display:flex; gap:12px; align-items:center; flex-wrap: wrap; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; word-break: break-all; }
 
+    /* Modal */
     dialog { border: none; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); width: min(560px, 92vw); }
     dialog::backdrop { background: rgba(0,0,0,0.35); }
 
+    /* Toasts */
     #toasts { position: fixed; right: 12px; bottom: 12px; display:flex; flex-direction:column; gap:8px; z-index: 50; }
     .toast { background: #111827; color:#fff; padding: 10px 12px; border-radius: 10px; font-size: 14px; box-shadow: 0 6px 16px rgba(0,0,0,0.28); }
 
@@ -75,6 +79,7 @@
   <div class="container">
     <div class="note">Software per gestire al 100% itinerati con Google Maps in modalità navigabile</div>
 
+    <!-- Tabs -->
     <div class="tabs" role="tablist">
       <button class="tab active" role="tab" aria-selected="true" data-tab="merge">Fusione Link</button>
       <button class="tab" role="tab" aria-selected="false" data-tab="maps2gpx">2) Google Maps → GPX</button>
@@ -83,13 +88,13 @@
       <button class="tab" role="tab" aria-selected="false" data-tab="meteo">5) Meteo + Info percorso</button>
     </div>
 
-    <!-- TAB 1: Fusione Link (clone PowerShell) -->
+    <!-- TAB 1: Fusione Link (clone PowerShell: niente opzioni, // automatico) -->
     <section id="tab-merge" class="card" aria-labelledby="Fusione Link">
       <div class="hd">Fusione, ottimizzazione e split dei link Google Maps</div>
       <div class="bd grid grid-2">
         <div>
           <label for="linksInput" style="font-weight:800;">Incolla i link (uno per riga)</label>
-          <textarea id="linksInput" placeholder="Incolla qui link Google Maps del tipo https://www.google.*/maps/dir/... (uno per riga)"></textarea>
+          <textarea id="linksInput" placeholder="Incolla link tipo https://www.google.*/maps/dir/... (uno per riga). Accetta anche maps.app.goo.gl"></textarea>
 
           <div class="row" style="margin-top:12px;">
             <button id="btnMerge" class="btn">Analizza e Unisci</button>
@@ -113,276 +118,30 @@
       </div>
     </section>
 
-    <!-- Placeholder altri tab per ordine UI -->
+    <!-- TAB 2: Google Maps -> GPX -->
     <section id="tab-maps2gpx" class="card" hidden>
       <div class="hd">2) Google Maps → GPX</div>
-      <div class="bd">In arrivo nel prossimo step.</div>
-    </section>
-    <section id="tab-gpx2maps" class="card" hidden>
-      <div class="hd">3) GPX → Google Maps</div>
-      <div class="bd">In arrivo.</div>
-    </section>
-    <section id="tab-sanitize" class="card" hidden>
-      <div class="hd">4) Sanitizza GPX</div>
-      <div class="bd">In arrivo.</div>
-    </section>
-    <section id="tab-meteo" class="card" hidden>
-      <div class="hd">5) Meteo + Info percorso</div>
-      <div class="bd">In arrivo.</div>
-    </section>
-  </div>
+      <div class="bd grid grid-2">
+        <div>
+          <label for="maps2gpxInput" style="font-weight:800;">Incolla un link Google Maps (itinerario) o una lista di indirizzi/coordinate</label>
+          <textarea id="maps2gpxInput" placeholder="Esempi:
+- https://www.google.com/maps/dir/Punto+A/Punto+B/...
+- Indirizzi o lat,lon (uno per riga)
+- '//' come prima riga per usare la tua posizione (specifica la partenza sotto)"></textarea>
 
-  <footer>
-    L'applicazione è stata realizzata a scopo gratuito per la comunità. Se si vuole fare un'opera di gentilezza nei confronti dello sviluppatore che ci ha perso del tempo per realizzarla, si prega di effettuare una donazione con il pulsante ‘Dona’ in alto. Approfitta anche del link diretto alla pagina nascosta di Amazon con tutte le offerte e coupon, che è accessibile con il pulsante che si trova sempre in alto.
-  </footer>
+          <div class="row" style="margin-top:10px;">
+            <label class="chip"><input type="radio" name="gpxType" value="rte" checked /> <span>RTE (consigliato)</span></label>
+            <label class="chip"><input type="radio" name="gpxType" value="trk" /> <span>TRK</span></label>
+            <label class="chip"><input type="radio" name="gpxType" value="wpt" /> <span>WPT</span></label>
+          </div>
+          <div class="row" style="margin-top:10px;">
+            <label class="chip"><input type="checkbox" id="useGeocodeNames" checked /> <span>Usa nomi dal geocoding nelle etichette</span></label>
+            <label class="chip"><input type="checkbox" id="sanitize2" checked /> <span>Sanitizza URL (rimuovi da /@ in poi)</span></label>
+          </div>
+          <div class="row" id="startRow" style="margin-top:10px; display:none;">
+            <input id="startPoint" placeholder='Specifica la partenza per "//" (indirizzo o lat,lon)' style="flex:1 1 auto; padding:10px; border:1px solid var(--border); border-radius:10px;" />
+          </div>
 
-  <dialog id="confirmDialog">
-    <form method="dialog" style="padding:18px 18px 8px;">
-      <h3 style="margin:0 0 6px; font-weight:900;">Confermi l'operazione?</h3>
-      <p id="confirmText" style="margin:0 0 14px; color:var(--muted);"></p>
-      <div class="row" style="justify-content:flex-end;">
-        <button class="btn ghost" value="cancel">Annulla</button>
-        <button class="btn" value="ok">Conferma</button>
-      </div>
-    </form>
-  </dialog>
-
-  <dialog id="strategyDialog">
-    <form method="dialog" style="padding:18px 18px 8px;">
-      <h3 style="margin:0 0 6px; font-weight:900;">Troppi punti per un singolo link</h3>
-      <p style="margin:0 0 10px; color:var(--muted);">Hai superato il limite di 25 (inclusa la posizione iniziale). Scegli una strategia:</p>
-      <div class="row" style="flex-direction:column; align-items:stretch; gap:10px;">
-        <button id="btnStrategyOptimize" class="btn" value="opt">1) Ottimizza a 25 mantenendo testa/coda e campionando gli intermedi</button>
-        <button id="btnStrategySplit" class="btn secondary" value="split">2) Dividi in più link da massimo 25 punti</button>
-      </div>
-      <div class="row" style="justify-content:flex-end; margin-top:10px;">
-        <button class="btn ghost" value="cancel">Chiudi</button>
-      </div>
-    </form>
-  </dialog>
-
-  <div id="toasts" aria-live="polite" aria-atomic="true"></div>
-
-  <script>
-    const CONFIG = {
-      workerBase: "https://gpx2maps-worker.stefano-vitro.workers.dev",
-      paypalDonateUrl: "https://www.paypal.com/donate?business=stefano.vitro%40gmail.com&no_recurring=0&item_name=Supporto+sviluppo+GPX2MAPS&currency_code=EUR",
-      amazonAffiliateUrl: "https://amzn.to/41o2XjA",
-    };
-
-    document.getElementById('donateBtn').href = CONFIG.paypalDonateUrl;
-    document.getElementById('amazonBtn').href = CONFIG.amazonAffiliateUrl;
-
-    const tabs = document.querySelectorAll('.tab');
-    tabs.forEach(btn => btn.addEventListener('click', () => {
-      tabs.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
-      btn.classList.add('active'); btn.setAttribute('aria-selected','true');
-      const id = btn.dataset.tab;
-      ['merge','maps2gpx','gpx2maps','sanitize','meteo'].forEach(key => {
-        const sec = document.getElementById(`tab-${key}`);
-        if (sec) sec.hidden = key !== id && !(key==='merge' && id===undefined);
-      });
-    }));
-
-    function toast(msg){
-      const t = document.createElement('div');
-      t.className = 'toast';
-      t.textContent = msg;
-      document.getElementById('toasts').appendChild(t);
-      setTimeout(() => t.remove(), 3400);
-    }
-
-    async function confirmAction(text){
-      const dlg = document.getElementById('confirmDialog');
-      document.getElementById('confirmText').textContent = text || '';
-      dlg.showModal();
-      const val = await new Promise(res => dlg.addEventListener('close', () => res(dlg.returnValue), { once:true }));
-      return val === 'ok';
-    }
-
-    async function chooseStrategy(){
-      const dlg = document.getElementById('strategyDialog');
-      dlg.showModal();
-      const v = await new Promise(res => dlg.addEventListener('close', () => res(dlg.returnValue), { once:true }));
-      if (v === 'opt') return 'optimize';
-      if (v === 'split') return 'split';
-      return null;
-    }
-
-    async function getJSON(url){
-      const r = await fetch(url, { headers: { 'Accept':'application/json' } });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return await r.json();
-    }
-
-    function stripAtTail(s){
-      return s.replace(/\/@.*$/, '').replace(/\/+$/, '');
-    }
-
-    function extractDirSegment(longLink){
-      const s = stripAtTail(longLink.trim());
-      const m = s.match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i);
-      if (!m) return null;
-      return m[1].replace(/^\/+/, ''); // rimuove eventuali slash iniziali
-    }
-
-    async function resolveIfShort(url){
-      try {
-        const h = (new URL(url)).host;
-        const isShort = /(^|\.)maps\.app\.goo\.gl$/i.test(h) || /(^|\.)goo\.gl$/i.test(h) || /(^|\.)g\.co$/i.test(h);
-        if (!isShort) return url;
-        const j = await getJSON(`${CONFIG.workerBase}/resolve?u=${encodeURIComponent(url)}`);
-        return (j && j.final) ? j.final : url;
-      } catch { return url; }
-    }
-
-    function buildGoogleDirURL(parts){
-      const base = 'https://www.google.com/maps/dir/';
-      return base + parts.join('/');
-    }
-
-    function nowStamp(){
-      const d = new Date(); const pad = n => String(n).padStart(2,'0');
-      return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-    }
-
-    function downloadTxt(name, lines){
-      const blob = new Blob([lines.join('\n')], { type:'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
-    }
-
-    function renderOutput(urls){
-      const out = document.getElementById('output');
-      const stats = document.getElementById('stats');
-      out.innerHTML = '';
-      if (!urls.length){
-        stats.textContent = 'Nessun risultato.';
-        document.getElementById('btnOpenAll').style.display = 'none';
-        document.getElementById('btnDownloadAll').style.display = 'none';
-        return;
-      }
-      stats.textContent = urls.length === 1 ? '1 link generato.' : `${urls.length} link generati.`;
-      urls.forEach(u => {
-        const div = document.createElement('div');
-        div.className = 'out-item';
-        div.innerHTML = `
-          <div style="display:flex; justify-content:space-between; gap:10px; align-items:center;">
-            <div class="mono" style="flex:1 1 auto;">${u}</div>
-            <div class="row" style="flex:0 0 auto;">
-              <button class="btn small ghost" data-copy>Copia</button>
-              <button class="btn small" data-open>Apri</button>
-            </div>
-          </div>`;
-        div.querySelector('[data-copy]').addEventListener('click', async () => { await navigator.clipboard.writeText(u); toast('URL copiato'); });
-        div.querySelector('[data-open]').addEventListener('click', async () => { const ok = await confirmAction('Aprire il link in una nuova scheda?'); if (ok) window.open(u, '_blank', 'noopener'); });
-        out.appendChild(div);
-      });
-      document.getElementById('btnOpenAll').style.display = urls.length > 1 ? '' : 'none';
-      document.getElementById('btnDownloadAll').style.display = '';
-    }
-
-    function optimizeTo25(allPoints){
-      if (allPoints.length <= 25) return allPoints;
-      const keep = [];
-      keep.push(allPoints[0]);                 // "" => genera //
-      if (allPoints.length > 1) keep.push(allPoints[1]); // primo punto
-      const middleCount = 22;
-      const middle = allPoints.slice(2, allPoints.length - 1);
-      if (middle.length > 0){
-        const step = Math.max(1, Math.floor(middle.length / middleCount));
-        for (let i=0;i<middleCount;i++){
-          const index = i * step;
-          if (index < middle.length) keep.push(middle[index]);
-        }
-      }
-      if (allPoints.length > 2) keep.push(allPoints[allPoints.length - 1]); // ultimo
-      return keep.slice(0, 25);
-    }
-
-    function splitInBlocks(allPoints){
-      const chunks = []; let chunk = []; let counter = 0;
-      for (let i=0;i<allPoints.length;i++){
-        if (counter === 0 && chunks.length === 0){ chunk.push(""); } // solo il primo gruppo parte con ""
-        chunk.push(allPoints[i]); counter++;
-        if (counter === 25 || i === allPoints.length - 1){
-          chunks.push(chunk.slice()); chunk = []; counter = 0;
-        }
-      }
-      return chunks;
-    }
-
-    document.getElementById('btnMerge').addEventListener('click', async () => {
-      const lines = document.getElementById('linksInput').value.split('\n').map(s => s.trim()).filter(Boolean);
-      if (!lines.length){ toast('Inserisci almeno un link'); return; }
-
-      // Caso singolo link già con // => come PowerShell, errore
-      if (lines.length === 1 && /https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/\//i.test(lines[0])) {
-        toast('Errore: almeno due link sono necessari per la fusione.');
-        return;
-      }
-
-      const resolved = [];
-      for (const ln of lines){ resolved.push(await resolveIfShort(ln)); }
-
-      const cleanParts = [];
-      for (const link of resolved){
-        const seg = extractDirSegment(link);
-        if (seg === null) { /* non è /maps/dir/, ignoro */ }
-        else if (seg !== '') cleanParts.push(seg);
-      }
-      if (!cleanParts.length){ toast('Nessun link valido "/maps/dir/..." rilevato'); return; }
-
-      // Costruzione punti con "" per ottenere // (navigabile) quando resta 1 link
-      const allPoints = [""];
-      for (const seg of cleanParts){ allPoints.push(...seg.split('/')); }
-
-      if (allPoints.length <= 25){
-        renderOutput([buildGoogleDirURL(allPoints)]);
-        return;
-      }
-
-      const strategy = await chooseStrategy();
-      if (!strategy){ toast('Operazione annullata'); return; }
-      if (strategy === 'optimize'){
-        renderOutput([buildGoogleDirURL(optimizeTo25(allPoints))]);
-      } else {
-        const chunks = splitInBlocks(allPoints);
-        const urls = chunks.map((g, idx) => {
-          // clona comportamento PS: nel primo chunk rimuovo il "" iniziale
-          if (idx === 0 && g[0] === "") return buildGoogleDirURL(g.slice(1));
-          return buildGoogleDirURL(g);
-        });
-        renderOutput(urls);
-      }
-    });
-
-    document.getElementById('btnClear').addEventListener('click', () => {
-      document.getElementById('linksInput').value = '';
-      document.getElementById('output').innerHTML = '';
-      document.getElementById('stats').textContent = 'Pulito.';
-      document.getElementById('btnOpenAll').style.display = 'none';
-      document.getElementById('btnDownloadAll').style.display = 'none';
-    });
-
-    document.getElementById('btnOpenAll').addEventListener('click', async () => {
-      const items = Array.from(document.querySelectorAll('#output .out-item .mono')).map(x => x.textContent);
-      if (!items.length) return;
-      const ok = await confirmAction('Aprire tutti i link in nuove schede?');
-      if (!ok) return;
-      for (const u of items){ window.open(u, '_blank', 'noopener'); }
-    });
-
-    document.getElementById('btnDownloadAll').addEventListener('click', async () => {
-      const items = Array.from(document.querySelectorAll('#output .out-item .mono')).map(x => x.textContent);
-      if (!items.length) return;
-      const ok = await confirmAction('Scaricare un file .txt con i link generati?');
-      if (!ok) return;
-      const name = (items.length === 1 ? `merge_1_${nowStamp()}.txt` : `merge_${items.length}_${nowStamp()}.txt`);
-      downloadTxt(name, items);
-      toast('File scaricato');
-    });
-  </script>
-</body>
-</html>
+          <div class="row" style="margin-top:12px;">
+            <button id="btnGenGPX" class="btn">Genera GPX</button>
+            <button id="btn
