@@ -11,7 +11,6 @@
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,Segoe UI,Roboto,Arial}
-
   a{color:var(--accent);text-decoration:none}
   a:hover{text-decoration:underline}
 
@@ -31,18 +30,16 @@
 
   .wrap{max-width:1100px;margin:24px auto;padding:0 16px}
 
-  .note{
-    background:#0d162b;border:1px dashed var(--ink);
-    padding:12px;border-radius:12px;margin-bottom:16px
-  }
-
-  .cta-row{
-    display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:8px
-  }
+  .cta-row{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:0 0 16px}
   .cta{
     display:inline-flex;align-items:center;justify-content:center;
     padding:10px 14px;border-radius:999px;border:1px solid var(--ink);
     background:var(--panel);min-width:220px;font-weight:600
+  }
+
+  .note{
+    background:#0d162b;border:1px dashed var(--ink);
+    padding:12px;border-radius:12px;margin-bottom:16px
   }
 
   .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
@@ -82,21 +79,6 @@
   .modal{background:#0f1a31;border:1px solid var(--ink);border-radius:14px;max-width:520px;width:100%;padding:16px}
   .modal h3{margin:0 0 6px 0}
   .muted{color:var(--muted);font-size:14px}
-
-  /* Sticky CTA solo su mobile */
-  .sticky-cta{display:none}
-  @media (max-width:480px){
-    .header-cta{display:none} /* i CTA in header spariscono su mobile */
-    .sticky-cta{
-      display:flex;position:fixed;left:0;right:0;bottom:0;
-      padding:8px calc(8px + env(safe-area-inset-right))
-              calc(8px + env(safe-area-inset-bottom))
-              calc(8px + env(safe-area-inset-left));
-      background:rgba(15,26,49,.95);border-top:1px solid var(--ink);gap:8px;z-index:60
-    }
-    .sticky-cta a{flex:1 1 0}
-    .wrap{padding-bottom:88px} /* spazio per non coprire il contenuto */
-  }
 </style>
 </head>
 <body>
@@ -109,13 +91,15 @@
     <div class="title">GPX2MAPS Web-APP</div>
     <div class="by">by Pieghello</div>
   </div>
-  <div style="margin-left:auto" class="actions header-cta">
-    <a id="amazonLink" class="cta" target="_blank" rel="noopener">Offerte &amp; Coupon Amazon (Affiliazione)</a>
-    <a id="paypalLink" class="cta" target="_blank" rel="noopener">Dona ♥</a>
-  </div>
 </header>
 
 <div class="wrap">
+  <!-- CTA centrali -->
+  <div class="cta-row">
+    <a id="amazonLink" class="cta" target="_blank" rel="noopener">Offerte &amp; Coupon Amazon (Affiliazione)</a>
+    <a id="paypalLink" class="cta" target="_blank" rel="noopener">Dona ♥</a>
+  </div>
+
   <div class="note">
     <b>Software per gestire al 100% itinerati con Google Maps in modalita' navigabile</b>
   </div>
@@ -218,7 +202,7 @@
         <button id="btnMeteo">Genera Meteo + Info percorso</button>
         <span class="muted">Dati gratuiti: Open-Meteo + OSRM.</span>
       </div>
-      <div id="meteoWrap" style="margin-top:12px"></div>
+      <div id="meteoWrap" class="list" style="margin-top:12px"></div>
     </section>
 
   </div>
@@ -230,13 +214,7 @@
   </div>
 </div>
 
-<!-- Sticky CTA (solo mobile) -->
-<div class="sticky-cta" id="stickyCta">
-  <a id="stickyAmazon" class="cta" target="_blank" rel="noopener">Offerte &amp; Coupon Amazon</a>
-  <a id="stickyDonate" class="cta" target="_blank" rel="noopener">Dona ♥</a>
-</div>
-
-<!-- Confirm modal -->
+<!-- Modal conferma -->
 <div class="modal-bg" id="confirmBg" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
     <h3 id="confirmTitle">Confermi l’azione?</h3>
@@ -255,16 +233,13 @@
    CONFIG
 ======================= */
 const CONFIG = {
-  workerBase: 'https://gpx2maps-worker.stefano-vitro.workers.dev', // <- il tuo Worker
+  workerBase: 'https://gpx2maps-worker.stefano-vitro.workers.dev',
   paypalDonateUrl: 'https://www.paypal.com/donate?business=stefano.vitro%40gmail.com&no_recurring=0&item_name=Supporto+sviluppo+GPX2MAPS&currency_code=EUR',
   amazonAffiliateUrl: 'https://amzn.to/41o2XjA'
 };
 
-// CTA header + sticky
 document.getElementById('paypalLink').href = CONFIG.paypalDonateUrl;
 document.getElementById('amazonLink').href = CONFIG.amazonAffiliateUrl;
-document.getElementById('stickyDonate').href = CONFIG.paypalDonateUrl;
-document.getElementById('stickyAmazon').href = CONFIG.amazonAffiliateUrl;
 
 /* =======================
    UI helpers
@@ -309,11 +284,9 @@ function downloadWithConfirm(filename, data, mime='application/octet-stream', wh
   });
 }
 
-// CTA con conferma (anche sticky)
+// CTA con conferma
 qs('#paypalLink').onclick = (e)=>{ e.preventDefault(); openWithConfirm(CONFIG.paypalDonateUrl,'Apriremo PayPal in una nuova scheda.'); };
 qs('#amazonLink').onclick = (e)=>{ e.preventDefault(); openWithConfirm(CONFIG.amazonAffiliateUrl,'Apriremo la pagina Amazon (affiliazione).'); };
-qs('#stickyDonate').onclick = (e)=>{ e.preventDefault(); openWithConfirm(CONFIG.paypalDonateUrl,'Apriremo PayPal in una nuova scheda.'); };
-qs('#stickyAmazon').onclick = (e)=>{ e.preventDefault(); openWithConfirm(CONFIG.amazonAffiliateUrl,'Apriremo la pagina Amazon (affiliazione).'); };
 
 /* =======================
    Core utils (parsing/URL)
@@ -480,11 +453,9 @@ async function computeMaps2Gpx(link){
   }
   if (coordItems.length<2) throw new Error('Servono almeno 2 punti.');
 
-  // per i WPT manteniamo l’ordine, arrotondamento a 6 cifre
   const fmt = (n)=>Number(n).toFixed(6);
   const wpts = coordItems.map(p=>({lat:+(+p.lat).toFixed(6), lon:+(+p.lon).toFixed(6), label:p.label}));
 
-  // OSRM: steps + geometria
   const coordsOSRM = wpts.map(p=>({lat:p.lat, lon:p.lon}));
   const j = await osrmRoute(coordsOSRM, {overview:'full', steps:'true', geometries:'geojson', alternatives:'false'});
   if (!j || j.code!=='Ok' || !j.routes || !j.routes[0]) throw new Error('OSRM non ha restituito una rotta valida.');
@@ -503,7 +474,6 @@ async function computeMaps2Gpx(link){
   }
   const trkCoords = (j.routes[0].geometry && j.routes[0].geometry.coordinates) ? j.routes[0].geometry.coordinates : [];
 
-  // titoli
   const startLabel = await reverseGeocode(wpts[0].lat, wpts[0].lon);
   const endLabel   = await reverseGeocode(wpts[wpts.length-1].lat, wpts[wpts.length-1].lon);
   const titleRoute = `GPX da: ${startLabel} a: ${endLabel}`;
@@ -717,7 +687,6 @@ async function computeMeteo(link){
   }
   if (!coordItems.length) throw new Error('Nessun punto valido estratto.');
 
-  // dedup per meteo; no-dedup per route
   const seen = new Set();
   const meteoPts=[];
   for (const p of coordItems){
