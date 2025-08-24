@@ -280,12 +280,13 @@
       return out;
     }
 
+    // FIX: rimuovo anche gli slash iniziali del segmento dopo /maps/dir/ per evitare "/dir///"
     function extractDirSegment(longLink){
       const s = stripAtTail(longLink.trim());
       const re = /^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i;
       const m = s.match(re);
       if (!m) return null;
-      return m[1].replace(/\/+$/, '');
+      return m[1].replace(/^\/+/, '').replace(/\/+$/, '');
     }
 
     async function resolveIfShort(url){
