@@ -4,84 +4,70 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>GPX2MAPS Web-APP</title>
-
-<!-- Meta share -->
-<meta property="og:title" content="GPX2MAPS Web-APP">
-<meta property="og:description" content="Software per gestire al 100% itinerari con Google Maps in modalità navigabile.">
-<meta property="og:type" content="website">
-<meta property="og:image" content="/gpx2maps_icon_1024.png">
-<link rel="icon" href="/gpx2maps_icon_1024.png" type="image/png">
-
 <style>
   :root{
     --bg:#0b1220;--card:#121a2b;--muted:#93a0b6;--text:#e9eef7;--accent:#4ea1ff;
-    --bad:#ffe5e5;--mid:#fff4cc;--border:#1b263d;--ink:#e9eef7;--danger:#ff6b6b
+    --bad:#ffe5e5;--mid:#fff4cc;--border:#1b263d;--ink:#2a3f69;--panel:#0e1830
   }
   *{box-sizing:border-box}
-  html,body{height:100%}
-  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,Segoe UI,Roboto,Arial}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,Segoe UI,Roboto,Arial}
 
   a{color:var(--accent);text-decoration:none}
   a:hover{text-decoration:underline}
 
-  /* Header sticky */
   header{
-    position:sticky;top:0;z-index:100;backdrop-filter:saturate(180%) blur(6px);
-    background:rgba(11,18,32,.88);
     padding:18px 16px;border-bottom:1px solid var(--border);
-    display:flex;align-items:center;gap:12px
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap
   }
   .logo{
-    width:28px;height:28px;border-radius:6px;background:#0f172a;
-    display:grid;place-items:center;overflow:hidden
+    width:36px;height:36px;border-radius:8px;background:#0f1a32;
+    display:grid;place-items:center;overflow:hidden;border:1px solid #1f2d4d
   }
-  .logo img{width:100%;height:100%;object-fit:contain;image-rendering:auto}
+  .logo img{width:100%;height:100%;object-fit:contain;display:block}
 
-  .wrap{max-width:1000px;margin:24px auto;padding:0 16px}
+  .title-wrap{display:flex;flex-direction:column}
+  .title{font-weight:800;letter-spacing:.2px}
+  .by{color:#ff6b6b;font-weight:600;margin-top:2px}
 
-  /* CTA centrali */
-  .hero-cta{display:flex;gap:12px;justify-content:center;margin:8px auto 0}
-  .badge{
-    padding:8px 12px;border-radius:999px;border:1px solid #2a3f69;background:#0e1830;
-    font-size:14px;display:inline-flex;align-items:center;gap:8px
+  .wrap{max-width:1100px;margin:24px auto;padding:0 16px}
+
+  .note{
+    background:#0d162b;border:1px dashed var(--ink);
+    padding:12px;border-radius:12px;margin-bottom:16px
   }
-  .badge strong{font-weight:700}
-  .badge:hover{filter:brightness(1.08)}
-  .badge.donate{border-color:#803b3b;background:#1a0f13}
-  .badge .heart{color:#ff9aa5}
 
-  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0 16px}
-  .tab{
-    border:1px solid #243356;background:#16213a;padding:10px 14px;border-radius:10px;cursor:pointer
+  .cta-row{
+    display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:8px
   }
-  .tab.active{background:#1b2946;border-color:#355082;font-weight:700}
+  .cta{
+    display:inline-flex;align-items:center;justify-content:center;
+    padding:10px 14px;border-radius:999px;border:1px solid var(--ink);
+    background:var(--panel);min-width:220px;font-weight:600
+  }
+
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+  .tab{border:1px solid #243356;background:#16213a;padding:8px 12px;border-radius:10px;cursor:pointer}
+  .tab.active{background:#1b2946;border-color:#355082}
 
   .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:16px}
   .row{display:flex;gap:12px;flex-wrap:wrap}
-  .grow{flex:1 1 320px}
+  .grow{flex:1 1 360px}
 
   textarea,input,select{
     width:100%;background:#0e1526;border:1px solid #223358;color:var(--text);
     border-radius:10px;padding:10px
   }
-  textarea:focus,input:focus,select:focus,button:focus{outline:3px solid #335b95;outline-offset:1px}
   button{
-    border:1px solid #355082;background:#203158;color:#fff;border-radius:10px;padding:10px 14px;cursor:pointer
+    border:1px solid #355082;background:#203158;color:#fff;border-radius:10px;
+    padding:10px 14px;cursor:pointer
   }
   button:hover{filter:brightness(1.08)}
-
-  .muted{color:var(--muted)}
-  .center{display:flex;justify-content:center;gap:8px;align-items:center}
-
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
   .list{display:grid;gap:8px}
   .urlitem{
     padding:10px;border:1px solid #243356;border-radius:10px;background:#0f172a;
     display:flex;justify-content:space-between;gap:8px;align-items:center
   }
-  .url-left b{display:block}
-  .actions{display:flex;gap:8px;flex-wrap:wrap}
-
-  .note{background:#0d162b;border:1px dashed #2a3f69;padding:10px;border-radius:10px}
 
   .wxgrid{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;min-width:760px}
   .wxgrid th,.wxgrid td{border:1px solid #263450;padding:6px 8px;text-align:center;font-size:13px;vertical-align:middle}
@@ -92,76 +78,62 @@
   .footer{color:#7f8aa5;padding:24px;border-top:1px solid var(--border);text-align:center}
 
   /* Modal conferma */
-  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px;z-index:200}
-  .modal{background:#0f1a31;border:1px solid #2a3f69;border-radius:14px;max-width:520px;width:100%;padding:16px}
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
+  .modal{background:#0f1a31;border:1px solid var(--ink);border-radius:14px;max-width:520px;width:100%;padding:16px}
   .modal h3{margin:0 0 6px 0}
-  .modal .muted{font-size:14px}
+  .muted{color:var(--muted);font-size:14px}
 
-  /* Dropzone */
-  .drop{border:2px dashed #2a3f69;border-radius:12px;padding:14px;text-align:center;background:#0e162b}
-  .drop.dragover{background:#10203a;border-color:#4b6aa3}
-
-  /* Loader / skeleton */
-  .spinner{width:18px;height:18px;border-radius:999px;border:3px solid #355082;border-top-color:transparent;display:inline-block;animation:spin .9s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  .skeleton{background:linear-gradient(90deg,#101829,#13213a,#101829);background-size:200% 100%;animation:sheen 1.1s ease-in-out infinite;height:14px;border-radius:6px}
-  @keyframes sheen{0%{background-position:200% 0}100%{background-position:-200% 0}}
-
-  /* Toast */
-  .toast-wrap{position:fixed;right:16px;bottom:16px;display:grid;gap:8px;z-index:300}
-  .toast{background:#0f1a31;border:1px solid #2a3f69;border-radius:10px;padding:10px 12px;font-size:14px}
-
-  /* Visually hidden for SR */
-  .sr{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
-
-  /* Small screens */
-  @media (max-width:640px){
-    .hero-cta{flex-wrap:wrap}
+  /* Sticky CTA solo su mobile */
+  .sticky-cta{display:none}
+  @media (max-width:480px){
+    .header-cta{display:none} /* i CTA in header spariscono su mobile */
+    .sticky-cta{
+      display:flex;position:fixed;left:0;right:0;bottom:0;
+      padding:8px calc(8px + env(safe-area-inset-right))
+              calc(8px + env(safe-area-inset-bottom))
+              calc(8px + env(safe-area-inset-left));
+      background:rgba(15,26,49,.95);border-top:1px solid var(--ink);gap:8px;z-index:60
+    }
+    .sticky-cta a{flex:1 1 0}
+    .wrap{padding-bottom:88px} /* spazio per non coprire il contenuto */
   }
 </style>
 </head>
 <body>
+
 <header>
   <div class="logo" aria-hidden="true">
-    <img src="/gpx2maps_icon_1024.png" alt="GPX2MAPS">
+    <img src="gpx2maps_icon_1024.png" alt="GPX2MAPS" />
   </div>
-  <div>
-    <div style="font-weight:800;font-size:18px">GPX2MAPS Web-APP</div>
-    <div class="muted" style="font-size:13px;color:#ff8484">by Pieghello</div>
+  <div class="title-wrap">
+    <div class="title">GPX2MAPS Web-APP</div>
+    <div class="by">by Pieghello</div>
   </div>
-
-  <!-- CTA centrali (visivamente sotto, ma markup qui per semplificare) -->
-  <div style="margin-left:auto"></div>
+  <div style="margin-left:auto" class="actions header-cta">
+    <a id="amazonLink" class="cta" target="_blank" rel="noopener">Offerte &amp; Coupon Amazon (Affiliazione)</a>
+    <a id="paypalLink" class="cta" target="_blank" rel="noopener">Dona ♥</a>
+  </div>
 </header>
 
 <div class="wrap">
-  <div class="hero-cta">
-    <a id="paypalLink" class="badge donate" target="_blank" rel="noopener" aria-label="Fai una donazione con PayPal">
-      <span class="heart">♥</span><strong>Dona</strong>
-    </a>
-    <a id="amazonLink" class="badge" target="_blank" rel="noopener" aria-label="Offerte e Coupon Amazon (affiliazione)">
-      🛍️ <strong>Offerte e Coupon Amazon</strong>
-    </a>
-  </div>
-
-  <div class="note" style="margin-top:14px">
-    <b>Software per gestire al 100% itinerati con Google Maps in modalità navigabile</b>
+  <div class="note">
+    <b>Software per gestire al 100% itinerati con Google Maps in modalita' navigabile</b>
   </div>
 
   <div class="card">
-    <div class="tabs" role="tablist" aria-label="Funzioni">
-      <button class="tab active" data-tab="merge" role="tab" aria-selected="true">Fusione Link</button>
-      <button class="tab" data-tab="maps2gpx" role="tab">Google Maps → GPX</button>
-      <button class="tab" data-tab="gpx2maps" role="tab">GPX → Google Maps</button>
-      <button class="tab" data-tab="sanitize" role="tab">Sanitizza GPX</button>
-      <button class="tab" data-tab="meteo" role="tab">Meteo + Info percorso</button>
+    <div class="tabs">
+      <button class="tab active" data-tab="merge">Fusione Link</button>
+      <button class="tab" data-tab="maps2gpx">Google Maps → GPX</button>
+      <button class="tab" data-tab="gpx2maps">GPX → Google Maps</button>
+      <button class="tab" data-tab="sanitize">Sanitizza GPX</button>
+      <button class="tab" data-tab="meteo">Meteo + Info percorso</button>
     </div>
 
-    <!-- MERGE -->
-    <section id="tab-merge" role="tabpanel" aria-labelledby="Fusione Link">
+    <!-- FUSIONE LINK -->
+    <section id="tab-merge">
       <div class="row">
         <div class="grow">
-          <label for="mergeInput">Incolla 1+ link Google Maps (uno per riga)</label>
+          <label>Incolla 1+ link Google Maps (uno per riga)</label>
           <textarea id="mergeInput" rows="6" placeholder="https://www.google.com/maps/dir/....&#10;https://www.google.com/maps/dir/...."></textarea>
           <div class="muted" style="margin-top:6px">Possono essere letti sia link <i>long</i> che <i>short</i>.</div>
         </div>
@@ -175,40 +147,28 @@
     </section>
 
     <!-- MAPS -> GPX -->
-    <section id="tab-maps2gpx" style="display:none" role="tabpanel">
+    <section id="tab-maps2gpx" style="display:none">
       <div class="row">
         <div class="grow">
-          <label for="m2gLink">Link Google Maps</label>
+          <label>Link Google Maps</label>
           <input id="m2gLink" placeholder="https://www.google.com/maps/dir/..." />
-        </div>
-        <div>
-          <label for="m2gKind">Tipo GPX</label>
-          <select id="m2gKind">
-            <option value="rte">RTE (rotta) — consigliato</option>
-            <option value="wpt">WPT (solo waypoint)</option>
-            <option value="trk">TRK (traccia — rigida)</option>
-          </select>
         </div>
       </div>
       <div class="actions" style="margin-top:10px">
-        <button id="btnMaps2GPX">Crea GPX</button>
+        <button id="btnMaps2Gpx">Crea GPX (WPT+RTE &amp; WPT+TRK)</button>
       </div>
       <div id="m2gOut" class="list" style="margin-top:12px"></div>
     </section>
 
     <!-- GPX -> MAPS -->
-    <section id="tab-gpx2maps" style="display:none" role="tabpanel">
+    <section id="tab-gpx2maps" style="display:none">
       <div class="row">
         <div class="grow">
           <label>Carica file GPX</label>
-          <div id="dropGpx" class="drop" tabindex="0" aria-label="Trascina qui un file GPX oppure usa il selettore">
-            Trascina qui un file GPX, oppure seleziona:
-            <div style="margin-top:8px"><input type="file" id="gpxFile" accept=".gpx,application/gpx+xml" /></div>
-          </div>
-          <div class="muted" id="dropGpxName" style="margin-top:6px"></div>
+          <input type="file" id="gpxFile" accept=".gpx,application/gpx+xml" />
         </div>
         <div>
-          <label for="gpxTag">Tag da usare</label>
+          <label>Tag da usare</label>
           <select id="gpxTag">
             <option value="auto">Auto (scegli meglio)</option>
             <option value="wpt">WPT (waypoints)</option>
@@ -233,32 +193,24 @@
     </section>
 
     <!-- SANITIZZA -->
-    <section id="tab-sanitize" style="display:none" role="tabpanel">
+    <section id="tab-sanitize" style="display:none">
       <div class="row">
         <div class="grow">
-          <label>Carica GPX da sanitizzare</label>
-          <div id="dropSan" class="drop" tabindex="0" aria-label="Trascina qui un file GPX da sanitizzare o usa il selettore">
-            Trascina qui il file GPX da sanitizzare, oppure seleziona:
-            <div style="margin-top:8px"><input type="file" id="sanFile" accept=".gpx,application/gpx+xml" /></div>
-          </div>
-          <div class="muted" id="dropSanName" style="margin-top:6px"></div>
+          <label>Carica GPX da “ripulire” (rimuove WPT)</label>
+          <input type="file" id="sanFile" accept=".gpx,application/gpx+xml" />
         </div>
       </div>
-      <div class="note" style="margin-top:10px">
-        <b>Nota:</b> usa la sanitizzazione solo se il tuo navigatore non legge il GPX originale.  
-        La funzione rimuove i <b>WPT</b> e rende il file più compatibile.
-      </div>
       <div class="actions" style="margin-top:10px">
-        <button id="btnSanitize">Sanitizza e scarica</button>
+        <button id="btnSanitize">Sanitizza GPX</button>
       </div>
       <div id="sanOut" class="list" style="margin-top:12px"></div>
     </section>
 
     <!-- METEO -->
-    <section id="tab-meteo" style="display:none" role="tabpanel">
+    <section id="tab-meteo" style="display:none">
       <div class="row">
         <div class="grow">
-          <label for="meteoLink">Link Google Maps</label>
+          <label>Link Google Maps</label>
           <input id="meteoLink" placeholder="https://www.google.com/maps/dir/..." />
         </div>
       </div>
@@ -268,35 +220,35 @@
       </div>
       <div id="meteoWrap" style="margin-top:12px"></div>
     </section>
+
   </div>
 
   <div class="card">
     <div class="muted">
-      L'applicazione è stata realizzata a scopo gratuito per la comunità. Se si vuole fare un'opera di gentilezza nei
-      confronti dello sviluppatore che ci ha perso del tempo per realizzarla, si prega di effettuare una donazione con
-      il pulsante "Dona" in alto. Approfitta anche del link diretto alla pagina nascosta di Amazon con tutte le offerte
-      e coupon, che è accessibile con il pulsante che si trova sempre in alto.
+      L'applicazione è stata realizzata a scopo gratuito per la comunità. Se si vuole fare un'opera di gentilezza nei confronti dello sviluppatore che ci ha perso del tempo per realizzarla, si prega di effettuare una donazione con il pulsante "Dona" in alto. Approfitta anche del link diretto alla pagina nascosta di Amazon con tutte le offerte e coupon, che è accessibile con il pulsante che si trova sempre in alto.
     </div>
   </div>
 </div>
 
-<!-- Modal conferma -->
-<div class="modal-bg" id="confirmBg" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmTxt">
-  <div class="modal">
+<!-- Sticky CTA (solo mobile) -->
+<div class="sticky-cta" id="stickyCta">
+  <a id="stickyAmazon" class="cta" target="_blank" rel="noopener">Offerte &amp; Coupon Amazon</a>
+  <a id="stickyDonate" class="cta" target="_blank" rel="noopener">Dona ♥</a>
+</div>
+
+<!-- Confirm modal -->
+<div class="modal-bg" id="confirmBg" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
     <h3 id="confirmTitle">Confermi l’azione?</h3>
     <div class="muted" id="confirmTxt">Apriremo un link esterno.</div>
     <div class="actions" style="margin-top:10px">
       <button id="btnConfirmOk">Procedi</button>
       <button id="btnConfirmCancel">Annulla</button>
-      <a id="btnDonate" class="badge donate" target="_blank" rel="noopener">Dona ♥</a>
-      <a id="btnAmazon" class="badge" target="_blank" rel="noopener">Amazon</a>
+      <a id="btnDonate" class="cta" target="_blank" rel="noopener">Dona ♥</a>
+      <a id="btnAmazon" class="cta" target="_blank" rel="noopener">Amazon</a>
     </div>
   </div>
 </div>
-
-<!-- Toasts + SR live region -->
-<div class="toast-wrap" id="toasts"></div>
-<div class="sr" id="srLive" aria-live="polite"></div>
 
 <script>
 /* =======================
@@ -307,20 +259,23 @@ const CONFIG = {
   paypalDonateUrl: 'https://www.paypal.com/donate?business=stefano.vitro%40gmail.com&no_recurring=0&item_name=Supporto+sviluppo+GPX2MAPS&currency_code=EUR',
   amazonAffiliateUrl: 'https://amzn.to/41o2XjA'
 };
+
+// CTA header + sticky
 document.getElementById('paypalLink').href = CONFIG.paypalDonateUrl;
 document.getElementById('amazonLink').href = CONFIG.amazonAffiliateUrl;
+document.getElementById('stickyDonate').href = CONFIG.paypalDonateUrl;
+document.getElementById('stickyAmazon').href = CONFIG.amazonAffiliateUrl;
 
 /* =======================
-   UI helpers & A11y
+   UI helpers
 ======================= */
 const qs = (s,el=document)=>el.querySelector(s);
 const qsa = (s,el=document)=>[...el.querySelectorAll(s)];
-function srSpeak(msg){ const el=qs('#srLive'); el.textContent=''; setTimeout(()=>el.textContent=msg, 10); }
 
 qsa('.tab').forEach(b=>{
   b.addEventListener('click', ()=>{
-    qsa('.tab').forEach(x=>{x.classList.remove('active'); x.setAttribute('aria-selected','false')});
-    b.classList.add('active'); b.setAttribute('aria-selected','true');
+    qsa('.tab').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
     const id = b.dataset.tab;
     qsa('section[id^="tab-"]').forEach(s=>s.style.display='none');
     qs('#tab-'+id).style.display='block';
@@ -351,30 +306,28 @@ function downloadWithConfirm(filename, data, mime='application/octet-stream', wh
     a.download = filename;
     a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
-    showToast('Download avviato: '+filename);
   });
 }
 
-/* Toasts */
-function showToast(txt){
-  const wrap = qs('#toasts');
-  const n = document.createElement('div');
-  n.className='toast'; n.textContent=txt;
-  wrap.appendChild(n);
-  setTimeout(()=>{ n.style.opacity='0'; n.style.transition='opacity .3s'; setTimeout(()=>n.remove(),300); }, 2200);
-}
+// CTA con conferma (anche sticky)
+qs('#paypalLink').onclick = (e)=>{ e.preventDefault(); openWithConfirm(CONFIG.paypalDonateUrl,'Apriremo PayPal in una nuova scheda.'); };
+qs('#amazonLink').onclick = (e)=>{ e.preventDefault(); openWithConfirm(CONFIG.amazonAffiliateUrl,'Apriremo la pagina Amazon (affiliazione).'); };
+qs('#stickyDonate').onclick = (e)=>{ e.preventDefault(); openWithConfirm(CONFIG.paypalDonateUrl,'Apriremo PayPal in una nuova scheda.'); };
+qs('#stickyAmazon').onclick = (e)=>{ e.preventDefault(); openWithConfirm(CONFIG.amazonAffiliateUrl,'Apriremo la pagina Amazon (affiliazione).'); };
 
 /* =======================
    Core utils (parsing/URL)
 ======================= */
 const reCoord = /^\s*-?\d{1,3}\.\d+,\s*-?\d{1,3}\.\d+\s*$/;
 const isCoordToken = t => reCoord.test(t);
-const parseCoord = t => { const [lat,lon] = t.split(',').map(s=>parseFloat(s.trim())); return {lat,lon}; };
-
+const parseCoord = t => {
+  const [lat,lon] = t.split(',').map(s=>parseFloat(s.trim()));
+  return {lat,lon};
+};
 function cleanLongLink(link){
   let x = (link||'').trim();
   x = x.replace(/\/@.*$/,'');
-  x = x.replace(/^https?:\/\/www\.google\.[^/]+\/maps\/dir\/\//,''); // rimuove // iniziale
+  x = x.replace(/^https?:\/\/www\.google\.[^/]+\/maps\/dir\/\//,'');
   x = x.replace(/^https?:\/\/www\.google\.[^/]+\/maps\/dir\//,'');
   return x.replace(/\/+$/,'');
 }
@@ -389,8 +342,11 @@ function tokensFromLink(link){
   return seg.split('/').filter(Boolean);
 }
 function buildGMapsUrl(parts){ return 'https://www.google.com/maps/dir/'+parts.join('/'); }
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
-/* Worker-backed fetches */
+/* =======================
+   Worker-backed fetches
+======================= */
 async function resolveIfShort(url){
   if (!url || !/maps\.app\.goo\.gl/.test(url)) return url;
   const r = await fetch(`${CONFIG.workerBase}/resolve?u=${encodeURIComponent(url)}`);
@@ -432,9 +388,11 @@ function optimizeTo25(parts){
   const middleCount = 22;
   const step = Math.max(1, Math.floor(middle.length / middleCount));
   for(let i=0;i<middleCount;i++){
-    const idx = i*step; if (idx < middle.length) keep.push(middle[idx]);
+    const idx = i*step;
+    if (idx < middle.length) keep.push(middle[idx]);
   }
-  keep.push(parts[parts.length-1]); return keep;
+  keep.push(parts[parts.length-1]);
+  return keep;
 }
 
 qs('#btnMerge').onclick = async ()=>{
@@ -442,8 +400,9 @@ qs('#btnMerge').onclick = async ()=>{
   if (!lines.length){ qs('#mergeOut').innerHTML=''; return; }
 
   const resolved = [];
-  for (const l of lines) { resolved.push(await resolveIfShort(l)); }
+  for (const l of lines) resolved.push(await resolveIfShort(l));
 
+  // se 1 solo link: rendilo navigabile con //
   if (resolved.length===1) {
     const hasDoubleSlash = /\/maps\/dir\/\//.test(resolved[0]);
     const url = hasDoubleSlash ? resolved[0] : resolved[0].replace('/maps/dir/','/maps/dir//');
@@ -455,9 +414,10 @@ qs('#btnMerge').onclick = async ()=>{
   if (points.length<=25){
     renderUrls('#mergeOut', [{url:buildGMapsUrl(points), label:'Link unificato (≤25)'}]);
   } else {
-    renderInfo('#mergeOut', 'Sono stati superati i 25 punti. Usa “Ottimizza” o “Dividi”.', false, true);
+    renderInfo('#mergeOut', 'Sono stati superati i 25 punti. Usa “Ottimizza” o “Dividi”.');
   }
 };
+
 qs('#btnMergeOptimize').onclick = ()=>{
   const lines = qs('#mergeInput').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
   if (!lines.length){ qs('#mergeOut').innerHTML=''; return; }
@@ -478,77 +438,149 @@ qs('#btnSplit25').onclick = ()=>{
 };
 
 /* =======================
-   MAPS -> GPX
+   MAPS -> GPX (OSRM)
 ======================= */
-function buildGpx(points, mode='rte'){
-  const esc = s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const now = new Date().toISOString();
-  const header = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="GPX2MAPS Web-APP" xmlns="http://www.topografix.com/GPX/1/1">`;
-  const footer = `</gpx>`;
-  let body = '';
+function slug(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,40); }
 
-  if (mode==='wpt'){
-    body += points.map((p,i)=>`<wpt lat="${p.lat}" lon="${p.lon}"><name>${esc(p.label||('Punto '+(i+1)))}</name></wpt>`).join('\n');
-  } else if (mode==='trk'){
-    body += `<trk><name>Traccia ${now}</name><trkseg>\n` +
-      points.map(p=>`<trkpt lat="${p.lat}" lon="${p.lon}"></trkpt>`).join('\n') +
-      `\n</trkseg></trk>`;
-  } else { // rte default
-    body += `<rte><name>Rotta ${now}</name>\n` +
-      points.map(p=>`<rtept lat="${p.lat}" lon="${p.lon}"><name>${esc(p.label||'')}</name></rtept>`).join('\n') +
-      `\n</rte>`;
+async function computeMaps2Gpx(link){
+  let raw = (link||'').trim();
+  if (!raw) throw new Error('Inserisci un link.');
+  raw = await resolveIfShort(raw);
+  let long = raw.includes('/maps/dir/') ? raw : `https://www.google.com/maps/dir/${raw}`;
+  long = long.replace(/\/@.*$/,'').replace(/\/+$/,'');
+  if (!/\/maps\/dir\//.test(long)) throw new Error('Link non valido (manca /maps/dir/).');
+
+  const seg = extractDirSegment(long);
+  if (!seg) throw new Error('Nessun segmento /dir/ trovato.');
+
+  const startIsBlank = /\/maps\/dir\/\//.test(long);
+  let userStartObj=null;
+  if (startIsBlank){
+    const userStart = window.prompt("Il link non specifica la partenza.\nInserisci 'città provincia' (es: 'arluno milano'):", "");
+    if (userStart && userStart.trim()){
+      const gs = await geocodeName(userStart.trim());
+      if (gs) userStartObj = {lat:+gs.lat, lon:+gs.lon, label:gs.label};
+    }
   }
-  return [header, body, footer].join('\n');
-}
-qs('#btnMaps2GPX').onclick = async ()=>{
-  const out = qs('#m2gOut'); out.innerHTML='';
-  let link = qs('#m2gLink').value.trim();
-  if (!link){ renderInfo('#m2gOut','Inserisci un link.'); return; }
 
-  renderInfo('#m2gOut','Elaboro…', true, true);
-  try{
-    link = await resolveIfShort(link);
-    let long = link.includes('/maps/dir/') ? link : `https://www.google.com/maps/dir/${link}`;
-    long = long.replace(/\/@.*$/,'').replace(/\/+$/,'');
-    const seg = extractDirSegment(long);
-    if (!seg) throw new Error('Link non valido (manca /maps/dir/).');
+  const tokens = seg.split('/').filter(Boolean);
+  const coordItems=[];
+  if (userStartObj) coordItems.push(userStartObj);
 
-    // Partenza mancante?
-    const startIsBlank = /\/maps\/dir\/\//.test(long);
-    let userStartObj = null;
-    if (startIsBlank){
-      const userStart = window.prompt("Il link non specifica la partenza.\nInserisci 'città provincia' (es: 'arluno milano'):", "");
-      if (userStart && userStart.trim()){
-        const gs = await geocodeName(userStart.trim());
-        if (gs) userStartObj = {lat:+gs.lat, lon:+gs.lon, label:gs.label};
+  for (const t of tokens){
+    if (isCoordToken(t)){
+      const {lat,lon} = parseCoord(t);
+      const label = await reverseGeocode(lat,lon);
+      coordItems.push({lat,lon,label});
+    } else {
+      const g = await geocodeName(decodeURIComponent(t.replace(/\+/g,' ')));
+      if (g) coordItems.push({lat:g.lat, lon:g.lon, label:g.label});
+      await new Promise(r=>setTimeout(r,250));
+    }
+  }
+  if (coordItems.length<2) throw new Error('Servono almeno 2 punti.');
+
+  // per i WPT manteniamo l’ordine, arrotondamento a 6 cifre
+  const fmt = (n)=>Number(n).toFixed(6);
+  const wpts = coordItems.map(p=>({lat:+(+p.lat).toFixed(6), lon:+(+p.lon).toFixed(6), label:p.label}));
+
+  // OSRM: steps + geometria
+  const coordsOSRM = wpts.map(p=>({lat:p.lat, lon:p.lon}));
+  const j = await osrmRoute(coordsOSRM, {overview:'full', steps:'true', geometries:'geojson', alternatives:'false'});
+  if (!j || j.code!=='Ok' || !j.routes || !j.routes[0]) throw new Error('OSRM non ha restituito una rotta valida.');
+
+  const rteSteps=[];
+  for (const leg of (j.routes[0].legs||[])){
+    for (const step of (leg.steps||[])){
+      if (step.maneuver && step.maneuver.location){
+        const lon = +(+step.maneuver.location[0]).toFixed(6);
+        const lat = +(+step.maneuver.location[1]).toFixed(6);
+        if (!rteSteps.length || rteSteps[rteSteps.length-1].lat!==lat || rteSteps[rteSteps.length-1].lon!==lon){
+          rteSteps.push({lat,lon,label: String(step.maneuver.type||'via')});
+        }
       }
     }
+  }
+  const trkCoords = (j.routes[0].geometry && j.routes[0].geometry.coordinates) ? j.routes[0].geometry.coordinates : [];
 
-    const tokens = seg.split('/').filter(Boolean);
-    const pts=[];
-    if (userStartObj) pts.push(userStartObj);
-    for (const t of tokens){
-      if (isCoordToken(t)){ const {lat,lon}=parseCoord(t); const label = await reverseGeocode(lat,lon); pts.push({lat,lon,label}); }
-      else { const g=await geocodeName(decodeURIComponent(t.replace(/\+/g,' '))); if (g) pts.push({lat:+g.lat,lon:+g.lon,label:g.label}); await new Promise(r=>setTimeout(r,200)); }
-    }
-    if (!pts.length) throw new Error('Nessun punto valido.');
+  // titoli
+  const startLabel = await reverseGeocode(wpts[0].lat, wpts[0].lon);
+  const endLabel   = await reverseGeocode(wpts[wpts.length-1].lat, wpts[wpts.length-1].lon);
+  const titleRoute = `GPX da: ${startLabel} a: ${endLabel}`;
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,15);
+  const baseName = `${slug(startLabel)}_${slug(endLabel)}_${ts}`;
 
-    const kind = qs('#m2gKind').value;
-    const gpx = buildGpx(pts, kind);
-    const base = `maps2gpx_${new Date().toISOString().replace(/[^0-9]/g,'').slice(0,14)}_${kind}.gpx`;
-    renderInfo('#m2gOut','GPX pronto. Puoi scaricarlo.', false);
-    const btn = document.createElement('button'); btn.textContent='Scarica GPX';
-    btn.onclick = ()=> downloadWithConfirm(base, gpx, 'application/gpx+xml', 'Scaricheremo il file GPX.');
-    const row = document.createElement('div'); row.className='actions'; row.appendChild(btn);
-    out.appendChild(row);
-    showToast('GPX creato');
-  }catch(e){ renderInfo('#m2gOut','Errore: '+(e.message||'imprevisto')); }
+  // GPX #1 WPT + RTE
+  const sb1=[];
+  sb1.push(`<?xml version="1.0" encoding="UTF-8"?>`);
+  sb1.push(`<gpx version="1.1" creator="MAPS2GPX OSRM" xmlns="http://www.topografix.com/GPX/1/1">`);
+  sb1.push(`  <metadata><time>${new Date().toISOString().replace(/\.\d{3}Z$/,'Z')}</time></metadata>`);
+  wpts.forEach((p,i)=>{
+    const name = `WP${String(i+1).padStart(2,'0')}`;
+    const desc = p.label || `${fmt(p.lat)},${fmt(p.lon)}`;
+    sb1.push(`  <wpt lat="${fmt(p.lat)}" lon="${fmt(p.lon)}"><name>${escapeXml(name)}</name><desc>${escapeXml(desc)}</desc></wpt>`);
+  });
+  sb1.push(`  <rte><name>${escapeXml(titleRoute)}</name>`);
+  rteSteps.forEach(s=>{
+    sb1.push(`    <rtept lat="${fmt(s.lat)}" lon="${fmt(s.lon)}"><name>${escapeXml(s.label)}</name></rtept>`);
+  });
+  sb1.push(`  </rte>`);
+  sb1.push(`</gpx>`);
+  const gpxRte = sb1.join('\n');
+
+  // GPX #2 WPT + TRK
+  const sb2=[];
+  sb2.push(`<?xml version="1.0" encoding="UTF-8"?>`);
+  sb2.push(`<gpx version="1.1" creator="MAPS2GPX OSRM" xmlns="http://www.topografix.com/GPX/1/1">`);
+  sb2.push(`  <metadata><time>${new Date().toISOString().replace(/\.\d{3}Z$/,'Z')}</time></metadata>`);
+  wpts.forEach((p,i)=>{
+    const name = `WP${String(i+1).padStart(2,'0')}`;
+    const desc = p.label || `${fmt(p.lat)},${fmt(p.lon)}`;
+    sb2.push(`  <wpt lat="${fmt(p.lat)}" lon="${fmt(p.lon)}"><name>${escapeXml(name)}</name><desc>${escapeXml(desc)}</desc></wpt>`);
+  });
+  sb2.push(`  <trk><name>${escapeXml(titleRoute)}</name><trkseg>`);
+  trkCoords.forEach(c=>{
+    const lon = +(+c[0]).toFixed(6), lat = +(+c[1]).toFixed(6);
+    sb2.push(`    <trkpt lat="${fmt(lat)}" lon="${fmt(lon)}" />`);
+  });
+  sb2.push(`  </trkseg></trk>`);
+  sb2.push(`</gpx>`);
+  const gpxTrk = sb2.join('\n');
+
+  return {
+    startLabel,endLabel, baseName,
+    files: [
+      {name:`maps2gpx_osrm_rotta_${baseName}.gpx`, data:gpxRte},
+      {name:`maps2gpx_osrm_traccia_${baseName}.gpx`, data:gpxTrk}
+    ]
+  };
+}
+function escapeXml(s){return String(s||'').replace(/[<>&'"]/g, m=>({ '<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'}[m]));}
+
+qs('#btnMaps2Gpx').onclick = async ()=>{
+  const out = qs('#m2gOut'); out.innerHTML='';
+  try{
+    const r = await computeMaps2Gpx(qs('#m2gLink').value);
+    const box = document.createElement('div'); box.className='note';
+    box.innerHTML = `<b>Creati:</b><br>• ${escapeHtml(r.files[0].name)}<br>• ${escapeHtml(r.files[1].name)}`;
+    out.appendChild(box);
+
+    r.files.forEach(f=>{
+      const row = document.createElement('div'); row.className='urlitem';
+      row.innerHTML = `<div><b>${escapeHtml(f.name)}</b></div>`;
+      const btn = document.createElement('button'); btn.textContent='Scarica';
+      btn.onclick = ()=> downloadWithConfirm(f.name, f.data, 'application/gpx+xml', 'Scaricheremo il file GPX.');
+      row.appendChild(btn);
+      out.appendChild(row);
+    });
+  }catch(e){
+    renderInfo('#m2gOut','Errore: '+(e.message||'imprevisto'));
+  }
 };
 
 /* =======================
-   GPX -> MAPS (con drop)
+   GPX -> MAPS
 ======================= */
-let __gpxDroppedText = null;
 function parseGpxPoints(xml, tagName){
   const nodes = [...xml.getElementsByTagName(tagName)];
   return nodes.filter(n=>n.hasAttribute('lat')&&n.hasAttribute('lon'))
@@ -562,33 +594,18 @@ function pickBestTag(xml, pref='auto'){
   if (has('trkpt')) return 'trkpt';
   return 'wpt';
 }
-function hookDrop(zoneId, infoId, setter){
-  const z=qs(zoneId), info=qs(infoId);
-  function over(e){e.preventDefault(); z.classList.add('dragover')}
-  function leave(){z.classList.remove('dragover')}
-  z.addEventListener('dragover', over);
-  z.addEventListener('dragleave', leave);
-  z.addEventListener('drop', (e)=>{
-    e.preventDefault(); leave();
-    const f = e.dataTransfer.files && e.dataTransfer.files[0];
-    if (!f) return;
-    const reader = new FileReader();
-    reader.onload = ()=>{ setter(reader.result); info.textContent='Caricato: '+(f.name||'file.gpx'); showToast('File caricato'); };
-    reader.readAsText(f);
-  });
-}
-hookDrop('#dropGpx', '#dropGpxName', (t)=>{ __gpxDroppedText = t; });
-
 qs('#btnGpx2Maps').onclick = ()=>{
-  const out = qs('#gpxOut'); out.innerHTML='';
   const f = qs('#gpxFile').files[0];
-  const useDrop = !!__gpxDroppedText;
+  if (!f) return;
+  const pref = qs('#gpxTag').value;
 
-  const handle = (text)=>{
-    const xml = new DOMParser().parseFromString(text, 'application/xml');
-    const tag = pickBestTag(xml, qs('#gpxTag').value);
+  const fr = new FileReader();
+  fr.onload = ()=>{
+    const xml = new DOMParser().parseFromString(fr.result, 'application/xml');
+    const tag = pickBestTag(xml, pref);
     const arr = parseGpxPoints(xml, tag);
     if (!arr.length){ renderInfo('#gpxOut','Nessun punto valido.'); return; }
+
     const coords = [''].concat(arr.map(p=>`${p.lat},${p.lon}`));
     if (coords.length<=25){
       renderUrls('#gpxOut', [{url:buildGMapsUrl(coords), label:`Link da GPX (${tag})`}]);
@@ -596,74 +613,46 @@ qs('#btnGpx2Maps').onclick = ()=>{
       renderInfo('#gpxOut','Punti >25. Usa “Dividi in blocchi da 25”.');
     }
   };
-
-  if (useDrop){ handle(__gpxDroppedText); return; }
-  if (!f){ renderInfo('#gpxOut','Seleziona o trascina un GPX.'); return; }
-  const fr = new FileReader(); fr.onload = ()=> handle(fr.result); fr.readAsText(f);
+  fr.readAsText(f);
 };
 
 qs('#btnGpxSplit').onclick = ()=>{
-  const out = qs('#gpxOut'); out.innerHTML='';
   const f = qs('#gpxFile').files[0];
-  const useDrop = !!__gpxDroppedText;
-
-  const handle = (text)=>{
-    const xml = new DOMParser().parseFromString(text,'application/xml');
-    const tag = pickBestTag(xml, qs('#gpxTag').value);
+  if (!f) return;
+  const pref = qs('#gpxTag').value;
+  const fr = new FileReader();
+  fr.onload = ()=>{
+    const xml = new DOMParser().parseFromString(fr.result,'application/xml');
+    const tag = pickBestTag(xml, pref);
     const arr = parseGpxPoints(xml, tag);
     if (!arr.length){ renderInfo('#gpxOut','Nessun punto valido.'); return; }
     const coords = [''].concat(arr.map(p=>`${p.lat},${p.lon}`));
-    const outUrls=[];
+    const out=[];
     for (let i=0;i<coords.length;i+=25){
       const sub = coords.slice(i, i+25);
       if (i===0 && sub[0]!=='' ) sub.unshift('');
-      outUrls.push({url:buildGMapsUrl(sub), label:`Blocco ${Math.floor(i/25)+1}`});
+      out.push({url:buildGMapsUrl(sub), label:`Blocco ${Math.floor(i/25)+1}`});
     }
-    renderUrls('#gpxOut', outUrls);
+    renderUrls('#gpxOut', out);
   };
-
-  if (useDrop){ handle(__gpxDroppedText); return; }
-  if (!f){ renderInfo('#gpxOut','Seleziona o trascina un GPX.'); return; }
-  const fr = new FileReader(); fr.onload = ()=> handle(fr.result); fr.readAsText(f);
+  fr.readAsText(f);
 };
 
 /* =======================
-   SANITIZZA GPX (drop)
+   Sanitizza GPX
 ======================= */
-let __sanDroppedText = null;
-hookDrop('#dropSan', '#dropSanName', (t)=>{ __sanDroppedText = t; });
-
-function sanitizeGpxText(text){
-  // Normalizza header + rimuovi tutti i WPT
-  const xml = new DOMParser().parseFromString(text, 'application/xml');
-  [...xml.getElementsByTagName('wpt')].forEach(n=>n.parentNode.removeChild(n));
-  let out = new XMLSerializer().serializeToString(xml.documentElement);
-  out = `<?xml version="1.0" encoding="UTF-8"?>\n` + out;
-  // newline stile Unix
-  out = out.replace(/\r\n/g,'\n');
-  if (!out.endsWith('\n')) out += '\n';
-  return out;
-}
-
 qs('#btnSanitize').onclick = ()=>{
-  const out = qs('#sanOut'); out.innerHTML='';
   const f = qs('#sanFile').files[0];
-  const useDrop = !!__sanDroppedText;
-
-  const handle = (text)=>{
-    const sanitized = sanitizeGpxText(text);
-    const name = `gpx_sanitizzato_${new Date().toISOString().replace(/[^0-9]/g,'').slice(0,14)}.gpx`;
-    renderInfo('#sanOut','File sanitizzato pronto. Puoi scaricarlo.', false);
-    const btn = document.createElement('button'); btn.textContent='Scarica GPX sanitizzato';
-    btn.onclick = ()=> downloadWithConfirm(name, sanitized, 'application/gpx+xml', 'Scaricheremo il file GPX.');
-    const row = document.createElement('div'); row.className='actions'; row.appendChild(btn);
-    out.appendChild(row);
-    showToast('Sanitizzazione completata');
+  if (!f) return;
+  const fr = new FileReader();
+  fr.onload = ()=>{
+    const raw = String(fr.result||'');
+    const removed = raw.replace(/<wpt\b[^>]*>[\s\S]*?<\/wpt>/gi,'').split(/\r?\n/).filter(l=>l.trim().length).join('\n');
+    const name = f.name.replace(/\.gpx$/i,'_sanitize.gpx');
+    const out = removed.endsWith('\n') ? removed : (removed+'\n');
+    downloadWithConfirm(name, out, 'application/gpx+xml', 'Scaricheremo il file GPX ripulito.');
   };
-
-  if (useDrop){ handle(__sanDroppedText); return; }
-  if (!f){ renderInfo('#sanOut','Seleziona o trascina un GPX.'); return; }
-  const fr = new FileReader(); fr.onload = ()=> handle(fr.result); fr.readAsText(f);
+  fr.readAsText(f);
 };
 
 /* =======================
@@ -701,7 +690,6 @@ async function computeMeteo(link){
   const seg = extractDirSegment(long);
   if (!seg) throw new Error('Link non valido (manca /maps/dir/).');
 
-  // Partenza mancante
   const startIsBlank = /\/maps\/dir\/\//.test(long);
   let userStartObj = null;
   if (startIsBlank){
@@ -712,19 +700,26 @@ async function computeMeteo(link){
     }
   }
 
-  // Token → coord
   const tokens = seg.split('/').filter(Boolean);
   const coordItems=[];
   if (userStartObj) coordItems.push(userStartObj);
 
   for (const t of tokens){
-    if (isCoordToken(t)){ const {lat,lon}=parseCoord(t); const label = await reverseGeocode(lat,lon); coordItems.push({lat,lon,label}); }
-    else { const g=await geocodeName(decodeURIComponent(t.replace(/\+/g,' '))); if (g) coordItems.push({lat:g.lat, lon:g.lon, label:g.label}); await new Promise(r=>setTimeout(r,250)); }
+    if (isCoordToken(t)){
+      const {lat,lon} = parseCoord(t);
+      const label = await reverseGeocode(lat,lon);
+      coordItems.push({lat,lon,label});
+    } else {
+      const g = await geocodeName(decodeURIComponent(t.replace(/\+/g,' ')));
+      if (g) coordItems.push({lat:g.lat, lon:g.lon, label:g.label});
+      await new Promise(r=>setTimeout(r,250));
+    }
   }
   if (!coordItems.length) throw new Error('Nessun punto valido estratto.');
 
-  // Liste
-  const seen = new Set(); const meteoPts=[];
+  // dedup per meteo; no-dedup per route
+  const seen = new Set();
+  const meteoPts=[];
   for (const p of coordItems){
     const key = `${(+p.lat).toFixed(2)},${(+p.lon).toFixed(2)}`;
     if (!seen.has(key)){ seen.add(key); meteoPts.push(p); }
@@ -739,16 +734,28 @@ async function computeMeteo(link){
     if (j.code!=='Ok' || !j.routes || !j.routes[0]) throw 0;
     const legs = j.routes[0].legs || [];
     let accKm=0, accSec=0;
-    for (const lg of legs){ accKm += (+lg.distance)/1000; accSec += (+lg.duration); cumKm.push(Math.round(accKm*10)/10); cumSec.push(accSec); }
-  }catch{}
+    for (const lg of legs){
+      accKm += (+lg.distance)/1000;
+      accSec += (+lg.duration);
+      cumKm.push(Math.round(accKm*10)/10);
+      cumSec.push(accSec);
+    }
+  }catch{ /* fallback zeroes */ }
 
-  // Open-Meteo
-  const partDefs = [{name:'Notte',from:0,to:5},{name:'Mattino',from:6,to:11},{name:'Pomeriggio',from:12,to:17},{name:'Sera',from:18,to:23}];
+  // Open-Meteo 7gg / 4 fasce
+  const partDefs = [
+    {name:'Notte',from:0,to:5},
+    {name:'Mattino',from:6,to:11},
+    {name:'Pomeriggio',from:12,to:17},
+    {name:'Sera',from:18,to:23}
+  ];
   async function fetchWx(p){
     const u = `https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&timezone=auto&daily=temperature_2m_max,temperature_2m_min,weathercode&hourly=temperature_2m,weathercode`;
     const j = await fetch(u).then(r=>r.json()).catch(()=>null);
     if (!j || !j.daily || !j.hourly) return null;
-    const days=[]; const dcount = Math.min(7, j.daily.time.length);
+
+    const days=[];
+    const dcount = Math.min(7, j.daily.time.length);
     for (let d=0; d<dcount; d++){
       const date = new Date(j.daily.time[d]);
       const entry = { label: date.toLocaleDateString('it-IT', {weekday:'short', day:'2-digit', month:'2-digit'}), Min:Math.round(j.daily.temperature_2m_min[d]*10)/10, Max:Math.round(j.daily.temperature_2m_max[d]*10)/10, Parts:[] };
@@ -757,7 +764,8 @@ async function computeMeteo(link){
         for (let h=0; h<j.hourly.time.length; h++){
           const th = new Date(j.hourly.time[h]);
           if (th.getFullYear()===date.getFullYear() && th.getMonth()===date.getMonth() && th.getDate()===date.getDate() && th.getHours()>=pd.from && th.getHours()<=pd.to){
-            temps.push(+j.hourly.temperature_2m[h]); codes.push(+j.hourly.weathercode[h]);
+            temps.push(+j.hourly.temperature_2m[h]);
+            codes.push(+j.hourly.weathercode[h]);
           }
         }
         if (temps.length){
@@ -770,7 +778,9 @@ async function computeMeteo(link){
     }
     return {place:p.label, days};
   }
-  const rows = []; for (const p of meteoPts){ const r = await fetchWx(p); if (r) rows.push(r); await new Promise(r=>setTimeout(r,180)); }
+
+  const rows = [];
+  for (const p of meteoPts){ const r = await fetchWx(p); if (r) rows.push(r); await new Promise(r=>setTimeout(r,200)); }
 
   const startLabel = await reverseGeocode(routePts[0].lat, routePts[0].lon);
   const endLabel   = await reverseGeocode(routePts[routePts.length-1].lat, routePts[routePts.length-1].lon);
@@ -783,7 +793,7 @@ qs('#btnMeteo').onclick = async ()=>{
   const link = qs('#meteoLink').value.trim();
   if (!link){ renderInfo('#meteoWrap','Inserisci un link.'); return; }
 
-  renderInfo('#meteoWrap','Elaboro…', true, true);
+  renderInfo('#meteoWrap','Elaboro… Attendi.', true);
   try{
     const r = await computeMeteo(link);
     renderMeteo(out, r);
@@ -802,6 +812,7 @@ function renderMeteo(container, data){
     const totH = Math.floor((cumSec[i]||0)/3600);
     const totM = Math.floor(((cumSec[i]||0)%3600)/60);
     const totTm = `${totH} h ${totM} m`;
+
     let legKm='0.0 km', legTm='0 h 0 m';
     if (i>0){
       const dKm = (cumKm[i]-cumKm[i-1]).toFixed(1);
@@ -812,12 +823,11 @@ function renderMeteo(container, data){
     infoRows.push({i:i+1, place:routePts[i].label, totKm, totTm, legKm, legTm});
   }
 
-  const daysCount = rows.length? rows[0].days.length : 0;
   const table = document.createElement('div');
   table.innerHTML = `
     <h3>Meteo da: ${escapeHtml(startLabel)} a: ${escapeHtml(endLabel)} (7 giorni, 4 fasce)</h3>
     <div class="card" style="overflow:auto">
-      <table class="wxgrid" role="table" aria-label="Tabella meteo lungo il percorso">
+      <table class="wxgrid">
         <thead>
           <tr>
             <th class="loccol" rowspan="2">Località</th>
@@ -832,8 +842,7 @@ function renderMeteo(container, data){
             <tr>
               <td class="loccol">${escapeHtml(r.place)}</td>
               ${r.days.map(d=>d.Parts.map(pp=>{
-                const cls = sevClass(pp.Desc);
-                const title = `min ${d.Min} / max ${d.Max}`;
+                const cls = sevClass(pp.Desc); const title = `min ${d.Min} / max ${d.Max}`;
                 return `<td class="${cls}" title="${title}"><div>${pp.Desc}<div class="muted">${pp.Temp}</div></div></td>`
               }).join('')).join('')}
             </tr>
@@ -844,7 +853,6 @@ function renderMeteo(container, data){
   `;
   container.appendChild(table);
 
-  // TXT + CSV
   const sbTxt = [];
   const totKmSum = cumKm[cumKm.length-1]||0;
   const totSecSum = cumSec[cumSec.length-1]||0;
@@ -870,7 +878,7 @@ function renderMeteo(container, data){
   const baseName = `percorso_${fnameSlug(startLabel)}_${fnameSlug(endLabel)}_${ts}`;
 
   const b1 = document.createElement('button'); b1.textContent='Scarica TXT';
-  b1.onclick = ()=>downloadWithConfirm(`${baseName}.txt`, sbTxt.join('\n'), 'text/plain', 'Scaricheremo un file di testo.');
+  b1.onclick = ()=>downloadWithConfirm(`${baseName}.txt`, sbTxt.join('\n'), 'text/plain', 'Scaricheremo un file TXT.');
   const b2 = document.createElement('button'); b2.textContent='Scarica CSV';
   b2.onclick = ()=>downloadWithConfirm(`${baseName}.csv`, csv, 'text/csv', 'Scaricheremo un file CSV.');
   const b3 = document.createElement('button'); b3.textContent='Apri link Maps originale';
@@ -891,30 +899,19 @@ function renderUrls(sel, items){
   div.innerHTML='';
   for (const it of items){
     const row = document.createElement('div'); row.className='urlitem';
-    const left = document.createElement('div'); left.className='url-left';
-    left.innerHTML = `<b>${escapeHtml(it.label)}</b><div class="muted" style="font-size:12px">${escapeHtml(it.url)}</div>`;
-    const btnOpen = document.createElement('button'); btnOpen.textContent='Apri';
-    btnOpen.onclick = ()=> openWithConfirm(it.url, 'Apriremo Google Maps.');
-    const btnCopy = document.createElement('button'); btnCopy.textContent='Copia';
-    btnCopy.onclick = async ()=>{ try{ await navigator.clipboard.writeText(it.url); showToast('Copiato negli appunti'); srSpeak('URL copiato'); }catch{} };
-    const right = document.createElement('div'); right.className='actions'; right.append(btnOpen, btnCopy);
-    row.append(left,right);
+    const left = document.createElement('div'); left.innerHTML = `<b>${escapeHtml(it.label)}</b><div class="muted" style="font-size:12px">${escapeHtml(it.url)}</div>`;
+    const btn = document.createElement('button'); btn.textContent='Apri';
+    btn.onclick = ()=> openWithConfirm(it.url, 'Apriremo Google Maps.');
+    row.append(left,btn);
     div.appendChild(row);
   }
 }
-function renderInfo(sel, text, spin=false, skeleton=false){
+function renderInfo(sel, text, spin=false){
   const div = qs(sel); div.innerHTML='';
-  const box = document.createElement('div'); box.className='note'; box.setAttribute('role','status');
-  box.innerHTML = (spin?'<span class="spinner" aria-hidden="true"></span> ':'') + escapeHtml(text);
+  const box = document.createElement('div'); box.className='note';
+  box.innerHTML = (spin?'⏳ ':'') + escapeHtml(text);
   div.appendChild(box);
-
-  if (skeleton){
-    // piccolo skeleton a righe
-    const container = document.createElement('div'); container.style.marginTop='8px';
-    for (let i=0;i<3;i++){ const s=document.createElement('div'); s.className='skeleton'; s.style.margin='6px 0'; div.appendChild(s); }
-  }
 }
-function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 </script>
 </body>
 </html>
