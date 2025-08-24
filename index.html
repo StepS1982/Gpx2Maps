@@ -1,10 +1,3 @@
-Below are the complete, aligned files for the first iteration of fixes/improvements focusing on TAB 1 (Fusione Link).
-
----
-
-# index.html
-
-```html
 <!doctype html>
 <html lang="it">
 <head>
@@ -106,7 +99,12 @@ Below are the complete, aligned files for the first iteration of fixes/improveme
       <div class="bd grid grid-2">
         <div>
           <label for="linksInput" style="font-weight:800;">Incolla i link (uno per riga)</label>
-          <textarea id="linksInput" placeholder="Esempi accettati:\n- https://maps.app.goo.gl/xxxxx\n- https://www.google.com/maps/dir/…\n- https://goo.gl/maps/…\n- https://www.google.com/maps/place/…/@lat,lon,…\n- Indirizzo libero o coordinate lat,lon"></textarea>
+          <textarea id="linksInput" placeholder="Esempi accettati:
+- https://maps.app.goo.gl/xxxxx
+- https://www.google.com/maps/dir/…
+- https://goo.gl/maps/…
+- https://www.google.com/maps/place/…/@lat,lon,…
+- Indirizzo libero o coordinate lat,lon"></textarea>
 
           <div class="row" style="margin-top:10px;">
             <label class="chip"><input type="checkbox" id="chkDedupe" /> <span>Rimuovi duplicati (opzionale)</span></label>
@@ -136,11 +134,55 @@ Below are the complete, aligned files for the first iteration of fixes/improveme
       </div>
     </section>
 
-    <!-- Altri tab: placeholder per mantenere l'ordine e l'UI, saranno completati nei passaggi successivi -->
+    <!-- TAB 2: Google Maps -> GPX -->
     <section id="tab-maps2gpx" class="card" hidden>
       <div class="hd">2) Google Maps → GPX</div>
-      <div class="bd">In arrivo nel prossimo step. Manteniamo l'ordine richiesto.</div>
+      <div class="bd grid grid-2">
+        <div>
+          <label for="maps2gpxInput" style="font-weight:800;">Incolla un link Google Maps (itinerario) o una lista di indirizzi/coordinate</label>
+          <textarea id="maps2gpxInput" placeholder="Esempi:
+- https://www.google.com/maps/dir/Punto+A/Punto+B/...
+- Indirizzi o lat,lon (uno per riga)
+- '//' come prima riga per usare la tua posizione (specifica la partenza sotto)"></textarea>
+
+          <div class="row" style="margin-top:10px;">
+            <label class="chip"><input type="radio" name="gpxType" value="rte" checked /> <span>RTE (consigliato)</span></label>
+            <label class="chip"><input type="radio" name="gpxType" value="trk" /> <span>TRK</span></label>
+            <label class="chip"><input type="radio" name="gpxType" value="wpt" /> <span>WPT</span></label>
+          </div>
+          <div class="row" style="margin-top:10px;">
+            <label class="chip"><input type="checkbox" id="useGeocodeNames" checked /> <span>Usa nomi dal geocoding nelle etichette</span></label>
+            <label class="chip"><input type="checkbox" id="sanitize2" checked /> <span>Sanitizza URL (rimuovi da /@ in poi)</span></label>
+          </div>
+          <div class="row" id="startRow" style="margin-top:10px; display:none;">
+            <input id="startPoint" placeholder='Specifica la partenza per "//" (indirizzo o lat,lon)' style="flex:1 1 auto; padding:10px; border:1px solid var(--border); border-radius:10px;" />
+          </div>
+
+          <div class="row" style="margin-top:12px;">
+            <button id="btnGenGPX" class="btn">Genera GPX</button>
+            <button id="btnClear2" class="btn ghost">Pulisci</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="out card">
+            <div class="hd">Risultati</div>
+            <div class="bd">
+              <div id="stats2" class="note">Nessun file generato.</div>
+              <details id="previewWrap" style="margin-top:8px;" hidden>
+                <summary>Anteprima GPX (parziale)</summary>
+                <pre id="gpxPreview" class="mono" style="max-height:280px; overflow:auto; white-space:pre; background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:10px;"></pre>
+              </details>
+              <div class="row" style="margin-top:10px;">
+                <button id="btnDownloadGPX" class="btn small" disabled>Scarica GPX</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
+
+    <!-- Placeholder per altri tab -->
     <section id="tab-gpx2maps" class="card" hidden>
       <div class="hd">3) GPX → Google Maps</div>
       <div class="bd">In arrivo.</div>
@@ -249,13 +291,11 @@ Below are the complete, aligned files for the first iteration of fixes/improveme
 
     // Parsing funzioni per Google Maps
     function stripAfterAt(urlStr){
-      // rimuove da "/@" in poi, o da "/data=" in poi, o query/hash
       const idxAt = urlStr.indexOf('/@');
       const idxData = urlStr.indexOf('/data=');
       let cut = urlStr;
       if (idxAt !== -1) cut = cut.substring(0, idxAt);
       if (idxData !== -1) cut = cut.substring(0, idxData);
-      // rimuovi query/hash
       try {
         const u = new URL(cut);
         cut = `${u.origin}${u.pathname}`;
@@ -264,7 +304,6 @@ Below are the complete, aligned files for the first iteration of fixes/improveme
     }
 
     function extractLatLonFromAt(pathname){
-      // cerca segmento che inizia con '@lat,lon'
       const segs = pathname.split('/');
       for (const s of segs){
         if (s.startsWith('@')){
@@ -284,29 +323,23 @@ Below are the complete, aligned files for the first iteration of fixes/improveme
     }
 
     function extractPointsFromUrl(input){
-      // Returns array of points (strings). May include "//".
-      // If plain address or raw 'lat,lon', return [input]
       const s = input.trim();
       if (!/^https?:\/\//i.test(s)){
         return [s];
       }
       try {
         const u = new URL(s);
-        const host = u.host;
         const pathname = decodeURIComponent(u.pathname);
 
-        // /dir/ path
         const idx = pathname.indexOf('/maps/dir/');
         if (idx !== -1){
           const after = pathname.substring(idx + '/maps/dir/'.length);
-          // stop at '/data=' if present
           const dataIdx = after.indexOf('/data=');
           const core = dataIdx !== -1 ? after.substring(0, dataIdx) : after;
           const pts = core.split('/').filter(Boolean).map(x => x === '' ? '' : x);
           return pts.length ? pts : [];
         }
 
-        // classic '/dir/' (sometimes no '/maps')
         const idx2 = pathname.indexOf('/dir/');
         if (idx2 !== -1){
           const after = pathname.substring(idx2 + '/dir/'.length);
@@ -316,27 +349,22 @@ Below are the complete, aligned files for the first iteration of fixes/improveme
           return pts.length ? pts : [];
         }
 
-        // /place/ with @lat,lon
         if (pathname.includes('/place/')){
           const ll = extractLatLonFromAt(pathname);
           if (ll) return [ll];
-          // fallback to last non-empty segment as name
           const segs = decodePathSegments(pathname);
           const name = segs[segs.length-1] || segs[segs.length-2];
           if (name && name !== 'place') return [name];
         }
 
-        // maps?q=lat,lon or q=address
         if (u.searchParams.has('q')){
           const q = u.searchParams.get('q');
           if (q) return [q];
         }
 
-        // @lat,lon anywhere
         const ll2 = extractLatLonFromAt(pathname);
         if (ll2) return [ll2];
 
-        // unknown maps URL -> fallback to stripped path
         return [stripAfterAt(s)];
       } catch {
         return [s];
@@ -345,7 +373,6 @@ Below are the complete, aligned files for the first iteration of fixes/improveme
 
     function sanitizePointToken(tok){
       if (tok === '//') return tok;
-      // remove stray '/@...' from token-like inputs
       if (/^https?:/i.test(tok)){
         return stripAfterAt(tok);
       }
@@ -369,7 +396,6 @@ Below are the complete, aligned files for the first iteration of fixes/improveme
     }
 
     function evenSample(inner, need){
-      // sample 'inner' to length 'need' as evenly as possible
       if (need <= 0) return [];
       if (inner.length <= need) return inner.slice();
       const out = [];
@@ -377,7 +403,6 @@ Below are the complete, aligned files for the first iteration of fixes/improveme
         const idx = Math.round(i * (inner.length - 1) / (need - 1));
         out.push(inner[idx]);
       }
-      // remove accidental duplicates if any rounding collisions
       const res = [];
       for (const v of out){ if (res[res.length-1] !== v) res.push(v); }
       while (res.length > need) res.pop();
@@ -387,14 +412,12 @@ Below are the complete, aligned files for the first iteration of fixes/improveme
     function optimizeTo25(points){
       const MAX = 25;
       if (points.length <= MAX) return points;
-      const hasSlash = points[0] === '//';
       const first = points[0];
       const last = points[points.length - 1];
-      let inner = points.slice(hasSlash ? 1 : 1, points.length - 1);
-      const capacity = MAX - 2 - (hasSlash ? 0 : 0);
+      const inner = points.slice(1, points.length - 1);
+      const capacity = MAX - 2;
       const sampled = evenSample(inner, capacity);
       const out = [first, ...sampled, last];
-      // If no '//' in first, still fine
       return out.slice(0, MAX);
     }
 
@@ -403,12 +426,10 @@ Below are the complete, aligned files for the first iteration of fixes/improveme
       const blocks = [];
       const hasSlash = points[0] === '//';
       if (hasSlash){
-        // block 1 keeps '//'
         const b1 = points.slice(0, MAX);
         blocks.push(b1);
         let rest = points.slice(MAX);
         while (rest.length){
-          // subsequent blocks: drop leading '//' if present in rest
           if (rest[0] === '//') rest = rest.slice(1);
           const b = rest.slice(0, MAX);
           blocks.push(b);
@@ -422,7 +443,6 @@ Below are the complete, aligned files for the first iteration of fixes/improveme
           rest = rest.slice(MAX);
         }
       }
-      // ensure only first block starts with '//' if any
       for (let i=1;i<blocks.length;i++){
         if (blocks[i][0] === '//') blocks[i].shift();
       }
@@ -432,13 +452,13 @@ Below are the complete, aligned files for the first iteration of fixes/improveme
     async function resolveIfShort(url){
       if (!/^https?:\/\//i.test(url)) return url;
       const h = (new URL(url)).host;
-      const isShort = /(^|\.)(maps\.app\.goo\.gl|goo\.gl|g\.co)$/i.test(h) || /(^|\.)goo\.gl$/i.test(h) || /(^|\.)g\.co$/i.test(h) || /(^|\.)goo\.gl$/i.test(h) || /(^|\.)goo\.gl$/i.test(h);
+      const isShort = /(^|\.)((maps\.app\.goo\.gl)|(goo\.gl)|(g\.co))$/i.test(h);
       if (!isShort) return url;
       try {
         const { finalUrl } = await getJSON(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`);
         return finalUrl || url;
       } catch {
-        return url; // fallback
+        return url;
       }
     }
 
@@ -453,14 +473,14 @@ Below are the complete, aligned files for the first iteration of fixes/improveme
         return;
       }
       stats.textContent = urls.length === 1 ? '1 link generato.' : `${urls.length} link generati.`;
-      urls.forEach((u, i) => {
+      urls.forEach((u) => {
         const div = document.createElement('div');
         div.className = 'out-item';
         div.innerHTML = `
           <div style="display:flex; justify-content:space-between; gap:10px; align-items:center;">
             <div class="mono" style="flex:1 1 auto;">${u}</div>
             <div class="row" style="flex:0 0 auto;">
-              <button class="btn small ghost" data-copy>CopIA</button>
+              <button class="btn small ghost" data-copy>Copia</button>
               <button class="btn small" data-open>Apri</button>
             </div>
           </div>`;
@@ -492,7 +512,7 @@ Below are the complete, aligned files for the first iteration of fixes/improveme
       URL.revokeObjectURL(url);
     }
 
-    // Main handler
+    // === TAB 1 Handlers ===
     document.getElementById('btnMerge').addEventListener('click', async () => {
       const raw = document.getElementById('linksInput').value
         .split('\n')
@@ -500,7 +520,6 @@ Below are the complete, aligned files for the first iteration of fixes/improveme
         .filter(Boolean);
       if (!raw.length){ toast('Inserisci almeno una riga'); return; }
 
-      // Step 1: resolve short links where needed
       const resolved = [];
       for (const line of raw){
         try { resolved.push(await resolveIfShort(line)); }
@@ -511,30 +530,24 @@ Below are the complete, aligned files for the first iteration of fixes/improveme
       const chkDedupe = document.getElementById('chkDedupe').checked;
       const chkAddCurrent = document.getElementById('chkAddCurrent').checked;
 
-      // Step 2: extract points from each line
       let points = [];
       for (const line of resolved){
-        const arr = extractPointsFromUrl(line);
+        let arr = extractPointsFromUrl(line);
+        if (chkSanitize) arr = arr.map(stripAfterAt);
         points.push(...arr);
       }
 
-      // Step 3: sanitize tokens
       points = points.map(p => sanitizePointToken(p));
-
-      // Step 4: optional dedupe (off by default, per policy pregressa)
       if (chkDedupe) points = dedupeOrdered(points);
 
-      // Step 5: if only 1 real point (no dir), optionally add '//'
       const hasSlash = points[0] === '//';
       if (!hasSlash && points.length === 1 && chkAddCurrent){
         points.unshift('//');
       }
 
-      // Step 6: Decide strategy
       const limit = 25;
       const total = points.length;
 
-      // Build outputs according to length
       let urls = [];
       if (total <= limit){
         urls = [ buildDirectionsURL(points) ];
@@ -578,78 +591,149 @@ Below are the complete, aligned files for the first iteration of fixes/improveme
       downloadTxt(name, items);
       toast('File scaricato');
     });
+
+    // === TAB 2 (Maps -> GPX) ===
+    function isLatLon(s){
+      const m = s.trim().match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/);
+      if (!m) return null;
+      const lat = parseFloat(m[1]);
+      const lon = parseFloat(m[2]);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+      return { lat, lon };
+    }
+
+    async function geocodeToken(tok){
+      const ll = isLatLon(tok);
+      if (ll) return { lat: ll.lat, lon: ll.lon, name: tok };
+      try {
+        const res = await getJSON(`${CONFIG.workerBase}/geocode?q=${encodeURIComponent(tok)}`);
+        if (Array.isArray(res) && res.length){
+          return { lat: parseFloat(res[0].lat), lon: parseFloat(res[0].lon), name: res[0].display_name || tok };
+        }
+      } catch(e){ /* ignore */ }
+      return null;
+    }
+
+    function gpxHeader(){
+      return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="GPX2MAPS Web-APP" xmlns="http://www.topografix.com/GPX/1/1">`;
+    }
+    function gpxFooter(){ return `</gpx>`; }
+
+    function xmlEscape(s){
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+    }
+
+    function buildGPX(pointsLL, type, useNames){
+      const lines = [];
+      lines.push(gpxHeader());
+      const ts = new Date().toISOString();
+      lines.push(`<metadata><time>${ts}</time></metadata>`);
+
+      if (type === 'wpt'){
+        for (const p of pointsLL){
+          const name = useNames ? (p.name || '') : '';
+          lines.push(`<wpt lat="${p.lat}" lon="${p.lon}">${name ? `<name>${xmlEscape(name)}</name>` : ''}</wpt>`);
+        }
+      } else if (type === 'rte'){
+        lines.push(`<rte>`);
+        let idx = 1;
+        for (const p of pointsLL){
+          const name = useNames ? (p.name || `P${idx}`) : `P${idx}`;
+          lines.push(`<rtept lat="${p.lat}" lon="${p.lon}"><name>${xmlEscape(name)}</name></rtept>`);
+          idx++;
+        }
+        lines.push(`</rte>`);
+      } else { // trk
+        lines.push(`<trk><trkseg>`);
+        for (const p of pointsLL){
+          lines.push(`<trkpt lat="${p.lat}" lon="${p.lon}"></trkpt>`);
+        }
+        lines.push(`</trkseg></trk>`);
+      }
+
+      lines.push(gpxFooter());
+      return lines.join('\n');
+    }
+
+    function showStartRow(show){
+      const row = document.getElementById('startRow');
+      row.style.display = show ? '' : 'none';
+    }
+
+    let generatedGPX = null;
+    let generatedName = null;
+
+    document.getElementById('btnGenGPX').addEventListener('click', async () => {
+      const raw = document.getElementById('maps2gpxInput').value
+        .split('\n')
+        .map(s => s.trim())
+        .filter(Boolean);
+      if (!raw.length){ toast('Inserisci almeno una riga'); return; }
+
+      const sanitize = document.getElementById('sanitize2').checked;
+      const useNames = document.getElementById('useGeocodeNames').checked;
+      const type = (document.querySelector('input[name="gpxType"]:checked')?.value) || 'rte';
+
+      let tokens = [];
+      for (const line of raw){
+        const r = /^https?:\/\//i.test(line) ? extractPointsFromUrl(line) : [line];
+        let arr = r;
+        if (sanitize) arr = arr.map(stripAfterAt);
+        tokens.push(...arr);
+      }
+      tokens = tokens.map(sanitizePointToken).filter(Boolean);
+
+      if (tokens[0] === '//'){
+        showStartRow(true);
+        const sp = document.getElementById('startPoint').value.trim();
+        if (!sp){ toast('Hai usato //: specifica la partenza'); return; }
+        tokens[0] = sp;
+      } else {
+        showStartRow(false);
+      }
+
+      const pointsLL = [];
+      for (let i=0;i<tokens.length;i++){
+        document.getElementById('stats2').textContent = `Geocoding ${i+1}/${tokens.length}...`;
+        const g = await geocodeToken(tokens[i]);
+        if (!g){ toast(`Impossibile geocodificare: ${tokens[i]}`); return; }
+        pointsLL.push(g);
+      }
+
+      const gpx = buildGPX(pointsLL, type, useNames);
+      generatedGPX = gpx;
+      generatedName = `maps2gpx_${type}_${nowStamp()}.gpx`;
+
+      document.getElementById('stats2').textContent = `${pointsLL.length} punti convertiti in GPX (${type.toUpperCase()}).`;
+      const prev = gpx.split('\n').slice(0, 200).join('\n');
+      document.getElementById('gpxPreview').textContent = prev + (gpx.length > prev.length ? "\n..." : "");
+      document.getElementById('previewWrap').hidden = false;
+      document.getElementById('btnDownloadGPX').disabled = false;
+      toast('GPX pronto');
+    });
+
+    document.getElementById('btnDownloadGPX').addEventListener('click', async () => {
+      if (!generatedGPX){ toast('Nessun GPX da scaricare'); return; }
+      const ok = await confirmAction('Scaricare il file GPX generato?');
+      if (!ok) return;
+      const blob = new Blob([generatedGPX], { type:'application/gpx+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = generatedName || `maps2gpx_${nowStamp()}.gpx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      toast('Download avviato');
+    });
+
+    document.getElementById('btnClear2').addEventListener('click', () => {
+      document.getElementById('maps2gpxInput').value = '';
+      document.getElementById('stats2').textContent = 'Pulito.';
+      document.getElementById('gpxPreview').textContent = '';
+      document.getElementById('previewWrap').hidden = true;
+      document.getElementById('btnDownloadGPX').disabled = true;
+      document.getElementById('startPoint').value = '';
+      showStartRow(false);
+    });
   </script>
 </body>
 </html>
-```
-
----
-
-# worker.js (Cloudflare Workers)
-
-```js
-export default {
-  async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-
-    // CORS preflight
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders() });
-    }
-
-    if (url.pathname === '/' || url.pathname === '') {
-      return json({ ok: true, service: 'gpx2maps-worker', endpoints: ['/resolve'] });
-    }
-
-    if (url.pathname === '/resolve') {
-      const target = url.searchParams.get('url');
-      if (!target) return json({ error: 'missing url' }, 400);
-      try {
-        const finalUrl = await resolveRedirects(target, 5);
-        return json({ finalUrl });
-      } catch (e) {
-        return json({ error: String(e) }, 500);
-      }
-    }
-
-    return json({ error: 'not found' }, 404);
-  }
-}
-
-function corsHeaders() {
-  return {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type,Accept',
-  };
-}
-
-function json(obj, status = 200) {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', ...corsHeaders() }
-  });
-}
-
-async function resolveRedirects(inputUrl, maxHops = 5) {
-  let current = inputUrl;
-  for (let i = 0; i < maxHops; i++) {
-    const resp = await fetch(current, { redirect: 'manual' });
-    const status = resp.status;
-    if (status >= 300 && status < 400) {
-      const loc = resp.headers.get('location');
-      if (!loc) break;
-      // handle relative redirects
-      current = new URL(loc, current).toString();
-      continue;
-    }
-    if (status === 200) {
-      // If no more redirects, return current
-      return current;
-    }
-    // Non-redirect terminal status
-    return current;
-  }
-  return current;
-}
-```
