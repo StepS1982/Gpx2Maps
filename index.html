@@ -144,4 +144,446 @@
 
           <div class="row" style="margin-top:12px;">
             <button id="btnGenGPX" class="btn">Genera GPX</button>
-            <button id="btn
+            <button id="btnClear2" class="btn ghost">Pulisci</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="out card">
+            <div class="hd">Risultati</div>
+            <div class="bd">
+              <div id="stats2" class="note">Nessun file generato.</div>
+              <details id="previewWrap" style="margin-top:8px;" hidden>
+                <summary>Anteprima GPX (parziale)</summary>
+                <pre id="gpxPreview" class="mono" style="max-height:280px; overflow:auto; white-space:pre; background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:10px;"></pre>
+              </details>
+              <div class="row" style="margin-top:10px;">
+                <button id="btnDownloadGPX" class="btn small" disabled>Scarica GPX</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Placeholder altri tab -->
+    <section id="tab-gpx2maps" class="card" hidden>
+      <div class="hd">3) GPX → Google Maps</div>
+      <div class="bd">In arrivo.</div>
+    </section>
+    <section id="tab-sanitize" class="card" hidden>
+      <div class="hd">4) Sanitizza GPX</div>
+      <div class="bd">In arrivo.</div>
+    </section>
+    <section id="tab-meteo" class="card" hidden>
+      <div class="hd">5) Meteo + Info percorso</div>
+      <div class="bd">In arrivo.</div>
+    </section>
+  </div>
+
+  <footer>
+    L'applicazione è stata realizzata a scopo gratuito per la comunità. Se si vuole fare un'opera di gentilezza nei confronti dello sviluppatore che ci ha perso del tempo per realizzarla, si prega di effettuare una donazione con il pulsante ‘Dona’ in alto. Approfitta anche del link diretto alla pagina nascosta di Amazon con tutte le offerte e coupon, che è accessibile con il pulsante che si trova sempre in alto.
+  </footer>
+
+  <!-- Confirm Modal -->
+  <dialog id="confirmDialog">
+    <form method="dialog" style="padding:18px 18px 8px;">
+      <h3 style="margin:0 0 6px; font-weight:900;">Confermi l'operazione?</h3>
+      <p id="confirmText" style="margin:0 0 14px; color:var(--muted);"></p>
+      <div class="row" style="justify-content:flex-end;">
+        <button class="btn ghost" value="cancel">Annulla</button>
+        <button class="btn" value="ok">Conferma</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Strategy Modal -->
+  <dialog id="strategyDialog">
+    <form method="dialog" style="padding:18px 18px 8px;">
+      <h3 style="margin:0 0 6px; font-weight:900;">Troppi punti per un singolo link</h3>
+      <p style="margin:0 0 10px; color:var(--muted);">Hai superato il limite di 25 (incluso “//”). Scegli una strategia:</p>
+      <div class="row" style="flex-direction:column; align-items:stretch; gap:10px;">
+        <button id="btnStrategyOptimize" class="btn" value="opt">1) Ottimizza a 25 (mantieni testa/coda, campiona gli intermedi)</button>
+        <button id="btnStrategySplit" class="btn secondary" value="split">2) Dividi in più link (max 25 punti; solo il primo ha “//”)</button>
+      </div>
+      <div class="row" style="justify-content:flex-end; margin-top:10px;">
+        <button class="btn ghost" value="cancel">Chiudi</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toasts" aria-live="polite" aria-atomic="true"></div>
+
+  <script>
+    // === CONFIG ===
+    const CONFIG = {
+      workerBase: "https://gpx2maps-worker.stefano-vitro.workers.dev",
+      paypalDonateUrl: "https://www.paypal.com/donate?business=stefano.vitro%40gmail.com&no_recurring=0&item_name=Supporto+sviluppo+GPX2MAPS&currency_code=EUR",
+      amazonAffiliateUrl: "https://amzn.to/41o2XjA",
+    };
+
+    // CTA
+    document.getElementById('donateBtn').href = CONFIG.paypalDonateUrl;
+    document.getElementById('amazonBtn').href = CONFIG.amazonAffiliateUrl;
+
+    // Tabs
+    const tabs = document.querySelectorAll('.tab');
+    tabs.forEach(btn => btn.addEventListener('click', () => {
+      tabs.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+      btn.classList.add('active'); btn.setAttribute('aria-selected','true');
+      const id = btn.dataset.tab;
+      ['merge','maps2gpx','gpx2maps','sanitize','meteo'].forEach(key => {
+        const sec = document.getElementById(`tab-${key}`);
+        if (sec) sec.hidden = key !== id && !(key==='merge' && id===undefined);
+      });
+    }));
+
+    // Toast
+    function toast(msg){
+      const t = document.createElement('div');
+      t.className = 'toast';
+      t.textContent = msg;
+      document.getElementById('toasts').appendChild(t);
+      setTimeout(() => t.remove(), 3400);
+    }
+
+    // Confirm
+    async function confirmAction(text){
+      const dlg = document.getElementById('confirmDialog');
+      document.getElementById('confirmText').textContent = text || '';
+      dlg.showModal();
+      const val = await new Promise(res => dlg.addEventListener('close', () => res(dlg.returnValue), { once:true }));
+      return val === 'ok';
+    }
+
+    // Strategy
+    async function chooseStrategy(){
+      const dlg = document.getElementById('strategyDialog');
+      dlg.showModal();
+      const v = await new Promise(res => dlg.addEventListener('close', () => res(dlg.returnValue), { once:true }));
+      if (v === 'opt') return 'optimize';
+      if (v === 'split') return 'split';
+      return null;
+    }
+
+    async function getJSON(url){
+      const r = await fetch(url, { headers: { 'Accept':'application/json' } });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return await r.json();
+    }
+
+    /* ===== TAB 1: PARSER (clone PowerShell) ===== */
+
+    function stripAtTail(s){ // rimuove /@... e /data=...
+      let out = s.replace(/\/@.*$/, '');
+      out = out.replace(/\/data=.*$/, '');
+      return out;
+    }
+
+    function extractDirSegment(longLink){
+      const s = stripAtTail(longLink.trim());
+      const re = /^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i;
+      const m = s.match(re);
+      if (!m) return null;
+      return m[1].replace(/\/+$/, '');
+    }
+
+    async function resolveIfShort(url){
+      try {
+        const h = (new URL(url)).host;
+        const isShort = /(^|\.)maps\.app\.goo\.gl$/i.test(h) || /(^|\.)goo\.gl$/i.test(h) || /(^|\.)g\.co$/i.test(h);
+        if (!isShort) return url;
+        const { finalUrl } = await getJSON(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`);
+        return finalUrl || url;
+      } catch { return url; }
+    }
+
+    function buildGoogleDirURL(parts){
+      const base = 'https://www.google.com/maps/dir';
+      return base + '/' + parts.join('/');
+    }
+
+    function nowStamp(){
+      const d = new Date(); const pad = n => String(n).padStart(2,'0');
+      return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+    }
+
+    function downloadTxt(name, lines){
+      const blob = new Blob([lines.join('\n')], { type:'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function renderOutput(urls){
+      const out = document.getElementById('output');
+      const stats = document.getElementById('stats');
+      out.innerHTML = '';
+      if (!urls.length){
+        stats.textContent = 'Nessun risultato.';
+        document.getElementById('btnOpenAll').style.display = 'none';
+        document.getElementById('btnDownloadAll').style.display = 'none';
+        return;
+      }
+      stats.textContent = urls.length === 1 ? '1 link generato.' : `${urls.length} link generati.`;
+      urls.forEach(u => {
+        const div = document.createElement('div');
+        div.className = 'out-item';
+        div.innerHTML = `
+          <div style="display:flex; justify-content:space-between; gap:10px; align-items:center;">
+            <div class="mono" style="flex:1 1 auto;">${u}</div>
+            <div class="row" style="flex:0 0 auto;">
+              <button class="btn small ghost" data-copy>Copia</button>
+              <button class="btn small" data-open>Apri</button>
+            </div>
+          </div>`;
+        div.querySelector('[data-copy]').addEventListener('click', async () => { await navigator.clipboard.writeText(u); toast('URL copiato'); });
+        div.querySelector('[data-open]').addEventListener('click', async () => { const ok = await confirmAction('Aprire il link in una nuova scheda?'); if (ok) window.open(u, '_blank', 'noopener'); });
+        out.appendChild(div);
+      });
+      document.getElementById('btnOpenAll').style.display = urls.length > 1 ? '' : 'none';
+      document.getElementById('btnDownloadAll').style.display = '';
+    }
+
+    function evenSample(inner, need){
+      if (need <= 0) return [];
+      if (inner.length <= need) return inner.slice();
+      const out = [];
+      for (let i = 0; i < need; i++){
+        const idx = Math.round(i * (inner.length - 1) / (need - 1));
+        out.push(inner[idx]);
+      }
+      const res = [];
+      for (const v of out){ if (res[res.length-1] !== v) res.push(v); }
+      while (res.length > need) res.pop();
+      return res;
+    }
+
+    function optimizeTo25(allPoints){
+      if (allPoints.length <= 25) return allPoints;
+      const first = allPoints[0];                   // "" => //
+      const last = allPoints[allPoints.length-1];   // ultimo punto
+      const middle = allPoints.slice(1, allPoints.length-1);
+      const sampled = evenSample(middle, 23);       // 1 (//) + 23 + 1 = 25
+      return [first, ...sampled, last].slice(0, 25);
+    }
+
+    function splitInBlocks(allPoints){
+      const MAX = 25;
+      const blocks = [];
+      let rest = allPoints.slice();
+      let first = true;
+      while (rest.length){
+        const chunk = rest.slice(0, MAX);
+        if (!first && chunk[0] === "") chunk.shift(); // // solo sul primo
+        blocks.push(chunk);
+        rest = rest.slice(MAX);
+        first = false;
+      }
+      return blocks;
+    }
+
+    // === TAB 1 click ===
+    document.getElementById('btnMerge').addEventListener('click', async () => {
+      const lines = document.getElementById('linksInput').value.split('\n').map(s => s.trim()).filter(Boolean);
+      if (!lines.length){ toast('Inserisci almeno un link'); return; }
+
+      // Caso 1 link già con // => come PS: errore
+      if (lines.length === 1 && /https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/\//i.test(lines[0])) {
+        toast('Errore: almeno due link sono necessari per la fusione.');
+        return;
+      }
+
+      // 1) risolvi eventuali shortlink
+      const resolved = [];
+      for (const ln of lines){ resolved.push(await resolveIfShort(ln)); }
+
+      // 2) estrai la parte dopo /maps/dir/
+      const cleanParts = [];
+      for (const link of resolved){
+        const seg = extractDirSegment(link);
+        if (seg) cleanParts.push(seg);
+      }
+      if (!cleanParts.length){ toast('Nessun link valido "/maps/dir/..." rilevato'); return; }
+
+      // 3) costruisci l’elenco punti, con "" in testa (=> //)
+      const allPoints = [""];
+      for (const seg of cleanParts){ allPoints.push(...seg.split('/')); }
+
+      // 4) a seconda del limite 25
+      if (allPoints.length <= 25){
+        renderOutput([buildGoogleDirURL(allPoints)]);
+        return;
+      }
+      const strategy = await chooseStrategy();
+      if (!strategy){ toast('Operazione annullata'); return; }
+      if (strategy === 'optimize'){
+        renderOutput([buildGoogleDirURL(optimizeTo25(allPoints))]);
+      } else {
+        const blocks = splitInBlocks(allPoints);
+        const urls = blocks.map(b => buildGoogleDirURL(b));
+        renderOutput(urls);
+      }
+    });
+
+    document.getElementById('btnClear').addEventListener('click', () => {
+      document.getElementById('linksInput').value = '';
+      document.getElementById('output').innerHTML = '';
+      document.getElementById('stats').textContent = 'Pulito.';
+      document.getElementById('btnOpenAll').style.display = 'none';
+      document.getElementById('btnDownloadAll').style.display = 'none';
+    });
+
+    document.getElementById('btnOpenAll').addEventListener('click', async () => {
+      const items = Array.from(document.querySelectorAll('#output .out-item .mono')).map(x => x.textContent);
+      if (!items.length) return;
+      const ok = await confirmAction('Aprire tutti i link in nuove schede?');
+      if (!ok) return;
+      for (const u of items){ window.open(u, '_blank', 'noopener'); }
+    });
+
+    document.getElementById('btnDownloadAll').addEventListener('click', async () => {
+      const items = Array.from(document.querySelectorAll('#output .out-item .mono')).map(x => x.textContent);
+      if (!items.length) return;
+      const ok = await confirmAction('Scaricare un file .txt con i link generati?');
+      if (!ok) return;
+      const name = (items.length === 1 ? `merge_1_${nowStamp()}.txt` : `merge_${items.length}_${nowStamp()}.txt`);
+      downloadTxt(name, items);
+      toast('File scaricato');
+    });
+
+    /* ===== TAB 2: Maps -> GPX ===== */
+
+    function isLatLon(s){
+      const m = s.trim().match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/);
+      if (!m) return null;
+      const lat = parseFloat(m[1]); const lon = parseFloat(m[2]);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+      return { lat, lon };
+    }
+
+    async function geocodeToken(tok){
+      const ll = isLatLon(tok);
+      if (ll) return { lat: ll.lat, lon: ll.lon, name: tok };
+      try {
+        const res = await getJSON(`${CONFIG.workerBase}/geocode?q=${encodeURIComponent(tok)}`);
+        if (Array.isArray(res) && res.length){
+          return { lat: parseFloat(res[0].lat), lon: parseFloat(res[0].lon), name: res[0].display_name || tok };
+        }
+      } catch(e){ /* ignore */ }
+      return null;
+    }
+
+    function gpxHeader(){ return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="GPX2MAPS Web-APP" xmlns="http://www.topografix.com/GPX/1/1">`; }
+    function gpxFooter(){ return `</gpx>`; }
+    function xmlEscape(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
+
+    function buildGPX(pointsLL, type, useNames){
+      const lines = [];
+      lines.push(gpxHeader());
+      const ts = new Date().toISOString();
+      lines.push(`<metadata><time>${ts}</time></metadata>`);
+
+      if (type === 'wpt'){
+        for (const p of pointsLL){
+          const name = useNames ? (p.name || '') : '';
+          lines.push(`<wpt lat="${p.lat}" lon="${p.lon}">${name ? `<name>${xmlEscape(name)}</name>` : ''}</wpt>`);
+        }
+      } else if (type === 'rte'){
+        lines.push(`<rte>`);
+        let idx = 1;
+        for (const p of pointsLL){
+          const name = useNames ? (p.name || `P${idx}`) : `P${idx}`;
+          lines.push(`<rtept lat="${p.lat}" lon="${p.lon}"><name>${xmlEscape(name)}</name></rtept>`);
+          idx++;
+        }
+        lines.push(`</rte>`);
+      } else { // trk
+        lines.push(`<trk><trkseg>`);
+        for (const p of pointsLL){
+          lines.push(`<trkpt lat="${p.lat}" lon="${p.lon}"></trkpt>`);
+        }
+        lines.push(`</trkseg></trk>`);
+      }
+
+      lines.push(gpxFooter());
+      return lines.join('\n');
+    }
+
+    function showStartRow(show){ document.getElementById('startRow').style.display = show ? '' : 'none'; }
+
+    let generatedGPX = null;
+    let generatedName = null;
+
+    document.getElementById('btnGenGPX').addEventListener('click', async () => {
+      const raw = document.getElementById('maps2gpxInput').value.split('\n').map(s => s.trim()).filter(Boolean);
+      if (!raw.length){ toast('Inserisci almeno una riga'); return; }
+
+      const sanitize = document.getElementById('sanitize2').checked;
+      const useNames = document.getElementById('useGeocodeNames').checked;
+      const type = (document.querySelector('input[name="gpxType"]:checked')?.value) || 'rte';
+
+      // tokenizza
+      let tokens = [];
+      for (const line of raw){
+        const r = /^https?:\/\//i.test(line) ? [extractDirSegment(line) || line] : [line];
+        let arr = r;
+        if (sanitize) arr = arr.map(stripAtTail);
+        tokens.push(...arr);
+      }
+      tokens = tokens.map(s => s.trim()).filter(Boolean);
+
+      if (tokens[0] === '//'){
+        showStartRow(true);
+        const sp = document.getElementById('startPoint').value.trim();
+        if (!sp){ toast('Hai usato //: specifica la partenza'); return; }
+        tokens[0] = sp;
+      } else {
+        showStartRow(false);
+      }
+
+      const pointsLL = [];
+      for (let i=0;i<tokens.length;i++){
+        document.getElementById('stats2').textContent = `Geocoding ${i+1}/${tokens.length}...`;
+        const g = await geocodeToken(tokens[i]);
+        if (!g){ toast(`Impossibile geocodificare: ${tokens[i]}`); return; }
+        pointsLL.push(g);
+      }
+
+      const gpx = buildGPX(pointsLL, type, useNames);
+      generatedGPX = gpx;
+      generatedName = `maps2gpx_${type}_${nowStamp()}.gpx`;
+
+      document.getElementById('stats2').textContent = `${pointsLL.length} punti convertiti in GPX (${type.toUpperCase()}).`;
+      const prev = gpx.split('\n').slice(0, 200).join('\n');
+      document.getElementById('gpxPreview').textContent = prev + (gpx.length > prev.length ? "\n..." : "");
+      document.getElementById('previewWrap').hidden = false;
+      document.getElementById('btnDownloadGPX').disabled = false;
+      toast('GPX pronto');
+    });
+
+    document.getElementById('btnDownloadGPX').addEventListener('click', async () => {
+      if (!generatedGPX){ toast('Nessun GPX da scaricare'); return; }
+      const ok = await confirmAction('Scaricare il file GPX generato?');
+      if (!ok) return;
+      const blob = new Blob([generatedGPX], { type:'application/gpx+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = generatedName || `maps2gpx_${nowStamp()}.gpx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      toast('Download avviato');
+    });
+
+    document.getElementById('btnClear2').addEventListener('click', () => {
+      document.getElementById('maps2gpxInput').value = '';
+      document.getElementById('stats2').textContent = 'Pulito.';
+      document.getElementById('gpxPreview').textContent = '';
+      document.getElementById('previewWrap').hidden = true;
+      document.getElementById('btnDownloadGPX').disabled = true;
+      document.getElementById('startPoint').value = '';
+      showStartRow(false);
+    });
+  </script>
+</body>
+</html>
