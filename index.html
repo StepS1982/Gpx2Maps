@@ -97,6 +97,11 @@
     <section id="tab-merge" class="card" aria-labelledby="Fusione Link">
       <div class="hd">Fusione, ottimizzazione e split dei link Google Maps</div>
       <div class="bd grid grid-2">
+        <!-- NEW: spiegazione sotto il titolo, stesso stile della nota principale -->
+        <p class="note" style="grid-column:1 / -1;">
+          Il limite su Google Maps è di 10 punti, con questo strumento possiamo arrivare a 25 in modalità navigabile che è il vero limite nascosto di Google. Se si dovessero superare i 25 punti, verrebbe proposto o di ottimizzare a 25, mantenendo fissi il primo e l'ultimo punto, oppure si possono generare tanti link da 25 punti fino al completamento dell'intero completo itinerario
+        </p>
+
         <div>
           <label for="linksInput" style="font-weight:800;">Incolla i link (uno per riga)</label>
           <textarea id="linksInput" placeholder="Incolla link tipo https://www.google.*/maps/dir/... (uno per riga). Accetta anche maps.app.goo.gl"></textarea>
@@ -114,7 +119,6 @@
               <div id="stats" class="note">Nessun risultato ancora.</div>
               <div id="output" class="output-list"></div>
               <div class="row" style="margin-top:10px;">
-                <!-- RIMOSSO: Apri tutti -->
                 <button id="btnDownloadAll" class="btn small" style="display:none;">Scarica .txt</button>
               </div>
             </div>
