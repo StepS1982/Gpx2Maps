@@ -201,7 +201,7 @@
   <dialog id="strategyDialog">
     <form method="dialog" style="padding:18px 18px 8px;">
       <h3 style="margin:0 0 6px; font-weight:900;">Troppi punti per un singolo link</h3>
-      <p style="margin:0 0 10px; color:var(--muted);">Hai superato il limite di 25 (incluso “//”). Scegli una strategia:</p>
+      <p style="margin:0 0 10px; color:var(--muted);">Hai superato il limite di 25 (incluso il primo punto con la tua posizione GPS). Scegli una strategia:</p>
       <div class="row" style="flex-direction:column; align-items:stretch; gap:10px;">
         <button id="btnStrategyOptimize" class="btn" value="opt">1) Ottimizza a 25 (mantieni testa/coda, campiona gli intermedi)</button>
         <button id="btnStrategySplit" class="btn secondary" value="split">2) Dividi in più link (max 25 punti; solo il primo ha “//”)</button>
@@ -280,7 +280,7 @@
       return out;
     }
 
-    // FIX: rimuovo anche gli slash iniziali del segmento dopo /maps/dir/ per evitare "/dir///"
+    // FIX precedente: rimuovi slash iniziali per evitare /dir///
     function extractDirSegment(longLink){
       const s = stripAtTail(longLink.trim());
       const re = /^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i;
@@ -308,6 +308,10 @@
       const d = new Date(); const pad = n => String(n).padStart(2,'0');
       return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
     }
+    function timeHHMMSS(){
+      const d = new Date(); const pad = n=>String(n).padStart(2,'0');
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
 
     function downloadTxt(name, lines){
       const blob = new Blob([lines.join('\n')], { type:'text/plain' });
@@ -316,6 +320,7 @@
       URL.revokeObjectURL(url);
     }
 
+    // NEW: messaggio e orario ogni volta che aggiorniamo i risultati
     function renderOutput(urls){
       const out = document.getElementById('output');
       const stats = document.getElementById('stats');
@@ -326,7 +331,8 @@
         document.getElementById('btnDownloadAll').style.display = 'none';
         return;
       }
-      stats.textContent = urls.length === 1 ? '1 link generato.' : `${urls.length} link generati.`;
+      const n = urls.length;
+      stats.textContent = (n === 1 ? '1 link generato' : `${n} link generati`) + ` · aggiornato alle ${timeHHMMSS()}`;
       urls.forEach(u => {
         const div = document.createElement('div');
         div.className = 'out-item';
@@ -342,10 +348,12 @@
         div.querySelector('[data-open]').addEventListener('click', async () => { const ok = await confirmAction('Aprire il link in una nuova scheda?'); if (ok) window.open(u, '_blank', 'noopener'); });
         out.appendChild(div);
       });
-      document.getElementById('btnOpenAll').style.display = urls.length > 1 ? '' : 'none';
+      document.getElementById('btnOpenAll').style.display = n > 1 ? '' : 'none';
       document.getElementById('btnDownloadAll').style.display = '';
+      toast(`Risultati aggiornati (${n} link)`);
     }
 
+    // Mini-dedup per sampling (rimane com’era)
     function evenSample(inner, need){
       if (need <= 0) return [];
       if (inner.length <= need) return inner.slice();
@@ -367,6 +375,17 @@
       const middle = allPoints.slice(1, allPoints.length-1);
       const sampled = evenSample(middle, 23);       // 1 (//) + 23 + 1 = 25
       return [first, ...sampled, last].slice(0, 25);
+    }
+
+    // NEW: dedup a monte (solo duplicati ADIACENTI)
+    function dedupeAdjacent(arr){
+      const out = [];
+      let prev = null;
+      for (const x of arr){
+        if (x !== prev) out.push(x);
+        prev = x;
+      }
+      return out;
     }
 
     function splitInBlocks(allPoints){
@@ -408,10 +427,13 @@
       if (!cleanParts.length){ toast('Nessun link valido "/maps/dir/..." rilevato'); return; }
 
       // 3) costruisci l’elenco punti, con "" in testa (=> //)
-      const allPoints = [""];
+      let allPoints = [""];
       for (const seg of cleanParts){ allPoints.push(...seg.split('/')); }
 
-      // 4) a seconda del limite 25
+      // 3b) NEW: dedup a monte (riduce i duplicati tra la “coda” del link A e la “testa” del link B)
+      allPoints = dedupeAdjacent(allPoints);
+
+      // 4) soglia 25 DOPO il dedup
       if (allPoints.length <= 25){
         renderOutput([buildGoogleDirURL(allPoints)]);
         return;
