@@ -58,13 +58,10 @@
     #toasts { position: fixed; right: 12px; bottom: 12px; display:flex; flex-direction:column; gap:8px; z-index: 50; }
     .toast { background: #111827; color:#fff; padding: 10px 12px; border-radius: 10px; font-size: 14px; box-shadow: 0 6px 16px rgba(0,0,0,0.28); }
 
-    /* NEW: Toast centrale (overlay) */
+    /* Toast centrale */
     #toastsCenter { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 60; }
     .toast.center { padding: 12px 16px; font-size: 15px; background: rgba(17,24,39,0.95); backdrop-filter: blur(3px); animation: fadePop 0.28s ease-out; }
-    @keyframes fadePop {
-      from { opacity: 0; transform: translateY(6px) scale(0.98); }
-      to   { opacity: 1; transform: translateY(0)   scale(1); }
-    }
+    @keyframes fadePop { from { opacity:0; transform: translateY(6px) scale(0.98);} to { opacity:1; transform: translateY(0) scale(1);} }
 
     footer { margin: 36px auto 24px; max-width: 1100px; color: var(--muted); font-size: 13px; padding: 0 16px; }
   </style>
@@ -96,7 +93,7 @@
       <button class="tab" role="tab" aria-selected="false" data-tab="meteo">5) Meteo + Info percorso</button>
     </div>
 
-    <!-- TAB 1: Fusione Link (clone PowerShell: niente opzioni, // automatico) -->
+    <!-- TAB 1: Fusione Link -->
     <section id="tab-merge" class="card" aria-labelledby="Fusione Link">
       <div class="hd">Fusione, ottimizzazione e split dei link Google Maps</div>
       <div class="bd grid grid-2">
@@ -117,7 +114,7 @@
               <div id="stats" class="note">Nessun risultato ancora.</div>
               <div id="output" class="output-list"></div>
               <div class="row" style="margin-top:10px;">
-                <button id="btnOpenAll" class="btn small" style="display:none;">Apri tutti</button>
+                <!-- RIMOSSO: Apri tutti -->
                 <button id="btnDownloadAll" class="btn small" style="display:none;">Scarica .txt</button>
               </div>
             </div>
@@ -172,20 +169,6 @@
           </div>
         </div>
       </div>
-    </section>
-
-    <!-- Placeholder altri tab -->
-    <section id="tab-gpx2maps" class="card" hidden>
-      <div class="hd">3) GPX → Google Maps</div>
-      <div class="bd">In arrivo.</div>
-    </section>
-    <section id="tab-sanitize" class="card" hidden>
-      <div class="hd">4) Sanitizza GPX</div>
-      <div class="bd">In arrivo.</div>
-    </section>
-    <section id="tab-meteo" class="card" hidden>
-      <div class="hd">5) Meteo + Info percorso</div>
-      <div class="bd">In arrivo.</div>
     </section>
   </div>
 
@@ -256,13 +239,11 @@
       document.getElementById('toasts').appendChild(t);
       setTimeout(() => t.remove(), 3400);
     }
-    // NEW: toast centrale
     function toastCenter(msg){
       const t = document.createElement('div');
       t.className = 'toast center';
       t.textContent = msg;
       const box = document.getElementById('toastsCenter');
-      // rimpiazza l’eventuale precedente per evitare stacking al centro
       while (box.firstChild) box.removeChild(box.firstChild);
       box.appendChild(t);
       setTimeout(() => { if (t.parentNode) t.parentNode.removeChild(t); }, 2200);
@@ -301,7 +282,7 @@
       return out;
     }
 
-    // FIX: rimuovo slash iniziali del segmento dopo /maps/dir/ per evitare "/dir///"
+    // Evita "/dir///" rimuovendo slash iniziali del segmento dopo /maps/dir/
     function extractDirSegment(longLink){
       const s = stripAtTail(longLink.trim());
       const re = /^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i;
@@ -334,47 +315,18 @@
       return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
     }
 
-    function downloadTxt(name, lines){
-      const blob = new Blob([lines.join('\n')], { type:'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
-    }
-
-    // Messaggio + orario ogni volta che aggiorniamo i risultati
-    function renderOutput(urls){
-      const out = document.getElementById('output');
-      const stats = document.getElementById('stats');
-      out.innerHTML = '';
-      if (!urls.length){
-        stats.textContent = 'Nessun risultato.';
-        document.getElementById('btnOpenAll').style.display = 'none';
-        document.getElementById('btnDownloadAll').style.display = 'none';
-        return;
+    // Dedup adiacenti
+    function dedupeAdjacent(arr){
+      const out = [];
+      let prev = null;
+      for (const x of arr){
+        if (x !== prev) out.push(x);
+        prev = x;
       }
-      const n = urls.length;
-      stats.textContent = (n === 1 ? '1 link generato' : `${n} link generati`) + ` · aggiornato alle ${timeHHMMSS()}`;
-      urls.forEach(u => {
-        const div = document.createElement('div');
-        div.className = 'out-item';
-        div.innerHTML = `
-          <div style="display:flex; justify-content:space-between; gap:10px; align-items:center;">
-            <div class="mono" style="flex:1 1 auto;">${u}</div>
-            <div class="row" style="flex:0 0 auto;">
-              <button class="btn small ghost" data-copy>Copia</button>
-              <button class="btn small" data-open>Apri</button>
-            </div>
-          </div>`;
-        div.querySelector('[data-copy]').addEventListener('click', async () => { await navigator.clipboard.writeText(u); toast('URL copiato'); });
-        div.querySelector('[data-open]').addEventListener('click', async () => { const ok = await confirmAction('Aprire il link in una nuova scheda?'); if (ok) window.open(u, '_blank', 'noopener'); });
-        out.appendChild(div);
-      });
-      document.getElementById('btnOpenAll').style.display = n > 1 ? '' : 'none';
-      document.getElementById('btnDownloadAll').style.display = '';
-      toastCenter(`Risultati aggiornati (${n} link)`);
+      return out;
     }
 
-    // Mini-dedup per sampling (invariato)
+    // Sampler (mini-dedup interno)
     function evenSample(inner, need){
       if (need <= 0) return [];
       if (inner.length <= need) return inner.slice();
@@ -398,17 +350,6 @@
       return [first, ...sampled, last].slice(0, 25);
     }
 
-    // Dedup a monte (solo duplicati ADIACENTI)
-    function dedupeAdjacent(arr){
-      const out = [];
-      let prev = null;
-      for (const x of arr){
-        if (x !== prev) out.push(x);
-        prev = x;
-      }
-      return out;
-    }
-
     function splitInBlocks(allPoints){
       const MAX = 25;
       const blocks = [];
@@ -424,6 +365,37 @@
       return blocks;
     }
 
+    // Messaggio + orario ogni volta che aggiorniamo i risultati
+    function renderOutput(urls){
+      const out = document.getElementById('output');
+      const stats = document.getElementById('stats');
+      out.innerHTML = '';
+      if (!urls.length){
+        stats.textContent = 'Nessun risultato.';
+        document.getElementById('btnDownloadAll').style.display = 'none';
+        return;
+      }
+      const n = urls.length;
+      stats.textContent = (n === 1 ? '1 link generato' : `${n} link generati`) + ` · aggiornato alle ${timeHHMMSS()}`;
+      urls.forEach(u => {
+        const div = document.createElement('div');
+        div.className = 'out-item';
+        div.innerHTML = `
+          <div style="display:flex; justify-content:space-between; gap:10px; align-items:center;">
+            <div class="mono" style="flex:1 1 auto;">${u}</div>
+            <div class="row" style="flex:0 0 auto;">
+              <button class="btn small ghost" data-copy>Copia</button>
+              <button class="btn small" data-open>Apri</button>
+            </div>
+          </div>`;
+        div.querySelector('[data-copy]').addEventListener('click', async () => { await navigator.clipboard.writeText(u); toast('URL copiato'); });
+        div.querySelector('[data-open]').addEventListener('click', async () => { const ok = await confirmAction('Aprire il link in una nuova scheda?'); if (ok) window.open(u, '_blank', 'noopener'); });
+        out.appendChild(div);
+      });
+      document.getElementById('btnDownloadAll').style.display = '';
+      toastCenter(`Risultati aggiornati (${n} link)`);
+    }
+
     // === TAB 1 click ===
     document.getElementById('btnMerge').addEventListener('click', async () => {
       const lines = document.getElementById('linksInput').value.split('\n').map(s => s.trim()).filter(Boolean);
@@ -435,11 +407,11 @@
         return;
       }
 
-      // 1) risolvi eventuali shortlink
+      // 1) shortlink
       const resolved = [];
       for (const ln of lines){ resolved.push(await resolveIfShort(ln)); }
 
-      // 2) estrai la parte dopo /maps/dir/
+      // 2) estrai /maps/dir/...
       const cleanParts = [];
       for (const link of resolved){
         const seg = extractDirSegment(link);
@@ -447,14 +419,12 @@
       }
       if (!cleanParts.length){ toast('Nessun link valido "/maps/dir/..." rilevato'); return; }
 
-      // 3) costruisci l’elenco punti, con "" in testa (=> //)
+      // 3) punti con "" (=> //) e dedup a monte
       let allPoints = [""];
       for (const seg of cleanParts){ allPoints.push(...seg.split('/')); }
-
-      // Dedup a monte
       allPoints = dedupeAdjacent(allPoints);
 
-      // 4) soglia 25 DOPO il dedup
+      // 4) soglia 25
       if (allPoints.length <= 25){
         renderOutput([buildGoogleDirURL(allPoints)]);
         return;
@@ -474,29 +444,25 @@
       document.getElementById('linksInput').value = '';
       document.getElementById('output').innerHTML = '';
       document.getElementById('stats').textContent = 'Pulito.';
-      document.getElementById('btnOpenAll').style.display = 'none';
       document.getElementById('btnDownloadAll').style.display = 'none';
     });
 
-    document.getElementById('btnOpenAll').addEventListener('click', async () => {
-      const items = Array.from(document.querySelectorAll('#output .out-item .mono')).map(x => x.textContent);
-      if (!items.length) return;
-      const ok = await confirmAction('Aprire tutti i link in nuove schede?');
-      if (!ok) return;
-      for (const u of items){ window.open(u, '_blank', 'noopener'); }
-    });
-
+    // Download .txt (con riga vuota tra link multipli)
     document.getElementById('btnDownloadAll').addEventListener('click', async () => {
       const items = Array.from(document.querySelectorAll('#output .out-item .mono')).map(x => x.textContent);
       if (!items.length) return;
       const ok = await confirmAction('Scaricare un file .txt con i link generati?');
       if (!ok) return;
       const name = (items.length === 1 ? `merge_1_${nowStamp()}.txt` : `merge_${items.length}_${nowStamp()}.txt`);
-      downloadTxt(name, items);
+      const sep = items.length > 1 ? '\n\n' : '\n';
+      const blob = new Blob([items.join(sep)], { type:'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
       toast('File scaricato');
     });
 
-    /* ===== TAB 2: Maps -> GPX ===== */
+    /* ===== TAB 2: Maps -> GPX ===== (invariato) */
 
     function isLatLon(s){
       const m = s.trim().match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/);
