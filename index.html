@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>GPX2MAPS Web-APP</title>
   <meta name="description" content="Software per gestire al 100% itinerati con Google Maps in modalità navigabile" />
-
   <style>
     :root{
       --accent:#e11d48; --fg:#0f172a; --muted:#475569; --bg:#f8fafc;
@@ -35,12 +34,10 @@
     .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
     .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;word-break:break-all}
     dialog{border:none;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.2);width:min(560px,92vw)} dialog::backdrop{background:rgba(0,0,0,.35)}
-    /* Toast centrali (3s) */
     #toastsCenter{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:60}
     .toast.center{padding:12px 16px;font-size:15px;background:rgba(17,24,39,.95);color:#fff;border-radius:10px;box-shadow:0 6px 16px rgba(0,0,0,.28);animation:fadePop .28s ease-out}
     @keyframes fadePop{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
     .out-item+.out-item{margin-top:8px}
-    /* footer come versione originale */
     footer{margin:36px auto 24px;max-width:1100px;color:var(--muted);font-size:13px;padding:0 16px}
   </style>
 </head>
@@ -54,15 +51,14 @@
       </div>
     </div>
     <div class="cta">
-      <a id="donateBtn"  class="btn"          href="#" target="_blank" rel="noopener">Dona</a>
-      <a id="amazonBtn"  class="btn secondary" href="#" target="_blank" rel="noopener">Offerte e Coupon Amazon</a>
+      <a id="donateBtn" class="btn" href="#" target="_blank" rel="noopener">Dona</a>
+      <a id="amazonBtn" class="btn secondary" href="#" target="_blank" rel="noopener">Offerte e Coupon Amazon</a>
     </div>
   </header>
 
   <div class="container">
     <div class="note">Software per gestire al 100% itinerati con Google Maps in modalità navigabile</div>
 
-    <!-- Tabs -->
     <div class="tabs" role="tablist">
       <button class="tab active" role="tab" aria-selected="true"  data-tab="merge">Fusione Link</button>
       <button class="tab"         role="tab" aria-selected="false" data-tab="maps2gpx">2) Google Maps → GPX</button>
@@ -71,7 +67,7 @@
       <button class="tab"         role="tab" aria-selected="false" data-tab="meteo">5) Meteo + Info percorso</button>
     </div>
 
-    <!-- TAB 1: Fusione Link -->
+    <!-- TAB 1 -->
     <section id="tab-merge" class="card">
       <div class="hd">Fusione, ottimizzazione e split dei link Google Maps</div>
       <div class="bd grid grid-2">
@@ -101,7 +97,7 @@
       </div>
     </section>
 
-    <!-- TAB 2: Google Maps -> GPX -->
+    <!-- TAB 2 -->
     <section id="tab-maps2gpx" class="card" hidden>
       <div class="hd">2) Google Maps → GPX</div>
       <div class="bd grid grid-2">
@@ -175,7 +171,6 @@
     </form>
   </dialog>
 
-  <!-- Toast centrali -->
   <div id="toastsCenter" aria-live="polite" aria-atomic="true"></div>
 
   <script>
@@ -206,42 +201,26 @@
     async function confirmAction(text){ const dlg=document.getElementById('confirmDialog'); document.getElementById('confirmText').textContent=text||''; dlg.showModal(); const v=await new Promise(r=>dlg.addEventListener('close',()=>r(dlg.returnValue),{once:true})); return v==='ok'; }
     async function getJSON(u){ const r=await fetch(u,{headers:{'Accept':'application/json'}}); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
 
-    /* Common helpers */
+    /* Helpers */
     function stripAtTail(s){ return s.replace(/\/@.*$/,'').replace(/\/data=.*$/,''); }
 
-    // Round HALF-EVEN (banker’s), d decimali — combacia col PowerShell
+    // HALF-EVEN (banker's) a 6 decimali – come PS
     function roundHalfEvenStr(x, d=6){
       let s=(typeof x==='number')?x.toString():String(x).trim();
       if(!isFinite(+s)) return (0).toFixed(d);
-      if(/[eE]/.test(s)) s=(+s).toFixed(d+10);     // espansione
+      if(/[eE]/.test(s)) s=(+s).toFixed(d+10);
       let sign=''; if(s[0]==='-'||s[0]==='+'){ if(s[0]==='-') sign='-'; s=s.slice(1); }
       if(!s.includes('.')) s+='.0';
       let [I,F='']=s.split('.'); I=I.replace(/\D/g,'')||'0'; F=F.replace(/\D/g,'');
       while(F.length<d+1) F+='0';
-      const keep = I.length + d;
-      const digits = I + F;                 // solo numeri
-      const kept = digits.slice(0, keep) || '0';
-      const firstDrop = digits[keep] || '0';
-      const restDrop  = digits.slice(keep+1);
-
-      // decide se arrotondare
+      const keep=I.length+d, digits=I+F, kept=digits.slice(0,keep)||'0', firstDrop=digits[keep]||'0', restDrop=digits.slice(keep+1);
       let up=false;
       if(firstDrop>'5') up=true;
       else if(firstDrop<'5') up=false;
-      else { // == '5'
-        if(/[1-9]/.test(restDrop)) up=true; // > .5
-        else { // tie esatto -> even
-          const lastKept = kept[kept.length-1] || '0';
-          up = (parseInt(lastKept,10) % 2 === 1); // arrotonda se dispari
-        }
-      }
-
-      let n = BigInt(kept);
-      if(up) n+=1n;
-      let rs = n.toString();
-      while(rs.length<=d) rs='0'+rs;
-      const pos = rs.length - d;
-      let out = rs.slice(0,pos) + '.' + rs.slice(pos);
+      else up = /[1-9]/.test(restDrop) ? true : (parseInt(kept[kept.length-1]||'0',10)%2===1);
+      let n=BigInt(kept); if(up) n+=1n;
+      let rs=n.toString(); while(rs.length<=d) rs='0'+rs;
+      const pos=rs.length-d; let out=rs.slice(0,pos)+'.'+rs.slice(pos);
       if(sign==='-' && out!=='0.'+'0'.repeat(d)) out='-'+out;
       return out;
     }
@@ -253,9 +232,9 @@
     function nowStamp(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; }
     function timeHHMMSS(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
     function joinLF(a){ return a.join('\n'); }
-    function removeFinalEOL(s){ return String(s).replace(/(?:\r?\n)+$/,''); }
+    function removeFinalEOL(s){ return String(s).replace(/[\r\n]+$/,''); } // più severo
 
-    /* ===== TAB 1 ===== */
+    /* TAB 1 */
     function extractDirSegment(s){ const m=stripAtTail(s.trim()).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i); if(!m) return null; return m[1].replace(/^\/+/,'').replace(/\/+$/,''); }
     async function resolveIfShort(url){ try{ const h=(new URL(url)).host; if(!/(^|\.)maps\.app\.goo\.gl$/i.test(h)&&!/(^|\.)goo\.gl$/i.test(h)&&!/(^|\.)g\.co$/i.test(h)) return url; const {finalUrl}=await getJSON(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`); return finalUrl||url; }catch{return url;} }
     function buildGoogleDirURL(parts){ return 'https://www.google.com/maps/dir/'+parts.join('/'); }
@@ -312,13 +291,13 @@
       const ok=await confirmAction('Scaricare un file .txt con i link generati?'); if(!ok) return;
       const name=(items.length===1?`merge_1_${nowStamp()}.txt`:`merge_${items.length}_${nowStamp()}.txt`);
       const sep=items.length>1?'\n\n':'\n';
-      const bytes=new TextEncoder().encode(items.join(sep));               // nessuna newline extra
+      const bytes=new TextEncoder().encode(items.join(sep)); // nessuna newline extra
       const url=URL.createObjectURL(new Blob([bytes],{type:'text/plain'}));
       const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
       toast('File scaricato');
     });
 
-    /* ===== TAB 2 ===== */
+    /* TAB 2 */
     function extractDirSegmentKeepLeading(s){ const m=stripAtTail(s.trim()).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i); if(!m) return null; return m[1].replace(/\/+$/,''); }
     function isLatLonStr(s){ const m=s.trim().match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/); return m?{lat:m[1],lon:m[2]}:null; }
     async function geocodeTry(q){ try{ const r=await getJSON(`${CONFIG.workerBase}/geocode?q=${encodeURIComponent(q)}`); if(Array.isArray(r)&&r.length) return r[0]; }catch{} return null; }
@@ -390,7 +369,7 @@
       let osrm; try{ osrm=await getJSON(osrmUrl); }catch(e){ toastCenter('Errore OSRM'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
       if(!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]){ toastCenter('OSRM non ha restituito una rotta valida'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
 
-      // Steps RTE + forzatura depart/arrive = WPT
+      // Steps RTE: uso i punti OSRM (anche depart/arrive) come fa lo script PS
       const rte=[];
       for(const leg of (osrm.routes[0].legs||[])){
         for(const step of (leg.steps||[])){
@@ -403,10 +382,6 @@
             rte.push({lat,lon,type:String(step.maneuver.type||'')});
           }
         }
-      }
-      if(rte.length){
-        rte[0]={lat:String(ordered[0].lat),lon:String(ordered[0].lon),type:'depart'};
-        rte[rte.length-1]={lat:String(ordered[ordered.length-1].lat),lon:String(ordered[ordered.length-1].lon),type:'arrive'};
       }
 
       // TRK
@@ -430,8 +405,8 @@
     });
 
     function downloadBlob(name, content, mime){
-      const clean=removeFinalEOL(content);                 // nessuna riga finale
-      const bytes=new TextEncoder().encode(clean);         // byte “crudi”, niente conversioni
+      const clean=removeFinalEOL(content);                 // elimina newline finale
+      const bytes=new TextEncoder().encode(clean);
       const url=URL.createObjectURL(new Blob([bytes],{type:mime||'application/gpx+xml'}));
       const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     }
