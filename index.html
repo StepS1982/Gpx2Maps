@@ -177,22 +177,24 @@
     const CONFIG = {
       workerBase: "https://gpx2maps-worker.stefano-vitro.workers.dev",
       paypalDonateUrl: "https://www.paypal.com/donate?business=stefano.vitro%40gmail.com&no_recurring=0&item_name=Supporto+sviluppo+GPX2MAPS&currency_code=EUR",
-      amazonAffiliateUrl: "https://amzn.to/41o2XjA",
+      amazonAffiliateUrl: "https://amzn.to/41o2XjA"
     };
     document.getElementById('donateBtn').href=CONFIG.paypalDonateUrl;
     document.getElementById('amazonBtn').href=CONFIG.amazonAffiliateUrl;
 
     /* Tabs */
-    const tabs=[...document.querySelectorAll('.tab')];
-    tabs.forEach(btn=>btn.addEventListener('click',()=>{
-      tabs.forEach(b=>{b.classList.remove('active');b.setAttribute('aria-selected','false')});
-      btn.classList.add('active');btn.setAttribute('aria-selected','true');
-      const id=btn.dataset.tab;
-      ['merge','maps2gpx','gpx2maps','sanitize','meteo'].forEach(k=>{
-        const s=document.getElementById(`tab-${k}`);
-        if(s) s.hidden = k!==id && !(k==='merge'&&id===undefined);
+    const tabs=[].slice.call(document.querySelectorAll('.tab'));
+    tabs.forEach(function(btn){
+      btn.addEventListener('click',function(){
+        tabs.forEach(function(b){ b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+        btn.classList.add('active'); btn.setAttribute('aria-selected','true');
+        const id=btn.dataset.tab;
+        ['merge','maps2gpx','gpx2maps','sanitize','meteo'].forEach(function(k){
+          const s=document.getElementById('tab-'+k);
+          if(s) s.hidden = k!==id && !(k==='merge'&&id===undefined);
+        });
       });
-    }));
+    });
 
     /* Toast center 3s */
     function toastCenter(msg){
@@ -202,17 +204,17 @@
       t.className='toast center';
       t.textContent=msg;
       box.appendChild(t);
-      setTimeout(()=>{if(t.parentNode)t.parentNode.removeChild(t)},3000);
+      setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); },3000);
     }
     function toast(msg){ toastCenter(msg); }
 
-    // Confirm (once manuale, no options object)
+    // Confirm (once manuale)
     async function confirmAction(text){
       const dlg=document.getElementById('confirmDialog');
       document.getElementById('confirmText').textContent=text||'';
       dlg.showModal();
-      const val = await new Promise(resolve=>{
-        const handler=()=>{ dlg.removeEventListener('close',handler); resolve(dlg.returnValue); };
+      const val = await new Promise(function(resolve){
+        const handler=function(){ dlg.removeEventListener('close',handler); resolve(dlg.returnValue); };
         dlg.addEventListener('close',handler);
       });
       return val==='ok';
@@ -228,72 +230,78 @@
     function stripAtTail(s){ return s.replace(/\/@.*$/,'').replace(/\/data=.*$/,''); }
 
     // HALF-EVEN (banker's) a 6 decimali – come PS
-    function roundHalfEvenStr(x, d=6){
-      let s=(typeof x==='number')?x.toString():String(x).trim();
+    function roundHalfEvenStr(x, d){
+      d = (typeof d==='number')?d:6;
+      var s=(typeof x==='number')?x.toString():String(x).trim();
       if(!isFinite(+s)) return (0).toFixed(d);
       if(/[eE]/.test(s)) s=(+s).toFixed(d+10);
-      let sign=''; if(s[0]==='-'||s[0]==='+'){ if(s[0]==='-') sign='-'; s=s.slice(1); }
-      if(!s.includes('.')) s+='.0';
-      let [I,F='']=s.split('.'); I=I.replace(/\D/g,'')||'0'; F=F.replace(/\D/g,'');
+      var sign=''; if(s[0]==='-'||s[0]==='+'){ if(s[0]==='-') sign='-'; s=s.slice(1); }
+      if(s.indexOf('.')<0) s+='.0';
+      var sp=s.split('.'), I=sp[0]||'0', F=sp[1]||'';
+      I=I.replace(/\D/g,'')||'0'; F=F.replace(/\D/g,'');
       while(F.length<d+1) F+='0';
-      const keep=I.length+d, digits=I+F, kept=digits.slice(0,keep)||'0', firstDrop=digits[keep]||'0', restDrop=digits.slice(keep+1);
-      let up=false;
+      var keep=I.length+d, digits=I+F, kept=digits.slice(0,keep)||'0', firstDrop=digits[keep]||'0', restDrop=digits.slice(keep+1);
+      var up=false;
       if(firstDrop>'5') up=true;
       else if(firstDrop<'5') up=false;
       else up = /[1-9]/.test(restDrop) ? true : (parseInt(kept[kept.length-1]||'0',10)%2===1);
-      let n=BigInt(kept); if(up) n+=1n;
-      let rs=n.toString(); while(rs.length<=d) rs='0'+rs;
-      const pos=rs.length-d; let out=rs.slice(0,pos)+'.'+rs.slice(pos);
-      if(sign==='-' && out!=='0.'+'0'.repeat(d)) out='-'+out;
+      // somma 1 senza BigInt
+      var carry = up?1:0, arr=kept.split(''), i=arr.length-1;
+      while(carry && i>=0){ var dch=(arr[i].charCodeAt(0)-48)+carry; carry = dch>=10?1:0; arr[i]=String(dch%10); i--; }
+      if(carry) arr.unshift('1');
+      var rs=arr.join('');
+      while(rs.length<=d) rs='0'+rs;
+      var pos=rs.length-d, out=rs.slice(0,pos)+'.'+rs.slice(pos);
+      if(sign==='-' && out!=='0.'+Array(d+1).join('0')) out='-'+out;
       return out;
     }
-    const fmt6s = x => roundHalfEvenStr(x, 6);
+    var fmt6s = function(x){ return roundHalfEvenStr(x, 6); };
 
-    function decodeTok(p){ try{return decodeURIComponent(p).replace(/\+/g,' ').trim()}catch{return p.replace(/\+/g,' ').trim()} }
+    function decodeTok(p){ try{return decodeURIComponent(p).replace(/\+/g,' ').trim();}catch(e){return p.replace(/\+/g,' ').trim();} }
     function xmlEscape(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
     function fileNameSafe(s){ return (s||'').replace(/[\\\/:*?"<>|]/g,'').replace(/\s+/g,' ').trim(); }
-    function nowStamp(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; }
-    function timeHHMMSS(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
+    function nowStamp(){ var d=new Date(),p=function(n){return String(n).padStart(2,'0')}; return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds()); }
+    function timeHHMMSS(){ var d=new Date(),p=function(n){return String(n).padStart(2,'0')}; return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds()); }
     function joinLF(a){ return a.join('\n'); }
     function removeFinalEOL(s){ return String(s).replace(/[\r\n]+$/,''); }
 
     /* TAB 1 */
     function extractDirSegment(s){
-      const m=stripAtTail(s.trim()).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i);
+      var m=stripAtTail(s.trim()).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i);
       if(!m) return null;
       return m[1].replace(/^\/+/,'').replace(/\/+$/,'');
     }
     async function resolveIfShort(url){
       try{
-        const h=(new URL(url)).host;
+        var h=(new URL(url)).host;
         if(!/(^|\.)maps\.app\.goo\.gl$/i.test(h)&&!/(^|\.)goo\.gl$/i.test(h)&&!/(^|\.)g\.co$/i.test(h)) return url;
-        const {finalUrl}=await getJSON(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`);
+        var j=await getJSON(CONFIG.workerBase+'/resolve?url='+encodeURIComponent(url));
+        var finalUrl=j && j.finalUrl ? j.finalUrl : null;
         return finalUrl||url;
-      }catch{return url;}
+      }catch(e){ return url; }
     }
     function buildGoogleDirURL(parts){ return 'https://www.google.com/maps/dir/'+parts.join('/'); }
-    function dedupeAdjacent(a){ const out=[]; let prev=null; for(const x of a){ if(x!==prev) out.push(x); prev=x; } return out; }
+    function dedupeAdjacent(a){ var out=[], prev=null; for(var i=0;i<a.length;i++){ var x=a[i]; if(x!==prev) out.push(x); prev=x; } return out; }
     function evenSample(inner,need){
       if(need<=0)return[];
       if(inner.length<=need)return inner.slice();
-      const out=[];
-      for(let i=0;i<need;i++){ const idx=Math.round(i*(inner.length-1)/(need-1)); out.push(inner[idx]); }
-      const res=[]; for(const v of out){ if(res[res.length-1]!==v) res.push(v); }
+      var out=[];
+      for(var i=0;i<need;i++){ var idx=Math.round(i*(inner.length-1)/(need-1)); out.push(inner[idx]); }
+      var res=[]; for(var k=0;k<out.length;k++){ var v=out[k]; if(res.length===0 || res[res.length-1]!==v) res.push(v); }
       while(res.length>need) res.pop();
       return res;
     }
     function optimizeTo25(all){
       if(all.length<=25) return all;
-      const first=all[0], last=all[all.length-1];
-      const mid=all.slice(1,all.length-1);
-      const sampled=evenSample(mid,23);
-      return [first,...sampled,last].slice(0,25);
+      var first=all[0], last=all[all.length-1];
+      var mid=all.slice(1,all.length-1);
+      var sampled=evenSample(mid,23);
+      return [first].concat(sampled).concat([last]).slice(0,25);
     }
     function splitInBlocks(all){
-      const MAX=25, blocks=[];
-      let rest=all.slice(), first=true;
+      var MAX=25, blocks=[], rest=all.slice(), first=true;
       while(rest.length){
-        const chunk=rest.slice(0,MAX);
+        var chunk=rest.slice(0,MAX);
         if(!first && chunk[0]==="") chunk.shift();
         blocks.push(chunk);
         rest=rest.slice(MAX);
@@ -303,122 +311,132 @@
     }
 
     function renderOutput(urls){
-      const out=document.getElementById('output'),stats=document.getElementById('stats'); out.innerHTML='';
+      var out=document.getElementById('output'),stats=document.getElementById('stats'); out.innerHTML='';
       if(!urls.length){ stats.textContent='Nessun risultato.'; document.getElementById('btnDownloadAll').style.display='none'; return; }
-      const n=urls.length; stats.textContent=(n===1?'1 link generato':`${n} link generati`)+` · aggiornato alle ${timeHHMMSS()}`;
-      urls.forEach(u=>{
-        const div=document.createElement('div'); div.className='out-item';
-        div.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
-            <div class="mono" style="flex:1 1 auto;">${u}</div>
-            <div class="row" style="flex:0 0 auto;">
-              <button class="btn small ghost" data-copy>Copia</button>
-              <button class="btn small" data-open>Apri</button>
-            </div>
-          </div>`;
-        div.querySelector('[data-copy]').addEventListener('click',async()=>{await navigator.clipboard.writeText(u);toast('URL copiato')});
-        div.querySelector('[data-open]').addEventListener('click',async()=>{
-          const ok=await confirmAction('Aprire il link in una nuova scheda?');
-          if(ok) window.open(u,'_blank','noopener')
-        });
+      var n=urls.length; stats.textContent=(n===1?'1 link generato':(n+' link generati'))+' · aggiornato alle '+timeHHMMSS();
+      urls.forEach(function(u){
+        var div=document.createElement('div'); div.className='out-item';
+        div.innerHTML='<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">'
+            +'<div class="mono" style="flex:1 1 auto;">'+u+'</div>'
+            +'<div class="row" style="flex:0 0 auto;">'
+            +  '<button class="btn small ghost" data-copy>Copia</button>'
+            +  '<button class="btn small" data-open>Apri</button>'
+            +'</div>'
+          +'</div>';
+        div.querySelector('[data-copy]').addEventListener('click',async function(){ await navigator.clipboard.writeText(u); toast('URL copiato'); });
+        div.querySelector('[data-open]').addEventListener('click',async function(){ var ok=await confirmAction('Aprire il link in una nuova scheda?'); if(ok) window.open(u,'_blank','noopener'); });
         out.appendChild(div);
       });
       document.getElementById('btnDownloadAll').style.display='';
-      toastCenter(`Risultati aggiornati (${n} link)`);
+      toastCenter('Risultati aggiornati ('+n+' link)');
     }
 
-    // Strategy dialog "once" manuale
     function chooseStrategy(){
       const dlg=document.getElementById('strategyDialog');
       dlg.showModal();
-      return new Promise(resolve=>{
-        const handler=()=>{
+      return new Promise(function(resolve){
+        const handler=function(){
           dlg.removeEventListener('close',handler);
-          const rv=dlg.returnValue==='opt'?'optimize':dlg.returnValue==='split'?'split':null;
+          const rv = dlg.returnValue==='opt'?'optimize' : (dlg.returnValue==='split'?'split':null);
           resolve(rv);
         };
         dlg.addEventListener('close',handler);
       });
     }
 
-    document.getElementById('btnMerge').addEventListener('click', async ()=>{
-      const lines=document.getElementById('linksInput').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    document.getElementById('btnMerge').addEventListener('click', async function(){
+      var lines=document.getElementById('linksInput').value.split('\n').map(function(s){return s.trim()}).filter(Boolean);
       if(!lines.length){toastCenter('Inserisci almeno un link');return}
       if(lines.length===1 && /https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/\//i.test(lines[0])){toastCenter('Errore: almeno due link sono necessari per la fusione.');return}
-      const resolved=[]; for(const ln of lines){resolved.push(await resolveIfShort(ln))}
-      const clean=[]; for(const link of resolved){const seg=extractDirSegment(link); if(seg) clean.push(seg)}
+      var resolved=[]; for(var i=0;i<lines.length;i++){ resolved.push(await resolveIfShort(lines[i])); }
+      var clean=[]; for(i=0;i<resolved.length;i++){ var seg=extractDirSegment(resolved[i]); if(seg) clean.push(seg); }
       if(!clean.length){toastCenter('Nessun link valido "/maps/dir/..." rilevato');return}
-      let all=[""]; for(const seg of clean){all.push(...seg.split('/'))}
+      var all=[""]; for(i=0;i<clean.length;i++){ Array.prototype.push.apply(all, clean[i].split('/')); }
       all=dedupeAdjacent(all);
       if(all.length<=25){renderOutput([buildGoogleDirURL(all)]);return}
-      const strategy=await chooseStrategy();
+      var strategy=await chooseStrategy();
       if(!strategy){toastCenter('Operazione annullata');return}
-      if(strategy==='optimize'){renderOutput([buildGoogleDirURL(optimizeTo25(all))])}
-      else{const blocks=splitInBlocks(all); renderOutput(blocks.map(b=>buildGoogleDirURL(b)));}
+      if(strategy==='optimize'){renderOutput([buildGoogleDirURL(optimizeTo25(all))]);}
+      else{var blocks=splitInBlocks(all); renderOutput(blocks.map(function(b){return buildGoogleDirURL(b)}));}
     });
 
-    document.getElementById('btnClear').addEventListener('click',()=>{
+    document.getElementById('btnClear').addEventListener('click',function(){
       document.getElementById('linksInput').value='';
       document.getElementById('output').innerHTML='';
       document.getElementById('stats').textContent='Pulito.';
       document.getElementById('btnDownloadAll').style.display='none';
     });
 
-    document.getElementById('btnDownloadAll').addEventListener('click',async()=>{
-      const items=[...document.querySelectorAll('#output .out-item .mono')].map(x=>x.textContent);
+    document.getElementById('btnDownloadAll').addEventListener('click',async function(){
+      var items=[].slice.call(document.querySelectorAll('#output .out-item .mono')).map(function(x){return x.textContent;});
       if(!items.length) return;
-      const ok=await confirmAction('Scaricare un file .txt con i link generati?'); if(!ok) return;
-      const name=(items.length===1?`merge_1_${nowStamp()}.txt`:`merge_${items.length}_${nowStamp()}.txt`);
-      const sep=items.length>1?'\n\n':'\n';
-      const bytes=new TextEncoder().encode(items.join(sep));
-      const url=URL.createObjectURL(new Blob([bytes],{type:'text/plain'}));
-      const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      var ok=await confirmAction('Scaricare un file .txt con i link generati?'); if(!ok) return;
+      var name=(items.length===1?('merge_1_'+nowStamp()+'.txt'):('merge_'+items.length+'_'+nowStamp()+'.txt'));
+      var sep=items.length>1?'\n\n':'\n';
+      var bytes=new TextEncoder().encode(items.join(sep));
+      var url=URL.createObjectURL(new Blob([bytes],{type:'text/plain'}));
+      var a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
       toast('File scaricato');
     });
 
     /* TAB 2 */
     function extractDirSegmentKeepLeading(s){
-      const m=stripAtTail(s.trim()).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i);
+      var m=stripAtTail(s.trim()).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i);
       if(!m) return null;
       return m[1].replace(/\/+$/,'');
     }
-    function isLatLonStr(s){ const m=s.trim().match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/); return m?{lat:m[1],lon:m[2]}:null; }
-    async function geocodeTry(q){ try{ const r=await getJSON(`${CONFIG.workerBase}/geocode?q=${encodeURIComponent(q)}`); if(Array.isArray(r)&&r.length) return r[0]; }catch{} return null; }
+    function isLatLonStr(s){ var m=s.trim().match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/); return m?{lat:m[1],lon:m[2]}:null; }
+    async function geocodeTry(q){ try{ var r=await getJSON(CONFIG.workerBase+'/geocode?q='+encodeURIComponent(q)); if(Array.isArray(r)&&r.length) return r[0]; }catch(e){} return null; }
     async function geocodeFreeform(t){
-      const ll=isLatLonStr(t); if(ll) return {lat:ll.lat,lon:ll.lon,label:`${ll.lat},${ll.lon}`};
-      let g=await geocodeTry(t); if(g) return {lat:String(g.lat),lon:String(g.lon),label=g.display_name||t};
-      g=await geocodeTry(`${t}, Italia`); if(g) return {lat:String(g.lat),lon:String(g.lon),label=g.display_name||t};
-      const head=t.split(',')[0].trim(); if(head&&head!==t){ g=await geocodeTry(`${head}, Italia`); if(g) return {lat:String(g.lat),lon:String(g.lon),label=g.display_name||head}; }
+      var ll=isLatLonStr(t); if(ll) return {lat:ll.lat,lon:ll.lon,label:String(ll.lat)+','+String(ll.lon)};
+      var g=await geocodeTry(t); if(g) return {lat:String(g.lat),lon:String(g.lon),label:g.display_name||t};
+      g=await geocodeTry(t+', Italia'); if(g) return {lat:String(g.lat),lon:String(g.lon),label:g.display_name||t};
+      var head=t.split(',')[0].trim(); if(head&&head!==t){ g=await geocodeTry(head+', Italia'); if(g) return {lat:String(g.lat),lon:String(g.lon),label:g.display_name||head}; }
       return null;
     }
     async function reverseShortLabel(lat,lon){
       try{
-        const r=await getJSON(`${CONFIG.workerBase}/reverse?lat=${lat}&lon=${lon}`);
-        const a=r&&r.address?r.address:{};
-        const city=a.city||a.town||a.village||a.hamlet||'';
-        const prov=a.state_district||a.county||'';
-        if(city) return prov?`${city} (${prov})`:city;
-      }catch{}
+        var r=await getJSON(CONFIG.workerBase+'/reverse?lat='+lat+'&lon='+lon);
+        var a=r&&r.address?r.address:{};
+        var city=a.city||a.town||a.village||a.hamlet||'';
+        var prov=a.state_district||a.county||'';
+        if(city) return prov?(city+' ('+prov+')'):city;
+      }catch(e){}
       return 'Località';
     }
 
     function buildGPX_RTE_WPT(points, steps, title){
-      const L=[]; L.push('<?xml version="1.0" encoding="UTF-8"?>'); L.push('<gpx version="1.1" creator="MAPS2GPX OSRM" xmlns="http://www.topografix.com/GPX/1/1">'); L.push(`  <metadata><time>${new Date().toISOString()}</time></metadata>`);
-      for(let i=0;i<points.length;i++){ const p=points[i],lat=fmt6s(p.lat),lon=fmt6s(p.lon),name='WP'+String(i+1).padStart(2,'0'); const desc=p.label?xmlEscape(p.label):`${lat},${lon}`; L.push(`  <wpt lat="${lat}" lon="${lon}"><name>${name}</name><desc>${desc}</desc></wpt>`); }
+      var L=[]; L.push('<?xml version="1.0" encoding="UTF-8"?>'); L.push('<gpx version="1.1" creator="MAPS2GPX OSRM" xmlns="http://www.topografix.com/GPX/1/1">'); L.push('  <metadata><time>'+new Date().toISOString()+'</time></metadata>');
+      for(var i=0;i<points.length;i++){
+        var p=points[i],lat=fmt6s(p.lat),lon=fmt6s(p.lon),name='WP'+String(i+1).padStart(2,'0');
+        var desc=p.label?xmlEscape(p.label):(lat+','+lon);
+        L.push('  <wpt lat="'+lat+'" lon="'+lon+'"><name>'+name+'</name><desc>'+desc+'</desc></wpt>');
+      }
       L.push('  <rte><name>'+xmlEscape(title)+'</name>');
-      for(const s of steps){ const lat=fmt6s(s.lat),lon=fmt6s(s.lon),lab=xmlEscape(s.type||'via'); L.push(`    <rtept lat="${lat}" lon="${lon}"><name>${lab}</name></rtept>`); }
+      for(var j=0;j<steps.length;j++){
+        var s=steps[j], lat2=fmt6s(s.lat), lon2=fmt6s(s.lon), lab=xmlEscape(s.type||'via');
+        L.push('    <rtept lat="'+lat2+'" lon="'+lon2+'"><name>'+lab+'</name></rtept>');
+      }
       L.push('  </rte>'); L.push('</gpx>');
       return removeFinalEOL(joinLF(L));
     }
     function buildGPX_TRK_WPT(points, trkCoords, title){
-      const L=[]; L.push('<?xml version="1.0" encoding="UTF-8"?>'); L.push('<gpx version="1.1" creator="MAPS2GPX OSRM" xmlns="http://www.topografix.com/GPX/1/1">'); L.push(`  <metadata><time>${new Date().toISOString()}</time></metadata>`);
-      for(let i=0;i<points.length;i++){ const p=points[i],lat=fmt6s(p.lat),lon=fmt6s(p.lon),name='WP'+String(i+1).padStart(2,'0'); const desc=p.label?xmlEscape(p.label):`${lat},${lon}`; L.push(`  <wpt lat="${lat}" lon="${lon}"><name>${name}</name><desc>${desc}</desc></wpt>`); }
+      var L=[]; L.push('<?xml version="1.0" encoding="UTF-8"?>'); L.push('<gpx version="1.1" creator="MAPS2GPX OSRM" xmlns="http://www.topografix.com/GPX/1/1">'); L.push('  <metadata><time>'+new Date().toISOString()+'</time></metadata>');
+      for(var i=0;i<points.length;i++){
+        var p=points[i],lat=fmt6s(p.lat),lon=fmt6s(p.lon),name='WP'+String(i+1).padStart(2,'0');
+        var desc=p.label?xmlEscape(p.label):(lat+','+lon);
+        L.push('  <wpt lat="'+lat+'" lon="'+lon+'"><name>'+name+'</name><desc>'+desc+'</desc></wpt>');
+      }
       L.push('  <trk><name>'+xmlEscape(title)+'</name><trkseg>');
-      for(const c of trkCoords){ const lon=fmt6s(String(c[0])),lat=fmt6s(String(c[1])); L.push(`    <trkpt lat="${lat}" lon="${lon}" />`); }
+      for(var t=0;t<trkCoords.length;t++){
+        var c=trkCoords[t], lon3=fmt6s(String(c[0])), lat3=fmt6s(String(c[1]));
+        L.push('    <trkpt lat="'+lat3+'" lon="'+lon3+'" />');
+      }
       L.push('  </trkseg></trk>'); L.push('</gpx>');
       return removeFinalEOL(joinLF(L));
     }
 
-    let gpxRTE=null,gpxTRK=null,nameRTE='',nameTRK='';
+    var gpxRTE=null,gpxTRK=null,nameRTE='',nameTRK='';
     function resetMaps2GPXUI(){
       document.getElementById('stats2').textContent='Nessun file generato.';
       document.getElementById('gpxPreviewRte').textContent='';
@@ -429,87 +447,91 @@
       gpxRTE=gpxTRK=null; nameRTE=nameTRK='';
     }
 
-    document.getElementById('btnGenGPX').addEventListener('click', async ()=>{
+    document.getElementById('btnGenGPX').addEventListener('click', async function(){
       resetMaps2GPXUI();
-      const raw=document.getElementById('maps2gpxInput').value.split('\n').map(s=>s.trim()).filter(Boolean);
+      var raw=document.getElementById('maps2gpxInput').value.split('\n').map(function(s){return s.trim()}).filter(Boolean);
       if(!raw.length){toastCenter('Inserisci almeno una riga');return}
 
       // Tokenize (salta //)
-      let tokens=[];
-      for(const line of raw){
+      var tokens=[];
+      for(var i=0;i<raw.length;i++){
+        var line=raw[i];
         if(/^https?:\/\//i.test(line)){
-          const resolved=await resolveIfShort(line);
-          const seg=extractDirSegmentKeepLeading(resolved);
+          var resolved=await resolveIfShort(line);
+          var seg=extractDirSegmentKeepLeading(resolved);
           if(!seg){toastCenter('Link non valido: manca /maps/dir/');return;}
-          let parts=seg.split('/'); parts=parts.filter(x=>x!==''); parts=parts.map(decodeTok).filter(Boolean);
-          tokens.push(...parts);
+          var parts=seg.split('/'); parts=parts.filter(function(x){return x!==''}); parts=parts.map(decodeTok).filter(Boolean);
+          Array.prototype.push.apply(tokens, parts);
         }else{
           if(line!=='//') tokens.push(line);
         }
       }
 
       // Geocoding con salta-errori
-      const ordered=[], skipped=[];
-      for(let i=0;i<tokens.length;i++){
-        document.getElementById('stats2').textContent=`Geocoding ${i+1}/${tokens.length}...`;
-        const g=await geocodeFreeform(tokens[i]);
+      var ordered=[], skipped=[];
+      for(i=0;i<tokens.length;i++){
+        document.getElementById('stats2').textContent='Geocoding '+(i+1)+'/'+tokens.length+'...';
+        var g=await geocodeFreeform(tokens[i]);
         if(!g){ skipped.push(tokens[i]); continue; }
         ordered.push(g);
       }
       if(ordered.length<2){ document.getElementById('stats2').textContent='Errore: geocoding fallito (troppi pochi punti).'; return; }
-      if(skipped.length){ toastCenter(`Saltati ${skipped.length} punto/i non geocodificati`); }
+      if(skipped.length){ toastCenter('Saltati '+skipped.length+' punto/i non geocodificati'); }
 
       // OSRM
-      const coordsParam=ordered.map(p=>`${p.lon},${p.lat}`).join(';');
-      const osrmUrl=`${CONFIG.workerBase}/osrm?coords=${encodeURIComponent(coordsParam)}&profile=driving&overview=full&geometries=geojson&steps=true`;
+      var coordsParam=ordered.map(function(p){return p.lon+','+p.lat}).join(';');
+      var osrmUrl=CONFIG.workerBase+'/osrm?coords='+encodeURIComponent(coordsParam)+'&profile=driving&overview=full&geometries=geojson&steps=true';
       document.getElementById('stats2').textContent='Calcolo rotta (OSRM)...';
-      let osrm; try{ osrm=await getJSON(osrmUrl); }catch(e){ toastCenter('Errore OSRM'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
+      var osrm; try{ osrm=await getJSON(osrmUrl); }catch(e){ toastCenter('Errore OSRM'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
       if(!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]){ toastCenter('OSRM non ha restituito una rotta valida'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
 
-      // Steps RTE
-      const rte=[];
-      for(const leg of (osrm.routes[0].legs||[])){
-        for(const step of (leg.steps||[])){
+      // Steps RTE (no shorthand)
+      var rte=[];
+      var legs=(osrm.routes[0].legs||[]);
+      for(var li=0; li<legs.length; li++){
+        var steps=(legs[li].steps||[]);
+        for(var si=0; si<steps.length; si++){
+          var step=steps[si];
           if(step.maneuver && Array.isArray(step.maneuver.location)){
-            const lon=String(step.maneuver.location[0]), lat=String(step.maneuver.location[1]);
+            var lon=String(step.maneuver.location[0]), lat=String(step.maneuver.location[1]);
             if(rte.length){
-              const last=rte[rte.length-1];
+              var last=rte[rte.length-1];
               if(Math.abs(parseFloat(last.lat)-parseFloat(lat))<1e-7 && Math.abs(parseFloat(last.lon)-parseFloat(lon))<1e-7) continue;
             }
-            rte.push({lat,lon,type:String(step.maneuver.type||'')});
+            rte.push({ lat: lat, lon: lon, type: String(step.maneuver.type||'') });
           }
         }
       }
 
       // TRK
-      const trk=(osrm.routes[0].geometry && osrm.routes[0].geometry.coordinates)?osrm.routes[0].geometry.coordinates:[];
-      const startLabel=fileNameSafe(await reverseShortLabel(ordered[0].lat,ordered[0].lon));
-      const endLabel=fileNameSafe(await reverseShortLabel(ordered[ordered.length-1].lat,ordered[ordered.length-1].lon));
-      const title=`GPX da: ${startLabel} a: ${endLabel}`;
-      const ts=nowStamp();
+      var trk=(osrm.routes[0].geometry && osrm.routes[0].geometry.coordinates)?osrm.routes[0].geometry.coordinates:[];
+      var startLabel=fileNameSafe(await reverseShortLabel(ordered[0].lat,ordered[0].lon));
+      var endLabel=fileNameSafe(await reverseShortLabel(ordered[ordered.length-1].lat,ordered[ordered.length-1].lon));
+      var title='GPX da: '+startLabel+' a: '+endLabel;
+      var ts=nowStamp();
 
       gpxRTE=buildGPX_RTE_WPT(ordered,rte,title);
       gpxTRK=buildGPX_TRK_WPT(ordered,trk,title);
-      nameRTE=`maps2gpx_osrm_rotta_${startLabel}_${endLabel}_${ts}.gpx`;
-      nameTRK=`maps2gpx_osrm_traccia_${startLabel}_${endLabel}_${ts}.gpx`;
+      nameRTE='maps2gpx_osrm_rotta_'+startLabel+'_'+endLabel+'_'+ts+'.gpx';
+      nameTRK='maps2gpx_osrm_traccia_'+startLabel+'_'+endLabel+'_'+ts+'.gpx';
 
-      document.getElementById('stats2').textContent=`${ordered.length} punti convertiti (WPT) · RTE ${rte.length} step · TRK ${trk.length} vertici`;
+      document.getElementById('stats2').textContent=ordered.length+' punti convertiti (WPT) · RTE '+rte.length+' step · TRK '+trk.length+' vertici';
 
-      const prevR=gpxRTE.split('\n').slice(0,200).join('\n'); document.getElementById('gpxPreviewRte').textContent=prevR+(gpxRTE.length>prevR.length?'\n...':''); document.getElementById('previewWrapRte').hidden=false;
-      const prevT=gpxTRK.split('\n').slice(0,200).join('\n'); document.getElementById('gpxPreviewTrk').textContent=prevT+(gpxTRK.length>prevT.length?'\n...':''); document.getElementById('previewWrapTrk').hidden=false;
+      var prevR=gpxRTE.split('\n').slice(0,200).join('\n'); document.getElementById('gpxPreviewRte').textContent=prevR+(gpxRTE.length>prevR.length?'\n...':''); document.getElementById('previewWrapRte').hidden=false;
+      var prevT=gpxTRK.split('\n').slice(0,200).join('\n'); document.getElementById('gpxPreviewTrk').textContent=prevT+(gpxTRK.length>prevT.length?'\n...':''); document.getElementById('previewWrapTrk').hidden=false;
       document.getElementById('dlRow').style.display='';
       toastCenter('GPX RTE & TRK pronti');
     });
 
     function downloadBlob(name, content, mime){
-      const clean=removeFinalEOL(content);
-      const bytes=new TextEncoder().encode(clean);
-      const url=URL.createObjectURL(new Blob([bytes],{type:mime||'application/gpx+xml'}));
-      const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      var clean=removeFinalEOL(content);
+      var bytes=new TextEncoder().encode(clean);
+      var url=URL.createObjectURL(new Blob([bytes],{type:mime||'application/gpx+xml'}));
+      var a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     }
-    document.getElementById('btnDownloadRTE').addEventListener('click',async()=>{ if(!gpxRTE){toastCenter('Nessun GPX RTE');return} const ok=await confirmAction('Scaricare il file GPX della rotta (WPT+RTE)?'); if(!ok)return; downloadBlob(nameRTE||`maps2gpx_rotta_${nowStamp()}.gpx`,gpxRTE,'application/gpx+xml'); toast('Download avviato'); });
-    document.getElementById('btnDownloadTRK').addEventListener('click',async()=>{ if(!gpxTRK){toastCenter('Nessun GPX TRK');return} const ok=await confirmAction('Scaricare il file GPX della traccia (WPT+TRK)?'); if(!ok)return; downloadBlob(nameTRK||`maps2gpx_traccia_${nowStamp()}.gpx`,gpxTRK,'application/gpx+xml'); toast('Download avviato'); });
-    document.getElementById('btnClear2').addEventListener('click',()=>{ document.getElementById('maps2gpxInput').value=''; resetMaps2GPXUI(); document.getElementById('stats2').textContent='Pulito.'; });
+    document.getElementById('btnDownloadRTE').addEventListener('click',async function(){ if(!gpxRTE){toastCenter('Nessun GPX RTE');return} var ok=await confirmAction('Scaricare il file GPX della rotta (WPT+RTE)?'); if(!ok)return; downloadBlob(nameRTE||('maps2gpx_rotta_'+nowStamp()+'.gpx'),gpxRTE,'application/gpx+xml'); toast('Download avviato'); });
+    document.getElementById('btnDownloadTRK').addEventListener('click',async function(){ if(!gpxTRK){toastCenter('Nessun GPX TRK');return} var ok=await confirmAction('Scaricare il file GPX della traccia (WPT+TRK)?'); if(!ok)return; downloadBlob(nameTRK||('maps2gpx_traccia_'+nowStamp()+'.gpx'),gpxTRK,'application/gpx+xml'); toast('Download avviato'); });
+    document.getElementById('btnClear2').addEventListener('click',function(){ document.getElementById('maps2gpxInput').value=''; resetMaps2GPXUI(); document.getElementById('stats2').textContent='Pulito.'; });
   </script>
 </body>
 </html>
