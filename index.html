@@ -229,33 +229,28 @@
     /* Helpers */
     function stripAtTail(s){ return s.replace(/\/@.*$/,'').replace(/\/data=.*$/,''); }
 
-    // HALF-EVEN (banker's) a 6 decimali – come PS
-    function roundHalfEvenStr(x, d){
+    // === Round .NET-like (Midpoint to Even) su NUMERO ===
+    function roundHalfEvenToFixed(n, d){
       d = (typeof d==='number')?d:6;
-      var s=(typeof x==='number')?x.toString():String(x).trim();
-      if(!isFinite(+s)) return (0).toFixed(d);
-      if(/[eE]/.test(s)) s=(+s).toFixed(d+10);
-      var sign=''; if(s[0]==='-'||s[0]==='+'){ if(s[0]==='-') sign='-'; s=s.slice(1); }
-      if(s.indexOf('.')<0) s+='.0';
-      var sp=s.split('.'), I=sp[0]||'0', F=sp[1]||'';
-      I=I.replace(/\D/g,'')||'0'; F=F.replace(/\D/g,'');
-      while(F.length<d+1) F+='0';
-      var keep=I.length+d, digits=I+F, kept=digits.slice(0,keep)||'0', firstDrop=digits[keep]||'0', restDrop=digits.slice(keep+1);
-      var up=false;
-      if(firstDrop>'5') up=true;
-      else if(firstDrop<'5') up=false;
-      else up = /[1-9]/.test(restDrop) ? true : (parseInt(kept[kept.length-1]||'0',10)%2===1);
-      // somma 1 senza BigInt
-      var carry = up?1:0, arr=kept.split(''), i=arr.length-1;
-      while(carry && i>=0){ var dch=(arr[i].charCodeAt(0)-48)+carry; carry = dch>=10?1:0; arr[i]=String(dch%10); i--; }
-      if(carry) arr.unshift('1');
-      var rs=arr.join('');
-      while(rs.length<=d) rs='0'+rs;
-      var pos=rs.length-d, out=rs.slice(0,pos)+'.'+rs.slice(pos);
-      if(sign==='-' && out!=='0.'+Array(d+1).join('0')) out='-'+out;
-      return out;
+      const scale = Math.pow(10, d);
+      let x = Number(n) * scale;
+      let sign = 1;
+      if (x < 0) { sign = -1; x = -x; }
+      let base = Math.floor(x);
+      let frac = x - base;
+      const EPS = 1e-12;
+      let up;
+      if (frac > 0.5 + EPS) up = true;
+      else if (frac < 0.5 - EPS) up = false;
+      else up = (Math.abs(base) % 2 === 1); // exactly half -> to even
+      let units = base + (up ? 1 : 0);      // integer units at 10^d
+      // ricomponi stringa senza usare toFixed (evita ri-arrotondamenti)
+      let whole = Math.floor(units / scale);
+      let fracUnits = units - whole * scale;
+      const fracStr = String(fracUnits).padStart(d, '0');
+      return (sign < 0 ? '-' : '') + String(whole) + (d>0?('.' + fracStr):'');
     }
-    var fmt6s = function(x){ return roundHalfEvenStr(x, 6); };
+    var fmt6s = function(x){ return roundHalfEvenToFixed(x, 6); };
 
     function decodeTok(p){ try{return decodeURIComponent(p).replace(/\+/g,' ').trim();}catch(e){return p.replace(/\+/g,' ').trim();} }
     function xmlEscape(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
@@ -263,7 +258,7 @@
     function nowStamp(){ var d=new Date(),p=function(n){return String(n).padStart(2,'0')}; return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds()); }
     function timeHHMMSS(){ var d=new Date(),p=function(n){return String(n).padStart(2,'0')}; return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds()); }
     function joinLF(a){ return a.join('\n'); }
-    function removeFinalEOL(s){ return String(s).replace(/[\r\n]+$/,''); }
+    function ensureFinalLF(s){ return /\n$/.test(s) ? s : (s + '\n'); }
 
     /* TAB 1 */
     function extractDirSegment(s){
@@ -408,32 +403,32 @@
     function buildGPX_RTE_WPT(points, steps, title){
       var L=[]; L.push('<?xml version="1.0" encoding="UTF-8"?>'); L.push('<gpx version="1.1" creator="MAPS2GPX OSRM" xmlns="http://www.topografix.com/GPX/1/1">'); L.push('  <metadata><time>'+new Date().toISOString()+'</time></metadata>');
       for(var i=0;i<points.length;i++){
-        var p=points[i],lat=fmt6s(p.lat),lon=fmt6s(p.lon),name='WP'+String(i+1).padStart(2,'0');
+        var p=points[i],lat=fmt6s(Number(p.lat)),lon=fmt6s(Number(p.lon)),name='WP'+String(i+1).padStart(2,'0');
         var desc=p.label?xmlEscape(p.label):(lat+','+lon);
         L.push('  <wpt lat="'+lat+'" lon="'+lon+'"><name>'+name+'</name><desc>'+desc+'</desc></wpt>');
       }
       L.push('  <rte><name>'+xmlEscape(title)+'</name>');
       for(var j=0;j<steps.length;j++){
-        var s=steps[j], lat2=fmt6s(s.lat), lon2=fmt6s(s.lon), lab=xmlEscape(s.type||'via');
+        var s=steps[j], lat2=fmt6s(Number(s.lat)), lon2=fmt6s(Number(s.lon)), lab=xmlEscape(s.type||'via');
         L.push('    <rtept lat="'+lat2+'" lon="'+lon2+'"><name>'+lab+'</name></rtept>');
       }
       L.push('  </rte>'); L.push('</gpx>');
-      return removeFinalEOL(joinLF(L));
+      return ensureFinalLF(joinLF(L));
     }
     function buildGPX_TRK_WPT(points, trkCoords, title){
       var L=[]; L.push('<?xml version="1.0" encoding="UTF-8"?>'); L.push('<gpx version="1.1" creator="MAPS2GPX OSRM" xmlns="http://www.topografix.com/GPX/1/1">'); L.push('  <metadata><time>'+new Date().toISOString()+'</time></metadata>');
       for(var i=0;i<points.length;i++){
-        var p=points[i],lat=fmt6s(p.lat),lon=fmt6s(p.lon),name='WP'+String(i+1).padStart(2,'0');
+        var p=points[i],lat=fmt6s(Number(p.lat)),lon=fmt6s(Number(p.lon)),name='WP'+String(i+1).padStart(2,'0');
         var desc=p.label?xmlEscape(p.label):(lat+','+lon);
         L.push('  <wpt lat="'+lat+'" lon="'+lon+'"><name>'+name+'</name><desc>'+desc+'</desc></wpt>');
       }
       L.push('  <trk><name>'+xmlEscape(title)+'</name><trkseg>');
       for(var t=0;t<trkCoords.length;t++){
-        var c=trkCoords[t], lon3=fmt6s(String(c[0])), lat3=fmt6s(String(c[1]));
+        var c=trkCoords[t], lon3=fmt6s(Number(c[0])), lat3=fmt6s(Number(c[1]));
         L.push('    <trkpt lat="'+lat3+'" lon="'+lon3+'" />');
       }
       L.push('  </trkseg></trk>'); L.push('</gpx>');
-      return removeFinalEOL(joinLF(L));
+      return ensureFinalLF(joinLF(L));
     }
 
     var gpxRTE=null,gpxTRK=null,nameRTE='',nameTRK='';
@@ -473,6 +468,9 @@
         document.getElementById('stats2').textContent='Geocoding '+(i+1)+'/'+tokens.length+'...';
         var g=await geocodeFreeform(tokens[i]);
         if(!g){ skipped.push(tokens[i]); continue; }
+        // allinea a PS: dagli già a 6 decimali come double
+        g.lat = roundHalfEvenToFixed(Number(g.lat), 6);
+        g.lon = roundHalfEvenToFixed(Number(g.lon), 6);
         ordered.push(g);
       }
       if(ordered.length<2){ document.getElementById('stats2').textContent='Errore: geocoding fallito (troppi pochi punti).'; return; }
@@ -485,7 +483,7 @@
       var osrm; try{ osrm=await getJSON(osrmUrl); }catch(e){ toastCenter('Errore OSRM'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
       if(!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]){ toastCenter('OSRM non ha restituito una rotta valida'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
 
-      // Steps RTE (no shorthand)
+      // Steps RTE (dedup su coordinate raw OSRM; poi arrotondo a 6 come PS)
       var rte=[];
       var legs=(osrm.routes[0].legs||[]);
       for(var li=0; li<legs.length; li++){
@@ -493,12 +491,18 @@
         for(var si=0; si<steps.length; si++){
           var step=steps[si];
           if(step.maneuver && Array.isArray(step.maneuver.location)){
-            var lon=String(step.maneuver.location[0]), lat=String(step.maneuver.location[1]);
+            var lonRaw=Number(step.maneuver.location[0]), latRaw=Number(step.maneuver.location[1]);
             if(rte.length){
               var last=rte[rte.length-1];
-              if(Math.abs(parseFloat(last.lat)-parseFloat(lat))<1e-7 && Math.abs(parseFloat(last.lon)-parseFloat(lon))<1e-7) continue;
+              if(Math.abs(Number(last._latRaw)-latRaw)<1e-7 && Math.abs(Number(last._lonRaw)-lonRaw)<1e-7) continue;
             }
-            rte.push({ lat: lat, lon: lon, type: String(step.maneuver.type||'') });
+            rte.push({
+              _latRaw: latRaw,
+              _lonRaw: lonRaw,
+              lat: roundHalfEvenToFixed(latRaw,6),
+              lon: roundHalfEvenToFixed(lonRaw,6),
+              type: String(step.maneuver.type||'')
+            });
           }
         }
       }
@@ -524,8 +528,8 @@
     });
 
     function downloadBlob(name, content, mime){
-      var clean=removeFinalEOL(content);
-      var bytes=new TextEncoder().encode(clean);
+      // NON rimuovo la newline finale: PS mette sempre \n a fine file
+      var bytes=new TextEncoder().encode(content);
       var url=URL.createObjectURL(new Blob([bytes],{type:mime||'application/gpx+xml'}));
       var a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     }
