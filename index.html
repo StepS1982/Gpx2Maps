@@ -7,15 +7,15 @@
   <meta name="description" content="Software per gestire al 100% itinerati con Google Maps in modalità navigabile" />
   <style>
     :root {
-      --accent: #e11d48;
-      --fg: #0f172a;
-      --muted: #475569;
-      --bg: #f8fafc;
+      --accent: #e11d48; /* rosso per 'by Pieghello' */
+      --fg: #0f172a; /* slate-900 */
+      --muted: #475569; /* slate-600 */
+      --bg: #f8fafc; /* slate-50 */
       --card: #ffffff;
-      --border: #e2e8f0;
-      --btn: #0ea5e9;
-      --btn2: #22c55e;
-      --btnDanger: #ef4444;
+      --border: #e2e8f0; /* slate-200 */
+      --btn: #0ea5e9; /* sky-500 */
+      --btn2: #22c55e; /* green-500 */
+      --btnDanger: #ef4444; /* red-500 */
     }
     * { box-sizing: border-box; }
     body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; color: var(--fg); background: var(--bg); }
@@ -263,14 +263,32 @@
     /* ===== Condivise ===== */
     function stripAtTail(s){ let out = s.replace(/\/@.*$/, ''); out = out.replace(/\/data=.*$/, ''); return out; }
 
-    // Rounding compatibile PowerShell (evita bias binario)
-    function round6(n){
-      const num = Number(n);
-      if (!Number.isFinite(num)) return 0;
-      const eps = num >= 0 ? 1e-12 : -1e-12;
-      return Math.round((num + eps) * 1e6) / 1e6;
+    // --- Rounding decimale "half away from zero" identico al PowerShell ---
+    function roundFixedStr(x, d=6){
+      let s = (typeof x === 'number') ? x.toString() : String(x).trim();
+      if (!isFinite(+s)) return (0).toFixed(d);
+      if (/[eE]/.test(s)) s = (+s).toFixed(d+10); // espandi se notazione scientifica
+      let neg = false;
+      if (s.startsWith('-')) { neg = true; s = s.slice(1); }
+      if (!s.includes('.')) s += '.0';
+      let [int, frac=''] = s.split('.');
+      int = int.replace(/\D/g,'') || '0';
+      frac = frac.replace(/\D/g,'');
+      while (frac.length < d+1) frac += '0';
+      const all = int + frac;
+      const cut = int.length + d;
+      const head = all.slice(0, cut) || '0';
+      const next = all[cut] || '0';
+      let n = BigInt(head);
+      if (next >= '5') n += 1n; // half-away-from-zero
+      let rs = n.toString();
+      while (rs.length <= d) rs = '0' + rs;
+      const pos = rs.length - d;
+      let out = rs.slice(0, pos) + '.' + rs.slice(pos);
+      if (neg && out !== ('0.' + '0'.repeat(d))) out = '-' + out;
+      return out;
     }
-    function fmt6(n){ return round6(n).toFixed(6); }
+    function fmt6s(x){ return roundFixedStr(x, 6); }
 
     // TAB 1: rimuove slash iniziali per evitare /dir///
     function extractDirSegment(longLink){
@@ -302,7 +320,6 @@
     function buildGoogleDirURL(parts){ return 'https://www.google.com/maps/dir/' + parts.join('/'); }
     function nowStamp(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; }
     function timeHHMMSS(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
-    function slug(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[^\w\s-]/g,'').replace(/[\s_-]+/g,'_').replace(/^_+|_+$/g,''); }
     function decodeTok(p){ try { return decodeURIComponent(p).replace(/\+/g,' ').trim(); } catch { return p.replace(/\+/g,' ').trim(); } }
     function xmlEscape(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
     function fileNameSafe(s){ return (s||'').replace(/[\\\/:*?"<>|]/g,'').replace(/\s+/g,' ').trim(); }
@@ -404,25 +421,28 @@
       return null;
     }
 
+    // Join con CRLF e senza newline finale
+    function joinCRLF(lines){ return lines.join('\r\n'); }
+
     function buildGPX_RTE_WPT(orderedPts, rteSteps, title){
       const lines=[];
       lines.push('<?xml version="1.0" encoding="UTF-8"?>');
       lines.push('<gpx version="1.1" creator="MAPS2GPX OSRM" xmlns="http://www.topografix.com/GPX/1/1">');
       lines.push(`  <metadata><time>${new Date().toISOString()}</time></metadata>`);
       for(let i=0;i<orderedPts.length;i++){
-        const p=orderedPts[i]; const lat=fmt6(p.lat), lon=fmt6(p.lon);
+        const p=orderedPts[i]; const lat=fmt6s(p.lat), lon=fmt6s(p.lon);
         const name='WP'+String(i+1).padStart(2,'0');
         const desc=p.label ? xmlEscape(p.label) : `${lat},${lon}`;
         lines.push(`  <wpt lat="${lat}" lon="${lon}"><name>${name}</name><desc>${desc}</desc></wpt>`);
       }
       lines.push('  <rte><name>' + xmlEscape(title) + '</name>');
       for (const s of rteSteps){
-        const lat=fmt6(s.lat), lon=fmt6(s.lon); const lab=xmlEscape(s.type || 'via');
+        const lat=fmt6s(s.lat), lon=fmt6s(s.lon); const lab=xmlEscape(s.type || 'via');
         lines.push(`    <rtept lat="${lat}" lon="${lon}"><name>${lab}</name></rtept>`);
       }
       lines.push('  </rte>');
       lines.push('</gpx>');
-      return lines.join('\n');
+      return joinCRLF(lines);
     }
     function buildGPX_TRK_WPT(orderedPts, trkCoords, title){
       const lines=[];
@@ -430,19 +450,19 @@
       lines.push('<gpx version="1.1" creator="MAPS2GPX OSRM" xmlns="http://www.topografix.com/GPX/1/1">');
       lines.push(`  <metadata><time>${new Date().toISOString()}</time></metadata>`);
       for(let i=0;i<orderedPts.length;i++){
-        const p=orderedPts[i]; const lat=fmt6(p.lat), lon=fmt6(p.lon);
+        const p=orderedPts[i]; const lat=fmt6s(p.lat), lon=fmt6s(p.lon);
         const name='WP'+String(i+1).padStart(2,'0');
         const desc=p.label ? xmlEscape(p.label) : `${lat},${lon}`;
         lines.push(`  <wpt lat="${lat}" lon="${lon}"><name>${name}</name><desc>${desc}</desc></wpt>`);
       }
       lines.push('  <trk><name>' + xmlEscape(title) + '</name><trkseg>');
       for (const c of trkCoords){
-        const lon=fmt6(c[0]), lat=fmt6(c[1]);
+        const lon=fmt6s(c[0]), lat=fmt6s(c[1]);
         lines.push(`    <trkpt lat="${lat}" lon="${lon}" />`);
       }
       lines.push('  </trkseg></trk>');
       lines.push('</gpx>');
-      return lines.join('\n');
+      return joinCRLF(lines);
     }
 
     let gpxRTE=null, gpxTRK=null, nameRTE='', nameTRK='';
@@ -499,8 +519,11 @@
       for(const leg of (osrm.routes[0].legs||[])){
         for(const step of (leg.steps||[])){
           if(step.maneuver && Array.isArray(step.maneuver.location)){
-            const lon=round6(+step.maneuver.location[0]), lat=round6(+step.maneuver.location[1]);
-            if(rte.length){ const last=rte[rte.length-1]; if(Math.abs(last.lat-lat)<1e-7 && Math.abs(last.lon-lon)<1e-7) continue; }
+            const lon=step.maneuver.location[0], lat=step.maneuver.location[1];
+            if(rte.length){
+              const last=rte[rte.length-1];
+              if(Math.abs(last.lat-lat)<1e-7 && Math.abs(last.lon-lon)<1e-7) continue;
+            }
             rte.push({lat, lon, type:String(step.maneuver.type||'')});
           }
         }
@@ -520,8 +543,8 @@
       nameTRK = `maps2gpx_osrm_traccia_${startLabel}_${endLabel}_${ts}.gpx`;
 
       document.getElementById('stats2').textContent = `${ordered.length} punti convertiti (WPT) · RTE ${rte.length} step · TRK ${trk.length} vertici`;
-      const prevR=gpxRTE.split('\n').slice(0,200).join('\n'); document.getElementById('gpxPreviewRte').textContent=prevR+(gpxRTE.length>prevR.length?'\n...':''); document.getElementById('previewWrapRte').hidden=false;
-      const prevT=gpxTRK.split('\n').slice(0,200).join('\n'); document.getElementById('gpxPreviewTrk').textContent=prevT+(gpxTRK.length>prevT.length?'\n...':''); document.getElementById('previewWrapTrk').hidden=false;
+      const prevR=gpxRTE.split('\r\n').slice(0,200).join('\r\n'); document.getElementById('gpxPreviewRte').textContent=prevR+(gpxRTE.length>prevR.length?'\n...':''); document.getElementById('previewWrapRte').hidden=false;
+      const prevT=gpxTRK.split('\r\n').slice(0,200).join('\r\n'); document.getElementById('gpxPreviewTrk').textContent=prevT+(gpxTRK.length>prevT.length?'\n...':''); document.getElementById('previewWrapTrk').hidden=false;
       document.getElementById('dlRow').style.display='';
       toastCenter('GPX RTE & TRK pronti');
     });
