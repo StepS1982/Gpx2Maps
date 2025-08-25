@@ -178,7 +178,7 @@
     document.getElementById('donateBtn').href = CONFIG.paypalDonateUrl;
     document.getElementById('amazonBtn').href = CONFIG.amazonAffiliateUrl;
 
-    // Tabs (versione “buona” di prima)
+    // Tabs (come prima)
     const tabs = document.querySelectorAll('.tab');
     tabs.forEach(btn => btn.addEventListener('click', () => {
       tabs.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
@@ -190,7 +190,7 @@
       });
     }));
 
-    // Toast centrali (3s)
+    // Toast center 3s
     function toastCenter(msg){
       const box=document.getElementById('toastsCenter');
       box.innerHTML='';
@@ -202,7 +202,7 @@
     }
     const toast = toastCenter;
 
-    // Confirm
+    // Confirm + strategy
     async function confirmAction(text){
       const dlg = document.getElementById('confirmDialog');
       document.getElementById('confirmText').textContent = text || '';
@@ -235,21 +235,61 @@
     function joinLF(a){ return a.join('\n'); }
     function ensureFinalEOL(s){ return String(s).replace(/[\r\n]*$/,'\n'); }
 
-    // Arrotondamento half-even a 6 decimali (replica PS, con tolleranza)
-    function roundHalfEvenFixed(x, d=6){
-      const n = Number(x);
-      if (!isFinite(n)) return (0).toFixed(d);
-      const scale = 10**d;
-      let y = n * scale, sign = 1;
-      if (y < 0){ sign = -1; y = -y; }
-      const nf = Math.floor(y), frac = y - nf, eps = 5e-10;
-      let out;
-      if (Math.abs(frac - 0.5) < eps) out = (nf % 2 === 0) ? nf : nf + 1;
-      else out = Math.round(y);
-      out *= sign;
-      return (out/scale).toFixed(d);
+    // ==== ROUNDING .NET MidpointRounding.ToEven su STRINGA ====
+    function roundHalfEvenStr(numStr, d=6){
+      let s = String(numStr).trim();
+      if (!s || isNaN(+s)) return (0).toFixed(d);
+      let sign = '';
+      if (s[0]==='-' || s[0]==='+'){ sign = (s[0]==='-')?'-':''; s = s.slice(1); }
+      if (!s.includes('.')) s += '.';
+      let [intPart, fracPart] = s.split('.');
+      fracPart = fracPart.replace(/[^0-9]/g,'');
+      if (fracPart.length < d){
+        return sign + intPart + '.' + (fracPart + '0'.repeat(d - fracPart.length));
+      }
+      if (fracPart.length === d){
+        return sign + intPart + '.' + fracPart;
+      }
+      // più di d cifre: guardo la (d+1)-esima
+      const head = fracPart.slice(0,d).split('');
+      const next = fracPart[d];
+      const tail = fracPart.slice(d+1);
+      let roundUp = false;
+      if (next > '5') roundUp = true;
+      else if (next < '5') roundUp = false;
+      else { // next === '5'
+        if (/[1-9]/.test(tail)) roundUp = true; // away-from-zero
+        else {
+          // tie: bankers -> ultimo digit di head deve diventare pari
+          const lastDigit = +head[d-1];
+          roundUp = (lastDigit % 2 === 1);
+        }
+      }
+      if (roundUp){
+        // somma 1 a head
+        let carry = 1;
+        for (let i=d-1;i>=0;i--){
+          const sum = (+head[i]) + carry;
+          head[i] = String(sum % 10);
+          carry = Math.floor(sum / 10);
+          if (!carry) break;
+        }
+        if (carry){ // overflow: incrementa intPart
+          let arr = intPart.replace(/^0+(?=\d)/,'').split('');
+          if (arr.length===0) arr=['0'];
+          for (let i=arr.length-1;i>=0;i--){
+            const sum = (+arr[i]) + carry;
+            arr[i] = String(sum % 10);
+            carry = Math.floor(sum / 10);
+            if (!carry) break;
+          }
+          if (carry) arr.unshift('1');
+          intPart = arr.join('');
+        }
+      }
+      return sign + intPart + '.' + head.join('');
     }
-    const fmt6s = x => roundHalfEvenFixed(x,6);
+    const fmt6s = v => roundHalfEvenStr(String(v), 6);
 
     /* ================= TAB 1: Fusione Link ================= */
 
@@ -257,7 +297,6 @@
       const s = stripAtTail(longLink.trim());
       const m = s.match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i);
       if (!m) return null;
-      // fix // multipli all’inizio
       return m[1].replace(/^\/+/, '').replace(/\/+$/, '');
     }
     async function resolveIfShort(url){
@@ -350,8 +389,8 @@
     async function geocodeFreeform(t){
       const ll=isLatLonStr(t); if(ll) return {lat:ll.lat,lon:ll.lon,label:`${ll.lat},${ll.lon}`};
       let g=await geocodeTry(t); if(g) return {lat:String(g.lat),lon:String(g.lon),label:g.display_name||t};
-      g=await geocodeTry(`${t}, Italia`); if(g) return {lat:String(g.lat),lon:String(g.lon),label:g.display_name||t};
-      const head=t.split(',')[0].trim(); if(head&&head!==t){ g=await geocodeTry(`${head}, Italia`); if(g) return {lat:String(g.lat),lon:String(g.lon),label:g.display_name||head}; }
+      g=await geocodeTry(`${t}, Italia`); if(g) return {lat:String(g.lat),lon:String(g.lon),label=g.display_name||t};
+      const head=t.split(',')[0].trim(); if(head&&head!==t){ g=await geocodeTry(`${head}, Italia`); if(g) return {lat:String(g.lat),lon:String(g.lon),label=g.display_name||head}; }
       return null;
     }
     async function reverseShortLabel(lat,lon){
@@ -412,7 +451,6 @@
       let osrm; try{ osrm=await getJSON(osrmUrl); }catch(e){ toastCenter('Errore OSRM'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
       if(!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]){ toastCenter('OSRM non ha restituito una rotta valida'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
 
-      // steps RTE
       const rte=[];
       for(const leg of (osrm.routes[0].legs||[])){
         for(const step of (leg.steps||[])){
