@@ -6,7 +6,10 @@
   <title>GPX2MAPS Web-APP</title>
   <meta name="description" content="Software per gestire al 100% itinerati con Google Maps in modalità navigabile" />
   <style>
-    :root{--accent:#e11d48;--fg:#0f172a;--muted:#475569;--bg:#f8fafc;--card:#fff;--border:#e2e8f0;--btn:#0ea5e9;--btn2:#22c55e;--btnDanger:#ef4444}
+    :root{
+      --accent:#e11d48; --fg:#0f172a; --muted:#475569; --bg:#f8fafc;
+      --card:#fff; --border:#e2e8f0; --btn:#0ea5e9; --btn2:#22c55e; --btnDanger:#ef4444;
+    }
     *{box-sizing:border-box}
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;color:var(--fg);background:var(--bg)}
     header{padding:20px 16px 8px;background:var(--card);border-bottom:1px solid var(--border)}
@@ -16,7 +19,7 @@
     .subtitle{color:var(--accent);font-weight:700}
     .cta{margin:12px 0 0;display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
     .btn{appearance:none;border:1px solid transparent;background:var(--btn);color:#fff;padding:10px 14px;border-radius:999px;cursor:pointer;font-weight:700}
-    .btn.secondary{background:var(--btn2)}.btn.ghost{background:#fff;color:var(--fg);border-color:var(--border)}.btn.small{padding:6px 10px;font-weight:600}.btn.danger{background:var(--btnDanger)}
+    .btn.secondary{background:var(--btn2)} .btn.ghost{background:#fff;color:var(--fg);border-color:var(--border)} .btn.small{padding:6px 10px;font-weight:600} .btn.danger{background:var(--btnDanger)}
     .container{max-width:1100px;margin:0 auto;padding:16px}
     .note{margin:14px 0 6px;color:var(--muted);font-size:14px}
     .tabs{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--border);margin-top:12px}
@@ -30,7 +33,7 @@
     textarea{width:100%;min-height:180px;resize:vertical;padding:12px;border-radius:10px;border:1px solid var(--border);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
     .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
     .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;word-break:break-all}
-    dialog{border:none;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.2);width:min(560px,92vw)}dialog::backdrop{background:rgba(0,0,0,.35)}
+    dialog{border:none;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.2);width:min(560px,92vw)} dialog::backdrop{background:rgba(0,0,0,.35)}
     #toastsCenter{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:60}
     .toast.center{padding:12px 16px;font-size:15px;background:rgba(17,24,39,.95);color:#fff;border-radius:10px;box-shadow:0 6px 16px rgba(0,0,0,.28);animation:fadePop .28s ease-out}
     @keyframes fadePop{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
@@ -58,10 +61,10 @@
 
     <div class="tabs" role="tablist">
       <button class="tab active" role="tab" aria-selected="true"  data-tab="merge">Fusione Link</button>
-      <button class="tab" role="tab" aria-selected="false" data-tab="maps2gpx">2) Google Maps → GPX</button>
-      <button class="tab" role="tab" aria-selected="false" data-tab="gpx2maps">3) GPX → Google Maps</button>
-      <button class="tab" role="tab" aria-selected="false" data-tab="sanitize">4) Sanitizza GPX</button>
-      <button class="tab" role="tab" aria-selected="false" data-tab="meteo">5) Meteo + Info percorso</button>
+      <button class="tab"         role="tab" aria-selected="false" data-tab="maps2gpx">2) Google Maps → GPX</button>
+      <button class="tab"         role="tab" aria-selected="false" data-tab="gpx2maps">3) GPX → Google Maps</button>
+      <button class="tab"         role="tab" aria-selected="false" data-tab="sanitize">4) Sanitizza GPX</button>
+      <button class="tab"         role="tab" aria-selected="false" data-tab="meteo">5) Meteo + Info percorso</button>
     </div>
 
     <!-- TAB 1 -->
@@ -132,7 +135,7 @@
       </div>
     </section>
 
-    <!-- Placeholder -->
+    <!-- Placeholder altri tab -->
     <section id="tab-gpx2maps" class="card" hidden><div class="hd">3) GPX → Google Maps</div><div class="bd">In arrivo.</div></section>
     <section id="tab-sanitize" class="card" hidden><div class="hd">4) Sanitizza GPX</div><div class="bd">In arrivo.</div></section>
     <section id="tab-meteo" class="card" hidden><div class="hd">5) Meteo + Info percorso</div><div class="bd">In arrivo.</div></section>
@@ -171,8 +174,13 @@
   <div id="toastsCenter" aria-live="polite" aria-atomic="true"></div>
 
   <script>
-    const CONFIG={workerBase:"https://gpx2maps-worker.stefano-vitro.workers.dev",paypalDonateUrl:"https://www.paypal.com/donate?business=stefano.vitro%40gmail.com&no_recurring=0&item_name=Supporto+sviluppo+GPX2MAPS&currency_code=EUR",amazonAffiliateUrl:"https://amzn.to/41o2XjA"};
-    donateBtn.href=CONFIG.paypalDonateUrl; amazonBtn.href=CONFIG.amazonAffiliateUrl;
+    const CONFIG = {
+      workerBase: "https://gpx2maps-worker.stefano-vitro.workers.dev",
+      paypalDonateUrl: "https://www.paypal.com/donate?business=stefano.vitro%40gmail.com&no_recurring=0&item_name=Supporto+sviluppo+GPX2MAPS&currency_code=EUR",
+      amazonAffiliateUrl: "https://amzn.to/41o2XjA",
+    };
+    document.getElementById('donateBtn').href=CONFIG.paypalDonateUrl;
+    document.getElementById('amazonBtn').href=CONFIG.amazonAffiliateUrl;
 
     /* Tabs */
     const tabs=[...document.querySelectorAll('.tab')];
@@ -186,32 +194,37 @@
       });
     }));
 
-    /* Toast centrali 3s */
-    function toastCenter(msg){ const box=document.getElementById('toastsCenter'); box.innerHTML=''; const t=document.createElement('div'); t.className='toast center'; t.textContent=msg; box.appendChild(t); setTimeout(()=>{t.remove()},3000); }
+    /* Toast center 3s */
+    function toastCenter(msg){ const box=document.getElementById('toastsCenter'); box.innerHTML=''; const t=document.createElement('div'); t.className='toast center'; t.textContent=msg; box.appendChild(t); setTimeout(()=>{if(t.parentNode)t.parentNode.removeChild(t)},3000); }
     function toast(msg){ toastCenter(msg); }
 
-    async function confirmAction(text){ const dlg=confirmDialog; confirmText.textContent=text||''; dlg.showModal(); const v=await new Promise(r=>dlg.addEventListener('close',()=>r(dlg.returnValue),{once:true})); return v==='ok'; }
+    async function confirmAction(text){ const dlg=document.getElementById('confirmDialog'); document.getElementById('confirmText').textContent=text||''; dlg.showModal(); const v=await new Promise(r=>dlg.addEventListener('close',()=>r(dlg.returnValue),{once:true})); return v==='ok'; }
     async function getJSON(u){ const r=await fetch(u,{headers:{'Accept':'application/json'}}); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
 
     /* Helpers */
     function stripAtTail(s){ return s.replace(/\/@.*$/,'').replace(/\/data=.*$/,''); }
 
-    // HALF-EVEN a 6 decimali con gestione "quasi-tie" (replica MidpointRounding.ToEven)
-    function roundHalfEvenFixed(x, d=6){
-      const n = Number(x);
-      if (!isFinite(n)) return (0).toFixed(d);
-      const scale = 10**d;
-      const y = n * scale;
-      const nFloor = Math.floor(y);
-      const frac = y - nFloor;
-      const eps = 1e-12; // margine per fluttuazioni binarie
-      if (Math.abs(frac - 0.5) < eps) {
-        const even = (nFloor % 2 === 0) ? nFloor : nFloor + 1;
-        return (even / scale).toFixed(d);
-      }
-      return (Math.round(y) / scale).toFixed(d);
+    // HALF-EVEN (banker's) a 6 decimali – come PS
+    function roundHalfEvenStr(x, d=6){
+      let s=(typeof x==='number')?x.toString():String(x).trim();
+      if(!isFinite(+s)) return (0).toFixed(d);
+      if(/[eE]/.test(s)) s=(+s).toFixed(d+10);
+      let sign=''; if(s[0]==='-'||s[0]==='+'){ if(s[0]==='-') sign='-'; s=s.slice(1); }
+      if(!s.includes('.')) s+='.0';
+      let [I,F='']=s.split('.'); I=I.replace(/\D/g,'')||'0'; F=F.replace(/\D/g,'');
+      while(F.length<d+1) F+='0';
+      const keep=I.length+d, digits=I+F, kept=digits.slice(0,keep)||'0', firstDrop=digits[keep]||'0', restDrop=digits.slice(keep+1);
+      let up=false;
+      if(firstDrop>'5') up=true;
+      else if(firstDrop<'5') up=false;
+      else up = /[1-9]/.test(restDrop) ? true : (parseInt(kept[kept.length-1]||'0',10)%2===1);
+      let n=BigInt(kept); if(up) n+=1n;
+      let rs=n.toString(); while(rs.length<=d) rs='0'+rs;
+      const pos=rs.length-d; let out=rs.slice(0,pos)+'.'+rs.slice(pos);
+      if(sign==='-' && out!=='0.'+'0'.repeat(d)) out='-'+out;
+      return out;
     }
-    const fmt6s = x => roundHalfEvenFixed(x, 6);
+    const fmt6s = x => roundHalfEvenStr(x, 6);
 
     function decodeTok(p){ try{return decodeURIComponent(p).replace(/\+/g,' ').trim()}catch{return p.replace(/\+/g,' ').trim()} }
     function xmlEscape(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
@@ -219,7 +232,7 @@
     function nowStamp(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; }
     function timeHHMMSS(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
     function joinLF(a){ return a.join('\n'); }
-    function removeFinalEOL(s){ return String(s).replace(/[\r\n]+$/,''); }
+    function removeFinalEOL(s){ return String(s).replace(/[\r\n]+$/,''); } // più severo
 
     /* TAB 1 */
     function extractDirSegment(s){ const m=stripAtTail(s.trim()).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i); if(!m) return null; return m[1].replace(/^\/+/,'').replace(/\/+$/,''); }
@@ -231,27 +244,28 @@
     function splitInBlocks(all){ const MAX=25, blocks=[]; let rest=all.slice(), first=true; while(rest.length){ const chunk=rest.slice(0,MAX); if(!first && chunk[0]==="") chunk.shift(); blocks.push(chunk); rest=rest.slice(MAX); first=false; } return blocks; }
 
     function renderOutput(urls){
-      const out=output,stats=statsTxt; out.innerHTML='';
-      if(!urls.length){ stats.textContent='Nessun risultato.'; btnDownloadAll.style.display='none'; return; }
+      const out=document.getElementById('output'),stats=document.getElementById('stats'); out.innerHTML='';
+      if(!urls.length){ stats.textContent='Nessun risultato.'; document.getElementById('btnDownloadAll').style.display='none'; return; }
       const n=urls.length; stats.textContent=(n===1?'1 link generato':`${n} link generati`)+` · aggiornato alle ${timeHHMMSS()}`;
       urls.forEach(u=>{
         const div=document.createElement('div'); div.className='out-item';
         div.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
-          <div class="mono" style="flex:1 1 auto;">${u}</div>
-          <div class="row" style="flex:0 0 auto;">
-            <button class="btn small ghost" data-copy>Copia</button>
-            <button class="btn small" data-open>Apri</button>
-          </div></div>`;
+            <div class="mono" style="flex:1 1 auto;">${u}</div>
+            <div class="row" style="flex:0 0 auto;">
+              <button class="btn small ghost" data-copy>Copia</button>
+              <button class="btn small" data-open>Apri</button>
+            </div>
+          </div>`;
         div.querySelector('[data-copy]').addEventListener('click',async()=>{await navigator.clipboard.writeText(u);toast('URL copiato')});
         div.querySelector('[data-open]').addEventListener('click',async()=>{const ok=await confirmAction('Aprire il link in una nuova scheda?'); if(ok) window.open(u,'_blank','noopener')});
         out.appendChild(div);
       });
-      btnDownloadAll.style.display='';
+      document.getElementById('btnDownloadAll').style.display='';
       toastCenter(`Risultati aggiornati (${n} link)`);
     }
 
-    btnMerge.addEventListener('click', async ()=>{
-      const lines=linksInput.value.split('\n').map(s=>s.trim()).filter(Boolean);
+    document.getElementById('btnMerge').addEventListener('click', async ()=>{
+      const lines=document.getElementById('linksInput').value.split('\n').map(s=>s.trim()).filter(Boolean);
       if(!lines.length){toastCenter('Inserisci almeno un link');return}
       if(lines.length===1 && /https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/\//i.test(lines[0])){toastCenter('Errore: almeno due link sono necessari per la fusione.');return}
       const resolved=[]; for(const ln of lines){resolved.push(await resolveIfShort(ln))}
@@ -260,22 +274,24 @@
       let all=[""]; for(const seg of clean){all.push(...seg.split('/'))}
       all=dedupeAdjacent(all);
       if(all.length<=25){renderOutput([buildGoogleDirURL(all)]);return}
-      strategyDialog.showModal();
-      const strategy=await new Promise(r=>strategyDialog.addEventListener('close',()=>r(strategyDialog.returnValue==='opt'?'optimize':strategyDialog.returnValue==='split'?'split':null),{once:true}));
+      const dlg=document.getElementById('strategyDialog'); dlg.showModal();
+      const strategy=await new Promise(r=>dlg.addEventListener('close',()=>r(dlg.returnValue==='opt'?'optimize':dlg.returnValue==='split'?'split':null),{once:true}));
       if(!strategy){toastCenter('Operazione annullata');return}
       if(strategy==='optimize'){renderOutput([buildGoogleDirURL(optimizeTo25(all))])}
       else{const blocks=splitInBlocks(all); renderOutput(blocks.map(b=>buildGoogleDirURL(b)));}
     });
 
-    btnClear.addEventListener('click',()=>{linksInput.value=''; output.innerHTML=''; statsTxt.textContent='Pulito.'; btnDownloadAll.style.display='none';});
+    document.getElementById('btnClear').addEventListener('click',()=>{
+      document.getElementById('linksInput').value=''; document.getElementById('output').innerHTML=''; document.getElementById('stats').textContent='Pulito.'; document.getElementById('btnDownloadAll').style.display='none';
+    });
 
-    btnDownloadAll.addEventListener('click',async()=>{
+    document.getElementById('btnDownloadAll').addEventListener('click',async()=>{
       const items=[...document.querySelectorAll('#output .out-item .mono')].map(x=>x.textContent);
       if(!items.length) return;
-      if(!(await confirmAction('Scaricare un file .txt con i link generati?'))) return;
+      const ok=await confirmAction('Scaricare un file .txt con i link generati?'); if(!ok) return;
       const name=(items.length===1?`merge_1_${nowStamp()}.txt`:`merge_${items.length}_${nowStamp()}.txt`);
       const sep=items.length>1?'\n\n':'\n';
-      const bytes=new TextEncoder().encode(items.join(sep));
+      const bytes=new TextEncoder().encode(items.join(sep)); // nessuna newline extra
       const url=URL.createObjectURL(new Blob([bytes],{type:'text/plain'}));
       const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
       toast('File scaricato');
@@ -288,7 +304,7 @@
     async function geocodeFreeform(t){
       const ll=isLatLonStr(t); if(ll) return {lat:ll.lat,lon:ll.lon,label:`${ll.lat},${ll.lon}`};
       let g=await geocodeTry(t); if(g) return {lat:String(g.lat),lon:String(g.lon),label:g.display_name||t};
-      g=await geocodeTry(`${t}, Italia`); if(g) return {lat:String(g.lat),lon:String(g.lon),label=g.display_name||t};
+      g=await geocodeTry(`${t}, Italia`); if(g) return {lat:String(g.lat),lon:String(g.lon),label:g.display_name||t};
       const head=t.split(',')[0].trim(); if(head&&head!==t){ g=await geocodeTry(`${head}, Italia`); if(g) return {lat:String(g.lat),lon:String(g.lon),label:g.display_name||head}; }
       return null;
     }
@@ -314,13 +330,14 @@
     }
 
     let gpxRTE=null,gpxTRK=null,nameRTE='',nameTRK='';
-    function resetMaps2GPXUI(){ stats2.textContent='Nessun file generato.'; gpxPreviewRte.textContent=''; gpxPreviewTrk.textContent=''; previewWrapRte.hidden=true; previewWrapTrk.hidden=true; dlRow.style.display='none'; gpxRTE=gpxTRK=null; nameRTE=nameTRK=''; }
+    function resetMaps2GPXUI(){ document.getElementById('stats2').textContent='Nessun file generato.'; document.getElementById('gpxPreviewRte').textContent=''; document.getElementById('gpxPreviewTrk').textContent=''; document.getElementById('previewWrapRte').hidden=true; document.getElementById('previewWrapTrk').hidden=true; document.getElementById('dlRow').style.display='none'; gpxRTE=gpxTRK=null; nameRTE=nameTRK=''; }
 
-    btnGenGPX.addEventListener('click', async ()=>{
+    document.getElementById('btnGenGPX').addEventListener('click', async ()=>{
       resetMaps2GPXUI();
-      const raw=maps2gpxInput.value.split('\n').map(s=>s.trim()).filter(Boolean);
+      const raw=document.getElementById('maps2gpxInput').value.split('\n').map(s=>s.trim()).filter(Boolean);
       if(!raw.length){toastCenter('Inserisci almeno una riga');return}
 
+      // Tokenize (salta //)
       let tokens=[];
       for(const line of raw){
         if(/^https?:\/\//i.test(line)){
@@ -334,23 +351,25 @@
         }
       }
 
+      // Geocoding con salta-errori
       const ordered=[], skipped=[];
       for(let i=0;i<tokens.length;i++){
-        stats2.textContent=`Geocoding ${i+1}/${tokens.length}...`;
+        document.getElementById('stats2').textContent=`Geocoding ${i+1}/${tokens.length}...`;
         const g=await geocodeFreeform(tokens[i]);
         if(!g){ skipped.push(tokens[i]); continue; }
         ordered.push(g);
       }
-      if(ordered.length<2){ stats2.textContent='Errore: geocoding fallito (troppi pochi punti).'; return; }
+      if(ordered.length<2){ document.getElementById('stats2').textContent='Errore: geocoding fallito (troppi pochi punti).'; return; }
       if(skipped.length){ toastCenter(`Saltati ${skipped.length} punto/i non geocodificati`); }
 
+      // OSRM
       const coordsParam=ordered.map(p=>`${p.lon},${p.lat}`).join(';');
       const osrmUrl=`${CONFIG.workerBase}/osrm?coords=${encodeURIComponent(coordsParam)}&profile=driving&overview=full&geometries=geojson&steps=true`;
-      stats2.textContent='Calcolo rotta (OSRM)...';
-      let osrm; try{ osrm=await getJSON(osrmUrl); }catch(e){ toastCenter('Errore OSRM'); stats2.textContent='Errore: OSRM'; return; }
-      if(!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]){ toastCenter('OSRM non ha restituito una rotta valida'); stats2.textContent='Errore: OSRM'; return; }
+      document.getElementById('stats2').textContent='Calcolo rotta (OSRM)...';
+      let osrm; try{ osrm=await getJSON(osrmUrl); }catch(e){ toastCenter('Errore OSRM'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
+      if(!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]){ toastCenter('OSRM non ha restituito una rotta valida'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
 
-      // Steps RTE (puri OSRM: anche depart/arrive)
+      // Steps RTE: uso i punti OSRM (anche depart/arrive) come fa lo script PS
       const rte=[];
       for(const leg of (osrm.routes[0].legs||[])){
         for(const step of (leg.steps||[])){
@@ -358,13 +377,14 @@
             const lon=String(step.maneuver.location[0]), lat=String(step.maneuver.location[1]);
             if(rte.length){
               const last=rte[rte.length-1];
-              if(Math.abs(+last.lat-+lat)<1e-7 && Math.abs(+last.lon-+lon)<1e-7) continue;
+              if(Math.abs(parseFloat(last.lat)-parseFloat(lat))<1e-7 && Math.abs(parseFloat(last.lon)-parseFloat(lon))<1e-7) continue;
             }
             rte.push({lat,lon,type:String(step.maneuver.type||'')});
           }
         }
       }
 
+      // TRK
       const trk=(osrm.routes[0].geometry && osrm.routes[0].geometry.coordinates)?osrm.routes[0].geometry.coordinates:[];
       const startLabel=fileNameSafe(await reverseShortLabel(ordered[0].lat,ordered[0].lon));
       const endLabel=fileNameSafe(await reverseShortLabel(ordered[ordered.length-1].lat,ordered[ordered.length-1].lon));
@@ -376,21 +396,23 @@
       nameRTE=`maps2gpx_osrm_rotta_${startLabel}_${endLabel}_${ts}.gpx`;
       nameTRK=`maps2gpx_osrm_traccia_${startLabel}_${endLabel}_${ts}.gpx`;
 
-      stats2.textContent=`${ordered.length} punti convertiti (WPT) · RTE ${rte.length} step · TRK ${trk.length} vertici`;
-      const prevR=gpxRTE.split('\n').slice(0,200).join('\n'); gpxPreviewRte.textContent=prevR+(gpxRTE.length>prevR.length?'\n...':''); previewWrapRte.hidden=false;
-      const prevT=gpxTRK.split('\n').slice(0,200).join('\n'); gpxPreviewTrk.textContent=prevT+(gpxTRK.length>prevT.length?'\n...':''); previewWrapTrk.hidden=false;
-      dlRow.style.display=''; toastCenter('GPX RTE & TRK pronti');
+      document.getElementById('stats2').textContent=`${ordered.length} punti convertiti (WPT) · RTE ${rte.length} step · TRK ${trk.length} vertici`;
+
+      const prevR=gpxRTE.split('\n').slice(0,200).join('\n'); document.getElementById('gpxPreviewRte').textContent=prevR+(gpxRTE.length>prevR.length?'\n...':''); document.getElementById('previewWrapRte').hidden=false;
+      const prevT=gpxTRK.split('\n').slice(0,200).join('\n'); document.getElementById('gpxPreviewTrk').textContent=prevT+(gpxTRK.length>prevT.length?'\n...':''); document.getElementById('previewWrapTrk').hidden=false;
+      document.getElementById('dlRow').style.display='';
+      toastCenter('GPX RTE & TRK pronti');
     });
 
     function downloadBlob(name, content, mime){
-      const clean=removeFinalEOL(content);
+      const clean=removeFinalEOL(content);                 // elimina newline finale
       const bytes=new TextEncoder().encode(clean);
       const url=URL.createObjectURL(new Blob([bytes],{type:mime||'application/gpx+xml'}));
       const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     }
-    btnDownloadRTE.addEventListener('click',async()=>{ if(!gpxRTE){toastCenter('Nessun GPX RTE');return} if(!(await confirmAction('Scaricare il file GPX della rotta (WPT+RTE)?')))return; downloadBlob(nameRTE||`maps2gpx_rotta_${nowStamp()}.gpx`,gpxRTE,'application/gpx+xml'); toast('Download avviato'); });
-    btnDownloadTRK.addEventListener('click',async()=>{ if(!gpxTRK){toastCenter('Nessun GPX TRK');return} if(!(await confirmAction('Scaricare il file GPX della traccia (WPT+TRK)?')))return; downloadBlob(nameTRK||`maps2gpx_traccia_${nowStamp()}.gpx`,gpxTRK,'application/gpx+xml'); toast('Download avviato'); });
-    btnClear2.addEventListener('click',()=>{ maps2gpxInput.value=''; resetMaps2GPXUI(); stats2.textContent='Pulito.'; });
+    document.getElementById('btnDownloadRTE').addEventListener('click',async()=>{ if(!gpxRTE){toastCenter('Nessun GPX RTE');return} const ok=await confirmAction('Scaricare il file GPX della rotta (WPT+RTE)?'); if(!ok)return; downloadBlob(nameRTE||`maps2gpx_rotta_${nowStamp()}.gpx`,gpxRTE,'application/gpx+xml'); toast('Download avviato'); });
+    document.getElementById('btnDownloadTRK').addEventListener('click',async()=>{ if(!gpxTRK){toastCenter('Nessun GPX TRK');return} const ok=await confirmAction('Scaricare il file GPX della traccia (WPT+TRK)?'); if(!ok)return; downloadBlob(nameTRK||`maps2gpx_traccia_${nowStamp()}.gpx`,gpxTRK,'application/gpx+xml'); toast('Download avviato'); });
+    document.getElementById('btnClear2').addEventListener('click',()=>{ document.getElementById('maps2gpxInput').value=''; resetMaps2GPXUI(); document.getElementById('stats2').textContent='Pulito.'; });
   </script>
 </body>
 </html>
