@@ -195,11 +195,34 @@
     }));
 
     /* Toast center 3s */
-    function toastCenter(msg){ const box=document.getElementById('toastsCenter'); box.innerHTML=''; const t=document.createElement('div'); t.className='toast center'; t.textContent=msg; box.appendChild(t); setTimeout(()=>{if(t.parentNode)t.parentNode.removeChild(t)},3000); }
+    function toastCenter(msg){
+      const box=document.getElementById('toastsCenter');
+      box.innerHTML='';
+      const t=document.createElement('div');
+      t.className='toast center';
+      t.textContent=msg;
+      box.appendChild(t);
+      setTimeout(()=>{if(t.parentNode)t.parentNode.removeChild(t)},3000);
+    }
     function toast(msg){ toastCenter(msg); }
 
-    async function confirmAction(text){ const dlg=document.getElementById('confirmDialog'); document.getElementById('confirmText').textContent=text||''; dlg.showModal(); const v=await new Promise(r=>dlg.addEventListener('close',()=>r(dlg.returnValue),{once:true})); return v==='ok'; }
-    async function getJSON(u){ const r=await fetch(u,{headers:{'Accept':'application/json'}}); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
+    // Confirm (once manuale, no options object)
+    async function confirmAction(text){
+      const dlg=document.getElementById('confirmDialog');
+      document.getElementById('confirmText').textContent=text||'';
+      dlg.showModal();
+      const val = await new Promise(resolve=>{
+        const handler=()=>{ dlg.removeEventListener('close',handler); resolve(dlg.returnValue); };
+        dlg.addEventListener('close',handler);
+      });
+      return val==='ok';
+    }
+
+    async function getJSON(u){
+      const r=await fetch(u,{headers:{'Accept':'application/json'}});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.json();
+    }
 
     /* Helpers */
     function stripAtTail(s){ return s.replace(/\/@.*$/,'').replace(/\/data=.*$/,''); }
@@ -232,16 +255,52 @@
     function nowStamp(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; }
     function timeHHMMSS(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
     function joinLF(a){ return a.join('\n'); }
-    function removeFinalEOL(s){ return String(s).replace(/[\r\n]+$/,''); } // più severo
+    function removeFinalEOL(s){ return String(s).replace(/[\r\n]+$/,''); }
 
     /* TAB 1 */
-    function extractDirSegment(s){ const m=stripAtTail(s.trim()).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i); if(!m) return null; return m[1].replace(/^\/+/,'').replace(/\/+$/,''); }
-    async function resolveIfShort(url){ try{ const h=(new URL(url)).host; if(!/(^|\.)maps\.app\.goo\.gl$/i.test(h)&&!/(^|\.)goo\.gl$/i.test(h)&&!/(^|\.)g\.co$/i.test(h)) return url; const {finalUrl}=await getJSON(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`); return finalUrl||url; }catch{return url;} }
+    function extractDirSegment(s){
+      const m=stripAtTail(s.trim()).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i);
+      if(!m) return null;
+      return m[1].replace(/^\/+/,'').replace(/\/+$/,'');
+    }
+    async function resolveIfShort(url){
+      try{
+        const h=(new URL(url)).host;
+        if(!/(^|\.)maps\.app\.goo\.gl$/i.test(h)&&!/(^|\.)goo\.gl$/i.test(h)&&!/(^|\.)g\.co$/i.test(h)) return url;
+        const {finalUrl}=await getJSON(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`);
+        return finalUrl||url;
+      }catch{return url;}
+    }
     function buildGoogleDirURL(parts){ return 'https://www.google.com/maps/dir/'+parts.join('/'); }
     function dedupeAdjacent(a){ const out=[]; let prev=null; for(const x of a){ if(x!==prev) out.push(x); prev=x; } return out; }
-    function evenSample(inner,need){ if(need<=0)return[]; if(inner.length<=need)return inner.slice(); const out=[]; for(let i=0;i<need;i++){ const idx=Math.round(i*(inner.length-1)/(need-1)); out.push(inner[idx]); } const res=[]; for(const v of out){ if(res[res.length-1]!==v) res.push(v); } while(res.length>need) res.pop(); return res; }
-    function optimizeTo25(all){ if(all.length<=25) return all; const first=all[0], last=all[all.length-1]; const mid=all.slice(1,all.length-1); const sampled=evenSample(mid,23); return [first,...sampled,last].slice(0,25); }
-    function splitInBlocks(all){ const MAX=25, blocks=[]; let rest=all.slice(), first=true; while(rest.length){ const chunk=rest.slice(0,MAX); if(!first && chunk[0]==="") chunk.shift(); blocks.push(chunk); rest=rest.slice(MAX); first=false; } return blocks; }
+    function evenSample(inner,need){
+      if(need<=0)return[];
+      if(inner.length<=need)return inner.slice();
+      const out=[];
+      for(let i=0;i<need;i++){ const idx=Math.round(i*(inner.length-1)/(need-1)); out.push(inner[idx]); }
+      const res=[]; for(const v of out){ if(res[res.length-1]!==v) res.push(v); }
+      while(res.length>need) res.pop();
+      return res;
+    }
+    function optimizeTo25(all){
+      if(all.length<=25) return all;
+      const first=all[0], last=all[all.length-1];
+      const mid=all.slice(1,all.length-1);
+      const sampled=evenSample(mid,23);
+      return [first,...sampled,last].slice(0,25);
+    }
+    function splitInBlocks(all){
+      const MAX=25, blocks=[];
+      let rest=all.slice(), first=true;
+      while(rest.length){
+        const chunk=rest.slice(0,MAX);
+        if(!first && chunk[0]==="") chunk.shift();
+        blocks.push(chunk);
+        rest=rest.slice(MAX);
+        first=false;
+      }
+      return blocks;
+    }
 
     function renderOutput(urls){
       const out=document.getElementById('output'),stats=document.getElementById('stats'); out.innerHTML='';
@@ -257,11 +316,28 @@
             </div>
           </div>`;
         div.querySelector('[data-copy]').addEventListener('click',async()=>{await navigator.clipboard.writeText(u);toast('URL copiato')});
-        div.querySelector('[data-open]').addEventListener('click',async()=>{const ok=await confirmAction('Aprire il link in una nuova scheda?'); if(ok) window.open(u,'_blank','noopener')});
+        div.querySelector('[data-open]').addEventListener('click',async()=>{
+          const ok=await confirmAction('Aprire il link in una nuova scheda?');
+          if(ok) window.open(u,'_blank','noopener')
+        });
         out.appendChild(div);
       });
       document.getElementById('btnDownloadAll').style.display='';
       toastCenter(`Risultati aggiornati (${n} link)`);
+    }
+
+    // Strategy dialog "once" manuale
+    function chooseStrategy(){
+      const dlg=document.getElementById('strategyDialog');
+      dlg.showModal();
+      return new Promise(resolve=>{
+        const handler=()=>{
+          dlg.removeEventListener('close',handler);
+          const rv=dlg.returnValue==='opt'?'optimize':dlg.returnValue==='split'?'split':null;
+          resolve(rv);
+        };
+        dlg.addEventListener('close',handler);
+      });
     }
 
     document.getElementById('btnMerge').addEventListener('click', async ()=>{
@@ -274,15 +350,17 @@
       let all=[""]; for(const seg of clean){all.push(...seg.split('/'))}
       all=dedupeAdjacent(all);
       if(all.length<=25){renderOutput([buildGoogleDirURL(all)]);return}
-      const dlg=document.getElementById('strategyDialog'); dlg.showModal();
-      const strategy=await new Promise(r=>dlg.addEventListener('close',()=>r(dlg.returnValue==='opt'?'optimize':dlg.returnValue==='split'?'split':null),{once:true}));
+      const strategy=await chooseStrategy();
       if(!strategy){toastCenter('Operazione annullata');return}
       if(strategy==='optimize'){renderOutput([buildGoogleDirURL(optimizeTo25(all))])}
       else{const blocks=splitInBlocks(all); renderOutput(blocks.map(b=>buildGoogleDirURL(b)));}
     });
 
     document.getElementById('btnClear').addEventListener('click',()=>{
-      document.getElementById('linksInput').value=''; document.getElementById('output').innerHTML=''; document.getElementById('stats').textContent='Pulito.'; document.getElementById('btnDownloadAll').style.display='none';
+      document.getElementById('linksInput').value='';
+      document.getElementById('output').innerHTML='';
+      document.getElementById('stats').textContent='Pulito.';
+      document.getElementById('btnDownloadAll').style.display='none';
     });
 
     document.getElementById('btnDownloadAll').addEventListener('click',async()=>{
@@ -291,14 +369,18 @@
       const ok=await confirmAction('Scaricare un file .txt con i link generati?'); if(!ok) return;
       const name=(items.length===1?`merge_1_${nowStamp()}.txt`:`merge_${items.length}_${nowStamp()}.txt`);
       const sep=items.length>1?'\n\n':'\n';
-      const bytes=new TextEncoder().encode(items.join(sep)); // nessuna newline extra
+      const bytes=new TextEncoder().encode(items.join(sep));
       const url=URL.createObjectURL(new Blob([bytes],{type:'text/plain'}));
       const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
       toast('File scaricato');
     });
 
     /* TAB 2 */
-    function extractDirSegmentKeepLeading(s){ const m=stripAtTail(s.trim()).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i); if(!m) return null; return m[1].replace(/\/+$/,''); }
+    function extractDirSegmentKeepLeading(s){
+      const m=stripAtTail(s.trim()).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i);
+      if(!m) return null;
+      return m[1].replace(/\/+$/,'');
+    }
     function isLatLonStr(s){ const m=s.trim().match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/); return m?{lat:m[1],lon:m[2]}:null; }
     async function geocodeTry(q){ try{ const r=await getJSON(`${CONFIG.workerBase}/geocode?q=${encodeURIComponent(q)}`); if(Array.isArray(r)&&r.length) return r[0]; }catch{} return null; }
     async function geocodeFreeform(t){
@@ -309,7 +391,14 @@
       return null;
     }
     async function reverseShortLabel(lat,lon){
-      try{ const r=await getJSON(`${CONFIG.workerBase}/reverse?lat=${lat}&lon=${lon}`); const a=r&&r.address?r.address:{}; const city=a.city||a.town||a.village||a.hamlet||''; const prov=a.state_district||a.county||''; if(city) return prov?`${city} (${prov})`:city; }catch{} return 'Località';
+      try{
+        const r=await getJSON(`${CONFIG.workerBase}/reverse?lat=${lat}&lon=${lon}`);
+        const a=r&&r.address?r.address:{};
+        const city=a.city||a.town||a.village||a.hamlet||'';
+        const prov=a.state_district||a.county||'';
+        if(city) return prov?`${city} (${prov})`:city;
+      }catch{}
+      return 'Località';
     }
 
     function buildGPX_RTE_WPT(points, steps, title){
@@ -330,7 +419,15 @@
     }
 
     let gpxRTE=null,gpxTRK=null,nameRTE='',nameTRK='';
-    function resetMaps2GPXUI(){ document.getElementById('stats2').textContent='Nessun file generato.'; document.getElementById('gpxPreviewRte').textContent=''; document.getElementById('gpxPreviewTrk').textContent=''; document.getElementById('previewWrapRte').hidden=true; document.getElementById('previewWrapTrk').hidden=true; document.getElementById('dlRow').style.display='none'; gpxRTE=gpxTRK=null; nameRTE=nameTRK=''; }
+    function resetMaps2GPXUI(){
+      document.getElementById('stats2').textContent='Nessun file generato.';
+      document.getElementById('gpxPreviewRte').textContent='';
+      document.getElementById('gpxPreviewTrk').textContent='';
+      document.getElementById('previewWrapRte').hidden=true;
+      document.getElementById('previewWrapTrk').hidden=true;
+      document.getElementById('dlRow').style.display='none';
+      gpxRTE=gpxTRK=null; nameRTE=nameTRK='';
+    }
 
     document.getElementById('btnGenGPX').addEventListener('click', async ()=>{
       resetMaps2GPXUI();
@@ -369,7 +466,7 @@
       let osrm; try{ osrm=await getJSON(osrmUrl); }catch(e){ toastCenter('Errore OSRM'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
       if(!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]){ toastCenter('OSRM non ha restituito una rotta valida'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
 
-      // Steps RTE: uso i punti OSRM (anche depart/arrive) come fa lo script PS
+      // Steps RTE
       const rte=[];
       for(const leg of (osrm.routes[0].legs||[])){
         for(const step of (leg.steps||[])){
@@ -405,7 +502,7 @@
     });
 
     function downloadBlob(name, content, mime){
-      const clean=removeFinalEOL(content);                 // elimina newline finale
+      const clean=removeFinalEOL(content);
       const bytes=new TextEncoder().encode(clean);
       const url=URL.createObjectURL(new Blob([bytes],{type:mime||'application/gpx+xml'}));
       const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
