@@ -64,6 +64,9 @@
     @keyframes fadePop { from { opacity:0; transform: translateY(6px) scale(0.98);} to { opacity:1; transform: translateY(0) scale(1);} }
 
     footer { margin: 36px auto 24px; max-width: 1100px; color: var(--muted); font-size: 13px; padding: 0 16px; }
+
+    /* Output list styling */
+    .out-item + .out-item { margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -97,7 +100,6 @@
     <section id="tab-merge" class="card" aria-labelledby="Fusione Link">
       <div class="hd">Fusione, ottimizzazione e split dei link Google Maps</div>
       <div class="bd grid grid-2">
-        <!-- Spiegazione (aggiornata) -->
         <p class="note" style="grid-column:1 / -1;">
           Il limite su Google Maps è di 10 punti, con questo strumento possiamo arrivare a 25 in modalità navigabile che è il vero limite nascosto di Google. Se si dovessero superare i 25 punti, verrebbe proposto o di ottimizzare a 25, mantenendo fissi il primo e l'ultimo punto, oppure si possono generare tanti link da 25 punti fino al completamento dell'intero itinerario
         </p>
@@ -143,10 +145,7 @@
             <label class="chip"><input type="radio" name="gpxType" value="trk" /> <span>TRK</span></label>
             <label class="chip"><input type="radio" name="gpxType" value="wpt" /> <span>WPT</span></label>
           </div>
-          <div class="row" style="margin-top:10px;">
-            <label class="chip"><input type="checkbox" id="useGeocodeNames" checked /> <span>Usa nomi dal geocoding nelle etichette</span></label>
-            <label class="chip"><input type="checkbox" id="sanitize2" checked /> <span>Sanitizza URL (rimuovi da /@ in poi)</span></label>
-          </div>
+
           <div class="row" id="startRow" style="margin-top:10px; display:none;">
             <input id="startPoint" placeholder='Specifica la partenza per "//" (indirizzo o lat,lon)' style="flex:1 1 auto; padding:10px; border:1px solid var(--border); border-radius:10px;" />
           </div>
@@ -173,6 +172,20 @@
           </div>
         </div>
       </div>
+    </section>
+
+    <!-- Placeholder altri tab -->
+    <section id="tab-gpx2maps" class="card" hidden>
+      <div class="hd">3) GPX → Google Maps</div>
+      <div class="bd">In arrivo.</div>
+    </section>
+    <section id="tab-sanitize" class="card" hidden>
+      <div class="hd">4) Sanitizza GPX</div>
+      <div class="bd">In arrivo.</div>
+    </section>
+    <section id="tab-meteo" class="card" hidden>
+      <div class="hd">5) Meteo + Info percorso</div>
+      <div class="bd">In arrivo.</div>
     </section>
   </div>
 
@@ -278,8 +291,7 @@
       return await r.json();
     }
 
-    /* ===== TAB 1: PARSER (clone PowerShell) ===== */
-
+    /* ===== Condivise ===== */
     function stripAtTail(s){ // rimuove /@... e /data=...
       let out = s.replace(/\/@.*$/, '');
       out = out.replace(/\/data=.*$/, '');
@@ -319,6 +331,8 @@
       return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
     }
 
+    /* ===== TAB 1: FUSIONE LINK ===== */
+
     // Dedup adiacenti
     function dedupeAdjacent(arr){
       const out = [];
@@ -330,7 +344,6 @@
       return out;
     }
 
-    // Sampler (mini-dedup interno)
     function evenSample(inner, need){
       if (need <= 0) return [];
       if (inner.length <= need) return inner.slice();
@@ -369,7 +382,6 @@
       return blocks;
     }
 
-    // Messaggio + orario ogni volta che aggiorniamo i risultati
     function renderOutput(urls){
       const out = document.getElementById('output');
       const stats = document.getElementById('stats');
@@ -400,7 +412,6 @@
       toastCenter(`Risultati aggiornati (${n} link)`);
     }
 
-    // === TAB 1 click ===
     document.getElementById('btnMerge').addEventListener('click', async () => {
       const lines = document.getElementById('linksInput').value.split('\n').map(s => s.trim()).filter(Boolean);
       if (!lines.length){ toast('Inserisci almeno un link'); return; }
@@ -466,7 +477,7 @@
       toast('File scaricato');
     });
 
-    /* ===== TAB 2: Maps -> GPX ===== */
+    /* ===== TAB 2: MAPS → GPX ===== */
 
     function isLatLon(s){
       const m = s.trim().match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/);
@@ -492,22 +503,24 @@
     function gpxFooter(){ return `</gpx>`; }
     function xmlEscape(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
 
-    function buildGPX(pointsLL, type, useNames){
+    function buildGPX(pointsLL, type){
       const lines = [];
       lines.push(gpxHeader());
       const ts = new Date().toISOString();
       lines.push(`<metadata><time>${ts}</time></metadata>`);
 
       if (type === 'wpt'){
+        let idx = 1;
         for (const p of pointsLL){
-          const name = useNames ? (p.name || '') : '';
-          lines.push(`<wpt lat="${p.lat}" lon="${p.lon}">${name ? `<name>${xmlEscape(name)}</name>` : ''}</wpt>`);
+          // Niente <name> per WPT (comportamento allineato al "no geocode names")
+          lines.push(`<wpt lat="${p.lat}" lon="${p.lon}"></wpt>`);
+          idx++;
         }
       } else if (type === 'rte'){
         lines.push(`<rte>`);
         let idx = 1;
         for (const p of pointsLL){
-          const name = useNames ? (p.name || `P${idx}`) : `P${idx}`;
+          const name = `P${idx}`;
           lines.push(`<rtept lat="${p.lat}" lon="${p.lon}"><name>${xmlEscape(name)}</name></rtept>`);
           idx++;
         }
@@ -533,17 +546,22 @@
       const raw = document.getElementById('maps2gpxInput').value.split('\n').map(s => s.trim()).filter(Boolean);
       if (!raw.length){ toast('Inserisci almeno una riga'); return; }
 
-      const sanitize = document.getElementById('sanitize2').checked;
-      const useNames = document.getElementById('useGeocodeNames').checked;
       const type = (document.querySelector('input[name="gpxType"]:checked')?.value) || 'rte';
 
-      // tokenizza
+      // Tokenizza:
+      // - se è URL: risolve shortlink, sanitizza sempre, estrae la parte dopo /maps/dir/, split su '/'
+      // - altrimenti: prende la riga come token singolo
       let tokens = [];
       for (const line of raw){
-        const r = /^https?:\/\//i.test(line) ? [extractDirSegment(line) || line] : [line];
-        let arr = r;
-        if (sanitize) arr = arr.map(stripAtTail);
-        tokens.push(...arr);
+        if (/^https?:\/\//i.test(line)){
+          const resolved = await resolveIfShort(line);
+          const seg = extractDirSegment(resolved);
+          if (!seg){ toast('Link non valido: manca /maps/dir/'); return; }
+          const parts = seg.split('/').filter(Boolean);
+          tokens.push(...parts);
+        } else {
+          tokens.push(line);
+        }
       }
       tokens = tokens.map(s => s.trim()).filter(Boolean);
 
@@ -564,7 +582,7 @@
         pointsLL.push(g);
       }
 
-      const gpx = buildGPX(pointsLL, type, useNames);
+      const gpx = buildGPX(pointsLL, type);
       generatedGPX = gpx;
       generatedName = `maps2gpx_${type}_${nowStamp()}.gpx`;
 
