@@ -141,7 +141,7 @@
 - Puoi incollare link con // iniziale: qui viene ignorato (come nello script)"></textarea>
 
           <div class="row" style="margin-top:12px;">
-            <button id="btnGenGPX" class="btn">Genera GPX (RTE & TRK)</button>
+            <button id="btnGenGPX" class="btn">Genera GPX</button>
             <button id="btnClear2" class="btn ghost">Pulisci</button>
           </div>
         </div>
@@ -159,9 +159,9 @@
                 <summary>Anteprima GPX Traccia (WPT + TRK)</summary>
                 <pre id="gpxPreviewTrk" class="mono" style="max-height:220px; overflow:auto; white-space:pre; background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:10px;"></pre>
               </details>
-              <div class="row" style="margin-top:10px;">
-                <button id="btnDownloadRTE" class="btn small" disabled>Scarica GPX Rotta</button>
-                <button id="btnDownloadTRK" class="btn small" disabled>Scarica GPX Traccia</button>
+              <div class="row" id="dlRow" style="margin-top:10px; display:none;">
+                <button id="btnDownloadRTE" class="btn small">Scarica GPX Rotta</button>
+                <button id="btnDownloadTRK" class="btn small">Scarica GPX Traccia</button>
               </div>
             </div>
           </div>
@@ -258,7 +258,7 @@
       const box = document.getElementById('toastsCenter');
       while (box.firstChild) box.removeChild(box.firstChild);
       box.appendChild(t);
-      setTimeout(() => { if (t.parentNode) t.parentNode.removeChild(t); }, 2200);
+      setTimeout(() => { if (t.parentNode) t.parentNode.removeChild(t); }, 2800);
     }
 
     // Confirm
@@ -283,7 +283,7 @@
       return out;
     }
 
-    // TAB 1 usa questa (rimuove slash iniziali del segmento per evitare /dir///)
+    // TAB 1: rimuove slash iniziali per evitare /dir///
     function extractDirSegment(longLink){
       const s = stripAtTail(longLink.trim());
       const re = /^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i;
@@ -291,7 +291,7 @@
       if (!m) return null;
       return m[1].replace(/^\/+/, '').replace(/\/+$/, '');
     }
-    // TAB 2 usa questa (mantiene eventuale slash iniziale => "dir//" viene ignorato dai token filtrando vuoti)
+    // TAB 2: mantiene eventuale slash iniziale; poi filtriamo i vuoti
     function extractDirSegmentKeepLeading(longLink){
       const s = stripAtTail(longLink.trim());
       const re = /^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i;
@@ -449,7 +449,7 @@
       toast('File scaricato');
     });
 
-    /* ===== TAB 2: MAPS → GPX (WPT+RTE e WPT+TRK, clone PowerShell) ===== */
+    /* ===== TAB 2: MAPS → GPX (WPT+RTE e WPT+TRK, clone PS) ===== */
     function isLatLon(s){
       const m = s.trim().match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/);
       if (!m) return null;
@@ -479,7 +479,7 @@
       // 2) + Italia
       g = await geocodeTry(`${t}, Italia`);
       if (g) return { lat: +g.lat, lon: +g.lon, label: g.display_name || t };
-      // 3) only head + Italia
+      // 3) testa prima della virgola + Italia
       const head = t.split(',')[0].trim();
       if (head && head !== t){
         g = await geocodeTry(`${head}, Italia`);
@@ -533,7 +533,19 @@
 
     let gpxRTE=null, gpxTRK=null, nameRTE='', nameTRK='';
 
+    function resetMaps2GPXUI() {
+      document.getElementById('stats2').textContent = 'Nessun file generato.';
+      document.getElementById('gpxPreviewRte').textContent = '';
+      document.getElementById('gpxPreviewTrk').textContent = '';
+      document.getElementById('previewWrapRte').hidden = true;
+      document.getElementById('previewWrapTrk').hidden = true;
+      document.getElementById('dlRow').style.display = 'none';
+      gpxRTE = gpxTRK = null; nameRTE = nameTRK = '';
+    }
+
     document.getElementById('btnGenGPX').addEventListener('click', async () => {
+      resetMaps2GPXUI();
+
       const raw = document.getElementById('maps2gpxInput').value.split('\n').map(s => s.trim()).filter(Boolean);
       if (!raw.length){ toastCenter('Inserisci almeno una riga'); return; }
 
@@ -552,23 +564,20 @@
           if (line !== '//') tokens.push(line);
         }
       }
-      if (tokens.length < 2){ toastCenter('Servono almeno 2 punti validi'); return; }
 
-      // Geocoding robusto
+      // Geocoding a cascata — SKIP se fallisce (come PS)
       const ordered = [];
+      const skipped = [];
       for (let i=0;i<tokens.length;i++){
         document.getElementById('stats2').textContent = `Geocoding ${i+1}/${tokens.length}...`;
         const g = await geocodeFreeform(tokens[i]);
-        if (!g){
-          toastCenter(`Impossibile geocodificare: ${tokens[i]}`);
-          document.getElementById('btnDownloadRTE').disabled = true;
-          document.getElementById('btnDownloadTRK').disabled = true;
-          document.getElementById('previewWrapRte').hidden = true;
-          document.getElementById('previewWrapTrk').hidden = true;
-          document.getElementById('stats2').textContent = 'Errore: geocoding fallito.';
-          return;
-        }
+        if (!g){ skipped.push(tokens[i]); continue; }
         ordered.push(g);
+      }
+      if (skipped.length){ toastCenter(`Saltati ${skipped.length} punto/i non geocodificati`); }
+      if (ordered.length < 2){
+        document.getElementById('stats2').textContent = 'Errore: geocoding fallito (troppi pochi punti).';
+        return;
       }
 
       // OSRM
@@ -621,8 +630,7 @@
       const prevT = gpxTRK.split('\n').slice(0, 200).join('\n');
       document.getElementById('gpxPreviewTrk').textContent = prevT + (gpxTRK.length > prevT.length ? "\n..." : "");
       document.getElementById('previewWrapTrk').hidden = false;
-      document.getElementById('btnDownloadRTE').disabled = false;
-      document.getElementById('btnDownloadTRK').disabled = false;
+      document.getElementById('dlRow').style.display = ''; // mostra i bottoni solo ora
       toastCenter('GPX RTE & TRK pronti');
     });
 
@@ -644,14 +652,8 @@
     });
     document.getElementById('btnClear2').addEventListener('click', () => {
       document.getElementById('maps2gpxInput').value = '';
+      resetMaps2GPXUI();
       document.getElementById('stats2').textContent = 'Pulito.';
-      document.getElementById('gpxPreviewRte').textContent = '';
-      document.getElementById('gpxPreviewTrk').textContent = '';
-      document.getElementById('previewWrapRte').hidden = true;
-      document.getElementById('previewWrapTrk').hidden = true;
-      document.getElementById('btnDownloadRTE').disabled = true;
-      document.getElementById('btnDownloadTRK').disabled = true;
-      gpxRTE = gpxTRK = null; nameRTE = nameTRK = '';
     });
   </script>
 </body>
