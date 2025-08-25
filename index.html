@@ -171,32 +171,48 @@
   <div id="toastsCenter" aria-live="polite" aria-atomic="true"></div>
 
   <script>
-    const CONFIG={workerBase:"https://gpx2maps-worker.stefano-vitro.workers.dev",paypalDonateUrl:"https://www.paypal.com/donate?business=stefano.vitro%40gmail.com&no_recurring=0&item_name=Supporto+sviluppo+GPX2MAPS&currency_code=EUR",amazonAffiliateUrl:"https://amzn.to/41o2XjA"};
-    donateBtn.href=CONFIG.paypalDonateUrl; amazonBtn.href=CONFIG.amazonAffiliateUrl;
+    // ========= DOM helpers =========
+    const $ = (id) => document.getElementById(id);
 
-    /* Tabs */
+    // === CONFIG ===
+    const CONFIG={workerBase:"https://gpx2maps-worker.stefano-vitro.workers.dev",paypalDonateUrl:"https://www.paypal.com/donate?business=stefano.vitro%40gmail.com&no_recurring=0&item_name=Supporto+sviluppo+GPX2MAPS&currency_code=EUR",amazonAffiliateUrl:"https://amzn.to/41o2XjA"};
+
+    // CTA
+    $('donateBtn').href = CONFIG.paypalDonateUrl;
+    $('amazonBtn').href = CONFIG.amazonAffiliateUrl;
+
+    // Tabs
     const tabs=[...document.querySelectorAll('.tab')];
     tabs.forEach(btn=>btn.addEventListener('click',()=>{
       tabs.forEach(b=>{b.classList.remove('active');b.setAttribute('aria-selected','false')});
       btn.classList.add('active');btn.setAttribute('aria-selected','true');
       const id=btn.dataset.tab;
       ['merge','maps2gpx','gpx2maps','sanitize','meteo'].forEach(k=>{
-        const s=document.getElementById(`tab-${k}`);
+        const s=$(`tab-${k}`);
         if(s) s.hidden = k!==id && !(k==='merge'&&id===undefined);
       });
     }));
 
-    /* Toast centrali 3s */
-    function toastCenter(msg){ const box=document.getElementById('toastsCenter'); box.innerHTML=''; const t=document.createElement('div'); t.className='toast center'; t.textContent=msg; box.appendChild(t); setTimeout(()=>{t.remove()},3000); }
+    // Toast centrali 3s
+    function toastCenter(msg){ const box=$('toastsCenter'); box.innerHTML=''; const t=document.createElement('div'); t.className='toast center'; t.textContent=msg; box.appendChild(t); setTimeout(()=>{t.remove()},3000); }
     function toast(msg){ toastCenter(msg); }
 
-    async function confirmAction(text){ const dlg=confirmDialog; confirmText.textContent=text||''; dlg.showModal(); const v=await new Promise(r=>dlg.addEventListener('close',()=>r(dlg.returnValue),{once:true})); return v==='ok'; }
+    // Confirm
+    async function confirmAction(text){ const dlg=$('confirmDialog'); $('confirmText').textContent=text||''; dlg.showModal(); const v=await new Promise(r=>dlg.addEventListener('close',()=>r(dlg.returnValue),{once:true})); return v==='ok'; }
+
     async function getJSON(u){ const r=await fetch(u,{headers:{'Accept':'application/json'}}); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
 
-    /* Helpers */
+    // Helpers comuni
     function stripAtTail(s){ return s.replace(/\/@.*$/,'').replace(/\/data=.*$/,''); }
+    function decodeTok(p){ try{return decodeURIComponent(p).replace(/\+/g,' ').trim()}catch{return p.replace(/\+/g,' ').trim()} }
+    function xmlEscape(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
+    function fileNameSafe(s){ return (s||'').replace(/[\\\/:*?"<>|]/g,'').replace(/\s+/g,' ').trim(); }
+    function nowStamp(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; }
+    function timeHHMMSS(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
+    function joinLF(a){ return a.join('\n'); }
+    function ensureFinalEOL(s){ return String(s).replace(/[\r\n]*$/,'\n'); }
 
-    // HALF-EVEN a 6 decimali con tolleranza sui quasi-tie (replica MidpointRounding.ToEven del PS)
+    // HALF-EVEN a 6 decimali con tolleranza sui quasi-tie
     function roundHalfEvenFixed(x, d=6){
       const n = Number(x);
       if (!isFinite(n)) return (0).toFixed(d);
@@ -206,7 +222,7 @@
       if (y < 0){ sign = -1; y = -y; }
       const nFloor = Math.floor(y);
       const frac = y - nFloor;
-      const eps = 5e-10; // <-- più largo: tratta 0.5±eps come tie
+      const eps = 5e-10;
       let out;
       if (Math.abs(frac - 0.5) < eps) {
         const even = (nFloor % 2 === 0) ? nFloor : nFloor + 1;
@@ -219,15 +235,7 @@
     }
     const fmt6s = x => roundHalfEvenFixed(x, 6);
 
-    function decodeTok(p){ try{return decodeURIComponent(p).replace(/\+/g,' ').trim()}catch{return p.replace(/\+/g,' ').trim()} }
-    function xmlEscape(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
-    function fileNameSafe(s){ return (s||'').replace(/[\\\/:*?"<>|]/g,'').replace(/\s+/g,' ').trim(); }
-    function nowStamp(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; }
-    function timeHHMMSS(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
-    function joinLF(a){ return a.join('\n'); }
-    function ensureFinalEOL(s){ return String(s).replace(/[\r\n]*$/,'\n'); }
-
-    /* TAB 1 */
+    /* ===== TAB 1: Fusione ===== */
     function extractDirSegment(s){ const m=stripAtTail(s.trim()).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i); if(!m) return null; return m[1].replace(/^\/+/,'').replace(/\/+$/,''); }
     async function resolveIfShort(url){ try{ const h=(new URL(url)).host; if(!/(^|\.)maps\.app\.goo\.gl$/i.test(h)&&!/(^|\.)goo\.gl$/i.test(h)&&!/(^|\.)g\.co$/i.test(h)) return url; const {finalUrl}=await getJSON(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`); return finalUrl||url; }catch{return url;} }
     function buildGoogleDirURL(parts){ return 'https://www.google.com/maps/dir/'+parts.join('/'); }
@@ -237,9 +245,10 @@
     function splitInBlocks(all){ const MAX=25, blocks=[]; let rest=all.slice(), first=true; while(rest.length){ const chunk=rest.slice(0,MAX); if(!first && chunk[0]==="") chunk.shift(); blocks.push(chunk); rest=rest.slice(MAX); first=false; } return blocks; }
 
     function renderOutput(urls){
-      const out=output,stats=statsTxt; out.innerHTML='';
-      if(!urls.length){ stats.textContent='Nessun risultato.'; btnDownloadAll.style.display='none'; return; }
-      const n=urls.length; stats.textContent=(n===1?'1 link generato':`${n} link generati`)+` · aggiornato alle ${timeHHMMSS()}`;
+      const outEl=$('output'); const statsEl=$('stats');
+      outEl.innerHTML='';
+      if(!urls.length){ statsEl.textContent='Nessun risultato.'; $('btnDownloadAll').style.display='none'; return; }
+      const n=urls.length; statsEl.textContent=(n===1?'1 link generato':`${n} link generati`)+` · aggiornato alle ${timeHHMMSS()}`;
       urls.forEach(u=>{
         const div=document.createElement('div'); div.className='out-item';
         div.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
@@ -250,14 +259,14 @@
           </div></div>`;
         div.querySelector('[data-copy]').addEventListener('click',async()=>{await navigator.clipboard.writeText(u);toast('URL copiato')});
         div.querySelector('[data-open]').addEventListener('click',async()=>{const ok=await confirmAction('Aprire il link in una nuova scheda?'); if(ok) window.open(u,'_blank','noopener')});
-        out.appendChild(div);
+        outEl.appendChild(div);
       });
-      btnDownloadAll.style.display='';
+      $('btnDownloadAll').style.display='';
       toastCenter(`Risultati aggiornati (${n} link)`);
     }
 
-    btnMerge.addEventListener('click', async ()=>{
-      const lines=linksInput.value.split('\n').map(s=>s.trim()).filter(Boolean);
+    $('btnMerge').addEventListener('click', async ()=>{
+      const lines=$('linksInput').value.split('\n').map(s=>s.trim()).filter(Boolean);
       if(!lines.length){toastCenter('Inserisci almeno un link');return}
       if(lines.length===1 && /https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/\//i.test(lines[0])){toastCenter('Errore: almeno due link sono necessari per la fusione.');return}
       const resolved=[]; for(const ln of lines){resolved.push(await resolveIfShort(ln))}
@@ -266,16 +275,16 @@
       let all=[""]; for(const seg of clean){all.push(...seg.split('/'))}
       all=dedupeAdjacent(all);
       if(all.length<=25){renderOutput([buildGoogleDirURL(all)]);return}
-      strategyDialog.showModal();
-      const strategy=await new Promise(r=>strategyDialog.addEventListener('close',()=>r(strategyDialog.returnValue==='opt'?'optimize':strategyDialog.returnValue==='split'?'split':null),{once:true}));
+      $('strategyDialog').showModal();
+      const strategy=await new Promise(r=>$('strategyDialog').addEventListener('close',()=>r($('strategyDialog').returnValue==='opt'?'optimize':$('strategyDialog').returnValue==='split'?'split':null),{once:true}));
       if(!strategy){toastCenter('Operazione annullata');return}
       if(strategy==='optimize'){renderOutput([buildGoogleDirURL(optimizeTo25(all))])}
       else{const blocks=splitInBlocks(all); renderOutput(blocks.map(b=>buildGoogleDirURL(b)));}
     });
 
-    btnClear.addEventListener('click',()=>{linksInput.value=''; output.innerHTML=''; statsTxt.textContent='Pulito.'; btnDownloadAll.style.display='none';});
+    $('btnClear').addEventListener('click',()=>{$('linksInput').value=''; $('output').innerHTML=''; $('stats').textContent='Pulito.'; $('btnDownloadAll').style.display='none';});
 
-    btnDownloadAll.addEventListener('click',async()=>{
+    $('btnDownloadAll').addEventListener('click',async()=>{
       const items=[...document.querySelectorAll('#output .out-item .mono')].map(x=>x.textContent);
       if(!items.length) return;
       if(!(await confirmAction('Scaricare un file .txt con i link generati?'))) return;
@@ -287,15 +296,15 @@
       toast('File scaricato');
     });
 
-    /* TAB 2 */
+    /* ===== TAB 2: Maps → GPX ===== */
     function extractDirSegmentKeepLeading(s){ const m=stripAtTail(s.trim()).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i); if(!m) return null; return m[1].replace(/\/+$/,''); }
     function isLatLonStr(s){ const m=s.trim().match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/); return m?{lat:m[1],lon:m[2]}:null; }
     async function geocodeTry(q){ try{ const r=await getJSON(`${CONFIG.workerBase}/geocode?q=${encodeURIComponent(q)}`); if(Array.isArray(r)&&r.length) return r[0]; }catch{} return null; }
     async function geocodeFreeform(t){
       const ll=isLatLonStr(t); if(ll) return {lat:ll.lat,lon:ll.lon,label:`${ll.lat},${ll.lon}`};
       let g=await geocodeTry(t); if(g) return {lat:String(g.lat),lon:String(g.lon),label=g.display_name||t};
-      g=await geocodeTry(`${t}, Italia`); if(g) return {lat:String(g.lat),lon:String(g.lon),label:g.display_name||t};
-      const head=t.split(',')[0].trim(); if(head&&head!==t){ g=await geocodeTry(`${head}, Italia`); if(g) return {lat:String(g.lat),lon:String(g.lon),label:g.display_name||head}; }
+      g=await geocodeTry(`${t}, Italia`); if(g) return {lat:String(g.lat),lon:String(g.lon),label=g.display_name||t};
+      const head=t.split(',')[0].trim(); if(head&&head!==t){ g=await geocodeTry(`${head}, Italia`); if(g) return {lat:String(g.lat),lon:String(g.lon),label=g.display_name||head}; }
       return null;
     }
     async function reverseShortLabel(lat,lon){
@@ -320,11 +329,11 @@
     }
 
     let gpxRTE=null,gpxTRK=null,nameRTE='',nameTRK='';
-    function resetMaps2GPXUI(){ stats2.textContent='Nessun file generato.'; gpxPreviewRte.textContent=''; gpxPreviewTrk.textContent=''; previewWrapRte.hidden=true; previewWrapTrk.hidden=true; dlRow.style.display='none'; gpxRTE=gpxTRK=null; nameRTE=nameTRK=''; }
+    function resetMaps2GPXUI(){ $('stats2').textContent='Nessun file generato.'; $('gpxPreviewRte').textContent=''; $('gpxPreviewTrk').textContent=''; $('previewWrapRte').hidden=true; $('previewWrapTrk').hidden=true; $('dlRow').style.display='none'; gpxRTE=gpxTRK=null; nameRTE=nameTRK=''; }
 
-    btnGenGPX.addEventListener('click', async ()=>{
+    $('btnGenGPX').addEventListener('click', async ()=>{
       resetMaps2GPXUI();
-      const raw=maps2gpxInput.value.split('\n').map(s=>s.trim()).filter(Boolean);
+      const raw=$('maps2gpxInput').value.split('\n').map(s=>s.trim()).filter(Boolean);
       if(!raw.length){toastCenter('Inserisci almeno una riga');return}
 
       let tokens=[];
@@ -342,21 +351,20 @@
 
       const ordered=[], skipped=[];
       for(let i=0;i<tokens.length;i++){
-        stats2.textContent=`Geocoding ${i+1}/${tokens.length}...`;
+        $('stats2').textContent=`Geocoding ${i+1}/${tokens.length}...`;
         const g=await geocodeFreeform(tokens[i]);
         if(!g){ skipped.push(tokens[i]); continue; }
         ordered.push(g);
       }
-      if(ordered.length<2){ stats2.textContent='Errore: geocoding fallito (troppi pochi punti).'; return; }
+      if(ordered.length<2){ $('stats2').textContent='Errore: geocoding fallito (troppi pochi punti).'; return; }
       if(skipped.length){ toastCenter(`Saltati ${skipped.length} punto/i non geocodificati`); }
 
       const coordsParam=ordered.map(p=>`${p.lon},${p.lat}`).join(';');
       const osrmUrl=`${CONFIG.workerBase}/osrm?coords=${encodeURIComponent(coordsParam)}&profile=driving&overview=full&geometries=geojson&steps=true`;
-      stats2.textContent='Calcolo rotta (OSRM)...';
-      let osrm; try{ osrm=await getJSON(osrmUrl); }catch(e){ toastCenter('Errore OSRM'); stats2.textContent='Errore: OSRM'; return; }
-      if(!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]){ toastCenter('OSRM non ha restituito una rotta valida'); stats2.textContent='Errore: OSRM'; return; }
+      $('stats2').textContent='Calcolo rotta (OSRM)...';
+      let osrm; try{ osrm=await getJSON(osrmUrl); }catch(e){ toastCenter('Errore OSRM'); $('stats2').textContent='Errore: OSRM'; return; }
+      if(!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]){ toastCenter('OSRM non ha restituito una rotta valida'); $('stats2').textContent='Errore: OSRM'; return; }
 
-      // Steps RTE (puri OSRM: anche depart/arrive)
       const rte=[];
       for(const leg of (osrm.routes[0].legs||[])){
         for(const step of (leg.steps||[])){
@@ -382,10 +390,10 @@
       nameRTE=`maps2gpx_osrm_rotta_${startLabel}_${endLabel}_${ts}.gpx`;
       nameTRK=`maps2gpx_osrm_traccia_${startLabel}_${endLabel}_${ts}.gpx`;
 
-      stats2.textContent=`${ordered.length} punti convertiti (WPT) · RTE ${rte.length} step · TRK ${trk.length} vertici`;
-      const prevR=gpxRTE.split('\n').slice(0,200).join('\n'); gpxPreviewRte.textContent=prevR+(gpxRTE.length>prevR.length?'\n...':''); previewWrapRte.hidden=false;
-      const prevT=gpxTRK.split('\n').slice(0,200).join('\n'); gpxPreviewTrk.textContent=prevT+(gpxTRK.length>prevT.length?'\n...':''); previewWrapTrk.hidden=false;
-      dlRow.style.display=''; toastCenter('GPX RTE & TRK pronti');
+      $('stats2').textContent=`${ordered.length} punti convertiti (WPT) · RTE ${rte.length} step · TRK ${trk.length} vertici`;
+      const prevR=gpxRTE.split('\n').slice(0,200).join('\n'); $('gpxPreviewRte').textContent=prevR+(gpxRTE.length>prevR.length?'\n...':''); $('previewWrapRte').hidden=false;
+      const prevT=gpxTRK.split('\n').slice(0,200).join('\n'); $('gpxPreviewTrk').textContent=prevT+(gpxTRK.length>prevT.length?'\n...':''); $('previewWrapTrk').hidden=false;
+      $('dlRow').style.display=''; toastCenter('GPX RTE & TRK pronti');
     });
 
     function downloadBlob(name, content, mime){
@@ -394,9 +402,9 @@
       const url=URL.createObjectURL(new Blob([bytes],{type:mime||'application/gpx+xml'}));
       const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     }
-    btnDownloadRTE.addEventListener('click',async()=>{ if(!gpxRTE){toastCenter('Nessun GPX RTE');return} if(!(await confirmAction('Scaricare il file GPX della rotta (WPT+RTE)?')))return; downloadBlob(nameRTE||`maps2gpx_rotta_${nowStamp()}.gpx`,gpxRTE,'application/gpx+xml'); toast('Download avviato'); });
-    btnDownloadTRK.addEventListener('click',async()=>{ if(!gpxTRK){toastCenter('Nessun GPX TRK');return} if(!(await confirmAction('Scaricare il file GPX della traccia (WPT+TRK)?')))return; downloadBlob(nameTRK||`maps2gpx_traccia_${nowStamp()}.gpx`,gpxTRK,'application/gpx+xml'); toast('Download avviato'); });
-    btnClear2.addEventListener('click',()=>{ maps2gpxInput.value=''; resetMaps2GPXUI(); stats2.textContent='Pulito.'; });
+    $('btnDownloadRTE').addEventListener('click',async()=>{ if(!gpxRTE){toastCenter('Nessun GPX RTE');return} if(!(await confirmAction('Scaricare il file GPX della rotta (WPT+RTE)?')))return; downloadBlob(nameRTE||`maps2gpx_rotta_${nowStamp()}.gpx`,gpxRTE,'application/gpx+xml'); toast('Download avviato'); });
+    $('btnDownloadTRK').addEventListener('click',async()=>{ if(!gpxTRK){toastCenter('Nessun GPX TRK');return} if(!(await confirmAction('Scaricare il file GPX della traccia (WPT+TRK)?')))return; downloadBlob(nameTRK||`maps2gpx_traccia_${nowStamp()}.gpx`,gpxTRK,'application/gpx+xml'); toast('Download avviato'); });
+    $('btnClear2').addEventListener('click',()=>{ $('maps2gpxInput').value=''; resetMaps2GPXUI(); $('stats2').textContent='Pulito.'; });
   </script>
 </body>
 </html>
