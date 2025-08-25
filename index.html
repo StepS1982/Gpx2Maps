@@ -64,7 +64,6 @@
       <button type="button" class="tab" role="tab" aria-selected="false" data-tab="meteo">5) Meteo + Info percorso</button>
     </div>
 
-
     <!-- TAB 1 -->
     <section id="tab-merge" class="card">
       <div class="hd">Fusione, ottimizzazione e split dei link Google Maps</div>
@@ -179,17 +178,27 @@
     document.getElementById('donateBtn').href = CONFIG.paypalDonateUrl;
     document.getElementById('amazonBtn').href = CONFIG.amazonAffiliateUrl;
 
-    // Tabs (come prima)
-    const tabs = document.querySelectorAll('.tab');
-    tabs.forEach(btn => btn.addEventListener('click', () => {
-      tabs.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
-      btn.classList.add('active'); btn.setAttribute('aria-selected','true');
-      const id = btn.dataset.tab;
-      ['merge','maps2gpx','gpx2maps','sanitize','meteo'].forEach(key => {
-        const sec = document.getElementById(`tab-${key}`);
-        if (sec) sec.hidden = key !== id && !(key==='merge' && id===undefined);
+    // Tabs robusti con delegation + stato iniziale
+    (function(){
+      const sections = ['merge','maps2gpx','gpx2maps','sanitize','meteo'];
+      function showTab(id){
+        document.querySelectorAll('.tab').forEach(b=>{
+          const active = b.dataset.tab === id;
+          b.classList.toggle('active', active);
+          b.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        sections.forEach(key=>{
+          const sec = document.getElementById(`tab-${key}`);
+          if (sec) sec.hidden = (key !== id);
+        });
+      }
+      document.addEventListener('click', (e)=>{
+        const btn = e.target.closest('.tab');
+        if (!btn) return;
+        showTab(btn.dataset.tab || 'merge');
       });
-    }));
+      showTab('merge');
+    })();
 
     // Toast center 3s
     function toastCenter(msg){
@@ -236,7 +245,7 @@
     function joinLF(a){ return a.join('\n'); }
     function ensureFinalEOL(s){ return String(s).replace(/[\r\n]*$/,'\n'); }
 
-    // ==== ROUNDING .NET MidpointRounding.ToEven su STRINGA ====
+    // Bankers rounding (Midpoint ToEven) su stringa a 6 decimali
     function roundHalfEvenStr(numStr, d=6){
       let s = String(numStr).trim();
       if (!s || isNaN(+s)) return (0).toFixed(d);
@@ -251,23 +260,17 @@
       if (fracPart.length === d){
         return sign + intPart + '.' + fracPart;
       }
-      // più di d cifre: guardo la (d+1)-esima
       const head = fracPart.slice(0,d).split('');
       const next = fracPart[d];
       const tail = fracPart.slice(d+1);
       let roundUp = false;
       if (next > '5') roundUp = true;
       else if (next < '5') roundUp = false;
-      else { // next === '5'
-        if (/[1-9]/.test(tail)) roundUp = true; // away-from-zero
-        else {
-          // tie: bankers -> ultimo digit di head deve diventare pari
-          const lastDigit = +head[d-1];
-          roundUp = (lastDigit % 2 === 1);
-        }
+      else {
+        if (/[1-9]/.test(tail)) roundUp = true;
+        else roundUp = (+head[d-1] % 2 === 1);
       }
       if (roundUp){
-        // somma 1 a head
         let carry = 1;
         for (let i=d-1;i>=0;i--){
           const sum = (+head[i]) + carry;
@@ -275,7 +278,7 @@
           carry = Math.floor(sum / 10);
           if (!carry) break;
         }
-        if (carry){ // overflow: incrementa intPart
+        if (carry){
           let arr = intPart.replace(/^0+(?=\d)/,'').split('');
           if (arr.length===0) arr=['0'];
           for (let i=arr.length-1;i>=0;i--){
