@@ -30,10 +30,16 @@
     textarea{width:100%;min-height:180px;resize:vertical;padding:12px;border-radius:10px;border:1px solid var(--border);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
     .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
     .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;word-break:break-all}
-    dialog{border:none;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.2);width:min(560px,92vw)}dialog::backdrop{background:rgba(0,0,0,.35)}
+
+    /* Modal */
+    dialog{border:none;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.2);width:min(560px,92vw)}
+    dialog::backdrop{background:rgba(0,0,0,.35)}
+
+    /* Toast center */
     #toastsCenter{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:60}
     .toast.center{padding:12px 16px;font-size:15px;background:rgba(17,24,39,.95);color:#fff;border-radius:10px;box-shadow:0 6px 16px rgba(0,0,0,.28);animation:fadePop .28s ease-out}
     @keyframes fadePop{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+
     .out-item+.out-item{margin-top:8px}
     footer{margin:36px auto 24px;max-width:1100px;color:var(--muted);font-size:13px;padding:0 16px}
   </style>
@@ -56,16 +62,17 @@
   <div class="container">
     <div class="note">Software per gestire al 100% itinerati con Google Maps in modalità navigabile</div>
 
+    <!-- Tabs (versione “classica” che funzionava) -->
     <div class="tabs" role="tablist">
-      <button type="button" class="tab active" role="tab" aria-selected="true"  data-tab="merge">Fusione Link</button>
-      <button type="button" class="tab" role="tab" aria-selected="false" data-tab="maps2gpx">2) Google Maps → GPX</button>
-      <button type="button" class="tab" role="tab" aria-selected="false" data-tab="gpx2maps">3) GPX → Google Maps</button>
-      <button type="button" class="tab" role="tab" aria-selected="false" data-tab="sanitize">4) Sanitizza GPX</button>
-      <button type="button" class="tab" role="tab" aria-selected="false" data-tab="meteo">5) Meteo + Info percorso</button>
+      <button class="tab active" role="tab" aria-selected="true" data-tab="merge">Fusione Link</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="maps2gpx">2) Google Maps → GPX</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="gpx2maps">3) GPX → Google Maps</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="sanitize">4) Sanitizza GPX</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="meteo">5) Meteo + Info percorso</button>
     </div>
 
-    <!-- TAB 1 -->
-    <section id="tab-merge" class="card">
+    <!-- TAB 1: Fusione Link -->
+    <section id="tab-merge" class="card" aria-labelledby="Fusione Link">
       <div class="hd">Fusione, ottimizzazione e split dei link Google Maps</div>
       <div class="bd grid grid-2">
         <p class="note" style="grid-column:1/-1;">
@@ -74,17 +81,19 @@
         <div>
           <label for="linksInput" style="font-weight:800;">Incolla i link (uno per riga)</label>
           <textarea id="linksInput" placeholder="Incolla link tipo https://www.google.*/maps/dir/... (uno per riga). Accetta anche maps.app.goo.gl"></textarea>
+
           <div class="row" style="margin-top:12px;">
             <button id="btnMerge" class="btn">Analizza e Unisci</button>
             <button id="btnClear" class="btn ghost">Pulisci</button>
           </div>
         </div>
+
         <div>
           <div class="out card">
             <div class="hd">Risultati</div>
             <div class="bd">
               <div id="stats" class="note">Nessun risultato ancora.</div>
-              <div id="output"></div>
+              <div id="output" class="output-list"></div>
               <div class="row" style="margin-top:10px;">
                 <button id="btnDownloadAll" class="btn small" style="display:none;">Scarica .txt</button>
               </div>
@@ -94,7 +103,7 @@
       </div>
     </section>
 
-    <!-- TAB 2 -->
+    <!-- TAB 2: Google Maps -> GPX -->
     <section id="tab-maps2gpx" class="card" hidden>
       <div class="hd">2) Google Maps → GPX</div>
       <div class="bd grid grid-2">
@@ -104,11 +113,13 @@
 - https://www.google.com/maps/dir/Punto+A/Punto+B/...
 - Indirizzi o lat,lon (uno per riga)
 - Puoi incollare link con // iniziale: qui viene ignorato (come nello script)"></textarea>
+
           <div class="row" style="margin-top:12px;">
             <button id="btnGenGPX" class="btn">Genera GPX</button>
             <button id="btnClear2" class="btn ghost">Pulisci</button>
           </div>
         </div>
+
         <div>
           <div class="out card">
             <div class="hd">Risultati</div>
@@ -132,21 +143,30 @@
       </div>
     </section>
 
-    <!-- Placeholder -->
-    <section id="tab-gpx2maps" class="card" hidden><div class="hd">3) GPX → Google Maps</div><div class="bd">In arrivo.</div></section>
-    <section id="tab-sanitize" class="card" hidden><div class="hd">4) Sanitizza GPX</div><div class="bd">In arrivo.</div></section>
-    <section id="tab-meteo" class="card" hidden><div class="hd">5) Meteo + Info percorso</div><div class="bd">In arrivo.</div></section>
+    <!-- Placeholder altri tab -->
+    <section id="tab-gpx2maps" class="card" hidden>
+      <div class="hd">3) GPX → Google Maps</div>
+      <div class="bd">In arrivo.</div>
+    </section>
+    <section id="tab-sanitize" class="card" hidden>
+      <div class="hd">4) Sanitizza GPX</div>
+      <div class="bd">In arrivo.</div>
+    </section>
+    <section id="tab-meteo" class="card" hidden>
+      <div class="hd">5) Meteo + Info percorso</div>
+      <div class="bd">In arrivo.</div>
+    </section>
   </div>
 
   <footer>
     L'applicazione è stata realizzata a scopo gratuito per la comunità. Se si vuole fare un'opera di gentilezza nei confronti dello sviluppatore che ci ha perso del tempo per realizzarla, si prega di effettuare una donazione con il pulsante ‘Dona’ in alto. Approfitta anche del link diretto alla pagina nascosta di Amazon con tutte le offerte e coupon, che è accessibile con il pulsante che si trova sempre in alto.
   </footer>
 
-  <!-- Modals -->
+  <!-- Confirm Modal -->
   <dialog id="confirmDialog">
     <form method="dialog" style="padding:18px 18px 8px;">
-      <h3 style="margin:0 0 6px;font-weight:900;">Confermi l'operazione?</h3>
-      <p id="confirmText" style="margin:0 0 14px;color:var(--muted);"></p>
+      <h3 style="margin:0 0 6px; font-weight:900;">Confermi l'operazione?</h3>
+      <p id="confirmText" style="margin:0 0 14px; color:var(--muted);"></p>
       <div class="row" style="justify-content:flex-end;">
         <button class="btn ghost" value="cancel">Annulla</button>
         <button class="btn" value="ok">Conferma</button>
@@ -154,15 +174,16 @@
     </form>
   </dialog>
 
+  <!-- Strategy Modal -->
   <dialog id="strategyDialog">
     <form method="dialog" style="padding:18px 18px 8px;">
-      <h3 style="margin:0 0 6px;font-weight:900;">Troppi punti per un singolo link</h3>
-      <p style="margin:0 0 10px;color:var(--muted);">Hai superato il limite di 25 (incluso il primo punto con la tua posizione GPS). Scegli una strategia:</p>
-      <div class="row" style="flex-direction:column;align-items:stretch;gap:10px;">
+      <h3 style="margin:0 0 6px; font-weight:900;">Troppi punti per un singolo link</h3>
+      <p style="margin:0 0 10px; color:var(--muted);">Hai superato il limite di 25 (incluso il primo punto con la tua posizione GPS). Scegli una strategia:</p>
+      <div class="row" style="flex-direction:column; align-items:stretch; gap:10px;">
         <button id="btnStrategyOptimize" class="btn" value="opt">1) Ottimizza a 25 (mantieni testa/coda, campiona gli intermedi)</button>
         <button id="btnStrategySplit" class="btn secondary" value="split">2) Dividi in più link (max 25 punti; solo il primo ha “//”)</button>
       </div>
-      <div class="row" style="justify-content:flex-end;margin-top:10px;">
+      <div class="row" style="justify-content:flex-end; margin-top:10px;">
         <button class="btn ghost" value="cancel">Chiudi</button>
       </div>
     </form>
@@ -171,43 +192,32 @@
   <div id="toastsCenter" aria-live="polite" aria-atomic="true"></div>
 
   <script>
-  document.addEventListener('DOMContentLoaded', () => {
     // === CONFIG ===
-    const CONFIG={workerBase:"https://gpx2maps-worker.stefano-vitro.workers.dev",paypalDonateUrl:"https://www.paypal.com/donate?business=stefano.vitro%40gmail.com&no_recurring=0&item_name=Supporto+sviluppo+GPX2MAPS&currency_code=EUR",amazonAffiliateUrl:"https://amzn.to/41o2XjA"};
+    const CONFIG = {
+      workerBase: "https://gpx2maps-worker.stefano-vitro.workers.dev",
+      paypalDonateUrl: "https://www.paypal.com/donate?business=stefano.vitro%40gmail.com&no_recurring=0&item_name=Supporto+sviluppo+GPX2MAPS&currency_code=EUR",
+      amazonAffiliateUrl: "https://amzn.to/41o2XjA",
+    };
 
     // CTA
-    try{
-      document.getElementById('donateBtn').href = CONFIG.paypalDonateUrl;
-      document.getElementById('amazonBtn').href = CONFIG.amazonAffiliateUrl;
-    }catch(e){}
+    document.getElementById('donateBtn').href = CONFIG.paypalDonateUrl;
+    document.getElementById('amazonBtn').href = CONFIG.amazonAffiliateUrl;
 
-    // Tabs: inizializzazione a prova di bomba
-    (function(){
-      const sections = ['merge','maps2gpx','gpx2maps','sanitize','meteo'];
-      function showTab(id){
-        document.querySelectorAll('.tab').forEach(b=>{
-          const active = b.dataset.tab === id;
-          b.classList.toggle('active', active);
-          b.setAttribute('aria-selected', active ? 'true' : 'false');
-        });
-        sections.forEach(key=>{
-          const sec = document.getElementById(`tab-${key}`);
-          if (sec) sec.hidden = (key !== id);
-        });
-      }
-      document.querySelectorAll('.tab').forEach(btn=>{
-        btn.addEventListener('click', (ev)=>{
-          ev.preventDefault();
-          showTab(btn.dataset.tab || 'merge');
-        });
+    // Tabs (ripristino della versione che andava)
+    const tabs = document.querySelectorAll('.tab');
+    tabs.forEach(btn => btn.addEventListener('click', () => {
+      tabs.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+      btn.classList.add('active'); btn.setAttribute('aria-selected','true');
+      const id = btn.dataset.tab;
+      ['merge','maps2gpx','gpx2maps','sanitize','meteo'].forEach(key => {
+        const sec = document.getElementById(`tab-${key}`);
+        if (sec) sec.hidden = key !== id && !(key==='merge' && id===undefined);
       });
-      showTab('merge'); // stato iniziale
-    })();
+    }));
 
     // Toast center 3s
     function toastCenter(msg){
       const box=document.getElementById('toastsCenter');
-      if(!box) return;
       box.innerHTML='';
       const t=document.createElement('div');
       t.className='toast center';
@@ -217,7 +227,7 @@
     }
     const toast = toastCenter;
 
-    // Confirm + strategy
+    // Confirm
     async function confirmAction(text){
       const dlg = document.getElementById('confirmDialog');
       document.getElementById('confirmText').textContent = text || '';
@@ -225,6 +235,8 @@
       const val = await new Promise(res => dlg.addEventListener('close', () => res(dlg.returnValue), { once:true }));
       return val === 'ok';
     }
+
+    // Strategy
     async function chooseStrategy(){
       const dlg = document.getElementById('strategyDialog');
       dlg.showModal();
@@ -250,7 +262,7 @@
     function joinLF(a){ return a.join('\n'); }
     function ensureFinalEOL(s){ return String(s).replace(/[\r\n]*$/,'\n'); }
 
-    // Bankers rounding (Midpoint ToEven) su stringa a 6 decimali
+    // Bankers rounding (Midpoint To Even) a 6 decimali (string based)
     function roundHalfEvenStr(numStr, d=6){
       let s = String(numStr).trim();
       if (!s || isNaN(+s)) return (0).toFixed(d);
@@ -347,50 +359,65 @@
       toastCenter(`Risultati aggiornati (${n} link)`);
     }
 
-    document.getElementById('btnMerge').addEventListener('click', async ()=>{
-      const lines=document.getElementById('linksInput').value.split('\n').map(s=>s.trim()).filter(Boolean);
-      if(!lines.length){ toastCenter('Inserisci almeno un link'); return; }
-      if(lines.length===1 && /https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/\//i.test(lines[0])){ toastCenter('Errore: almeno due link sono necessari per la fusione.'); return; }
+    document.getElementById('btnMerge').addEventListener('click', async () => {
+      const lines = document.getElementById('linksInput').value.split('\n').map(s => s.trim()).filter(Boolean);
+      if (!lines.length){ toastCenter('Inserisci almeno un link'); return; }
 
-      const resolved=[]; for(const ln of lines){ resolved.push(await resolveIfShort(ln)); }
-      const segments=[]; for(const link of resolved){ const seg=extractDirSegment(link); if(seg) segments.push(seg); }
-      if(!segments.length){ toastCenter('Nessun link valido "/maps/dir/..." rilevato'); return; }
+      if (lines.length === 1 && /https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/\//i.test(lines[0])) {
+        toastCenter('Errore: almeno due link sono necessari per la fusione.');
+        return;
+      }
 
-      let all=[""]; for(const seg of segments){ all.push(...seg.split('/')); }
-      all = dedupeAdjacent(all);
+      const resolved = [];
+      for (const ln of lines){ resolved.push(await resolveIfShort(ln)); }
 
-      if(all.length<=25){ renderOutput([buildGoogleDirURL(all)]); return; }
+      const cleanParts = [];
+      for (const link of resolved){
+        const seg = extractDirSegment(link);
+        if (seg) cleanParts.push(seg);
+      }
+      if (!cleanParts.length){ toastCenter('Nessun link valido "/maps/dir/..." rilevato'); return; }
 
+      let allPoints = [""];                  // "" => // (primo punto)
+      for (const seg of cleanParts){ allPoints.push(...seg.split('/')); }
+      allPoints = dedupeAdjacent(allPoints); // mini-dedup PRIMA di valutare 25
+
+      if (allPoints.length <= 25){
+        renderOutput([buildGoogleDirURL(allPoints)]);
+        return;
+      }
       const strategy = await chooseStrategy();
-      if(!strategy){ toastCenter('Operazione annullata'); return; }
-      if(strategy==='optimize'){
-        renderOutput([buildGoogleDirURL(optimizeTo25(all))]);
-      }else{
-        const urls = splitInBlocks(all).map(b=>buildGoogleDirURL(b));
+      if (!strategy){ toastCenter('Operazione annullata'); return; }
+      if (strategy === 'optimize'){
+        renderOutput([buildGoogleDirURL(optimizeTo25(allPoints))]);
+      } else {
+        const blocks = splitInBlocks(allPoints);
+        const urls = blocks.map(b => buildGoogleDirURL(b));
         renderOutput(urls);
       }
     });
 
-    document.getElementById('btnClear').addEventListener('click',()=>{
-      document.getElementById('linksInput').value='';
-      document.getElementById('output').innerHTML='';
-      document.getElementById('stats').textContent='Pulito.';
-      document.getElementById('btnDownloadAll').style.display='none';
+    document.getElementById('btnClear').addEventListener('click', () => {
+      document.getElementById('linksInput').value = '';
+      document.getElementById('output').innerHTML = '';
+      document.getElementById('stats').textContent = 'Pulito.';
+      document.getElementById('btnDownloadAll').style.display = 'none';
     });
 
-    document.getElementById('btnDownloadAll').addEventListener('click', async ()=>{
-      const items=[...document.querySelectorAll('#output .out-item .mono')].map(x=>x.textContent);
-      if(!items.length) return;
+    document.getElementById('btnDownloadAll').addEventListener('click', async () => {
+      const items = Array.from(document.querySelectorAll('#output .out-item .mono')).map(x => x.textContent);
+      if (!items.length) return;
       const ok = await confirmAction('Scaricare un file .txt con i link generati?');
-      if(!ok) return;
-      const sep = items.length>1 ? '\n\n' : '\n';
-      const name=(items.length===1?`merge_1_${nowStamp()}.txt`:`merge_${items.length}_${nowStamp()}.txt`);
-      const blob=new Blob([items.join(sep)],{type:'text/plain'}), url=URL.createObjectURL(blob);
-      const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      if (!ok) return;
+      const name = (items.length === 1 ? `merge_1_${nowStamp()}.txt` : `merge_${items.length}_${nowStamp()}.txt`);
+      const blob = new Blob([items.join('\n\n')], { type:'text/plain' }); // spazio tra i link
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
       toast('File scaricato');
     });
 
-    /* ================= TAB 2: Maps → GPX ================= */
+    /* ================= TAB 2: Maps → GPX (clone PS) ================= */
 
     function extractDirSegmentKeepLeading(s){ const m=stripAtTail(s.trim()).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i); if(!m) return null; return m[1].replace(/\/+$/,''); }
     function isLatLonStr(s){ const m=s.trim().match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/); return m?{lat:m[1],lon:m[2]}:null; }
@@ -426,40 +453,43 @@
     let gpxRTE=null,gpxTRK=null,nameRTE='',nameTRK='';
     function resetMaps2GPXUI(){ document.getElementById('stats2').textContent='Nessun file generato.'; document.getElementById('gpxPreviewRte').textContent=''; document.getElementById('gpxPreviewTrk').textContent=''; document.getElementById('previewWrapRte').hidden=true; document.getElementById('previewWrapTrk').hidden=true; document.getElementById('dlRow').style.display='none'; gpxRTE=gpxTRK=null; nameRTE=nameTRK=''; }
 
-    document.getElementById('btnGenGPX').addEventListener('click', async ()=>{
+    document.getElementById('btnGenGPX').addEventListener('click', async () => {
       resetMaps2GPXUI();
-      const raw=document.getElementById('maps2gpxInput').value.split('\n').map(s=>s.trim()).filter(Boolean);
-      if(!raw.length){ toastCenter('Inserisci almeno una riga'); return; }
+      const raw = document.getElementById('maps2gpxInput').value.split('\n').map(s => s.trim()).filter(Boolean);
+      if (!raw.length){ toastCenter('Inserisci almeno una riga'); return; }
 
-      let tokens=[];
-      for(const line of raw){
+      // Tokenize
+      let tokens = [];
+      for (const line of raw){
         if(/^https?:\/\//i.test(line)){
           const resolved=await resolveIfShort(line);
           const seg=extractDirSegmentKeepLeading(resolved);
           if(!seg){ toastCenter('Link non valido: manca /maps/dir/'); return; }
           let parts=seg.split('/'); parts=parts.filter(x=>x!==''); parts=parts.map(decodeTok).filter(Boolean);
           tokens.push(...parts);
-        }else{
+        } else {
           if(line!=='//') tokens.push(line);
         }
       }
 
       const ordered=[], skipped=[];
       for(let i=0;i<tokens.length;i++){
-        document.getElementById('stats2').textContent=`Geocoding ${i+1}/${tokens.length}...`;
-        const g=await geocodeFreeform(tokens[i]);
+        document.getElementById('stats2').textContent = `Geocoding ${i+1}/${tokens.length}...`;
+        const g = await geocodeFreeform(tokens[i]);
         if(!g){ skipped.push(tokens[i]); continue; }
         ordered.push(g);
       }
       if(ordered.length<2){ document.getElementById('stats2').textContent='Errore: geocoding fallito (troppi pochi punti).'; return; }
       if(skipped.length){ toastCenter(`Saltati ${skipped.length} punto/i non geocodificati`); }
 
-      const coordsParam=ordered.map(p=>`${p.lon},${p.lat}`).join(';');
-      const osrmUrl=`${CONFIG.workerBase}/osrm?coords=${encodeURIComponent(coordsParam)}&profile=driving&overview=full&geometries=geojson&steps=true`;
+      const coordsParam = ordered.map(p => `${p.lon},${p.lat}`).join(';');
+      const osrmUrl = `${CONFIG.workerBase}/osrm?coords=${encodeURIComponent(coordsParam)}&profile=driving&overview=full&geometries=geojson&steps=true`;
       document.getElementById('stats2').textContent='Calcolo rotta (OSRM)...';
-      let osrm; try{ osrm=await getJSON(osrmUrl); }catch(e){ toastCenter('Errore OSRM'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
-      if(!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]){ toastCenter('OSRM non ha restituito una rotta valida'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
+      let osrm;
+      try{ osrm = await getJSON(osrmUrl); }catch{ document.getElementById('stats2').textContent='Errore: OSRM'; toastCenter('Errore OSRM'); return; }
+      if(!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]){ document.getElementById('stats2').textContent='Errore: OSRM'; toastCenter('OSRM non ha restituito una rotta valida'); return; }
 
+      // RTE steps (no duplicati adiacenti)
       const rte=[];
       for(const leg of (osrm.routes[0].legs||[])){
         for(const step of (leg.steps||[])){
@@ -474,6 +504,7 @@
         }
       }
 
+      // TRK coords
       const trk=(osrm.routes[0].geometry && osrm.routes[0].geometry.coordinates)?osrm.routes[0].geometry.coordinates:[];
       const startLabel=fileNameSafe(await reverseShortLabel(ordered[0].lat,ordered[0].lon));
       const endLabel=fileNameSafe(await reverseShortLabel(ordered[ordered.length-1].lat,ordered[ordered.length-1].lon));
@@ -485,10 +516,11 @@
       nameRTE=`maps2gpx_osrm_rotta_${startLabel}_${endLabel}_${ts}.gpx`;
       nameTRK=`maps2gpx_osrm_traccia_${startLabel}_${endLabel}_${ts}.gpx`;
 
-      document.getElementById('stats2').textContent=`${ordered.length} punti convertiti (WPT) · RTE ${rte.length} step · TRK ${trk.length} vertici`;
+      document.getElementById('stats2').textContent = `${ordered.length} punti convertiti (WPT) · RTE ${rte.length} step · TRK ${trk.length} vertici`;
       const prevR=gpxRTE.split('\n').slice(0,200).join('\n'); document.getElementById('gpxPreviewRte').textContent=prevR+(gpxRTE.length>prevR.length?'\n...':''); document.getElementById('previewWrapRte').hidden=false;
       const prevT=gpxTRK.split('\n').slice(0,200).join('\n'); document.getElementById('gpxPreviewTrk').textContent=prevT+(gpxTRK.length>prevT.length?'\n...':''); document.getElementById('previewWrapTrk').hidden=false;
-      document.getElementById('dlRow').style.display=''; toastCenter('GPX RTE & TRK pronti');
+      document.getElementById('dlRow').style.display='';
+      toastCenter('GPX RTE & TRK pronti');
     });
 
     function downloadBlob(name, content, mime){
@@ -500,7 +532,6 @@
     document.getElementById('btnDownloadRTE').addEventListener('click',async()=>{ if(!gpxRTE){toastCenter('Nessun GPX RTE');return} if(!(await confirmAction('Scaricare il file GPX della rotta (WPT+RTE)?')))return; downloadBlob(nameRTE||`maps2gpx_rotta_${nowStamp()}.gpx`,gpxRTE,'application/gpx+xml'); toast('Download avviato'); });
     document.getElementById('btnDownloadTRK').addEventListener('click',async()=>{ if(!gpxTRK){toastCenter('Nessun GPX TRK');return} if(!(await confirmAction('Scaricare il file GPX della traccia (WPT+TRK)?')))return; downloadBlob(nameTRK||`maps2gpx_traccia_${nowStamp()}.gpx`,gpxTRK,'application/gpx+xml'); toast('Download avviato'); });
     document.getElementById('btnClear2').addEventListener('click',()=>{ document.getElementById('maps2gpxInput').value=''; resetMaps2GPXUI(); document.getElementById('stats2').textContent='Pulito.'; });
-  }); // DOMContentLoaded
   </script>
 </body>
 </html>
