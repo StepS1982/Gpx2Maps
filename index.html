@@ -48,6 +48,7 @@
     .row { display:flex; gap:12px; align-items:center; flex-wrap: wrap; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; word-break: break-all; }
 
+    /* Modal */
     dialog { border: none; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); width: min(560px, 92vw); }
     dialog::backdrop { background: rgba(0,0,0,0.35); }
 
@@ -79,6 +80,7 @@
   <div class="container">
     <div class="note">Software per gestire al 100% itinerati con Google Maps in modalità navigabile</div>
 
+    <!-- Tabs -->
     <div class="tabs" role="tablist">
       <button class="tab active" role="tab" aria-selected="true" data-tab="merge">Fusione Link</button>
       <button class="tab" role="tab" aria-selected="false" data-tab="maps2gpx">2) Google Maps → GPX</button>
@@ -263,7 +265,7 @@
     /* ===== Condivise ===== */
     function stripAtTail(s){ let out = s.replace(/\/@.*$/, ''); out = out.replace(/\/data=.*$/, ''); return out; }
 
-    // --- Rounding decimale “half away from zero” identico a PS (string-based, niente float) ---
+    // --- Rounding decimale “half away from zero” identico a PS (string-based) ---
     function roundFixedStr(x, d=6){
       let s = (typeof x === 'number') ? x.toString() : String(x).trim();
       if (!isFinite(+s)) return (0).toFixed(d);
@@ -275,12 +277,12 @@
       int = int.replace(/\D/g,'') || '0';
       frac = frac.replace(/\D/g,'');
       while (frac.length < d+1) frac += '0';
-      const all = int + frac;                 // tutti i digit (int + frazione)
-      const cut = int.length + d;             // mantengo d decimali
-      const head = all.slice(0, cut) || '0';  // parte mantissa da tenere
-      const next = all[cut] || '0';           // primo scartato
+      const all = int + frac;
+      const cut = int.length + d;
+      const head = all.slice(0, cut) || '0';
+      const next = all[cut] || '0';
       let n = BigInt(head);
-      if (next >= '5') n += 1n;               // half-away-from-zero (magnitude ↑)
+      if (next >= '5') n += 1n;               // half-away-from-zero
       let rs = n.toString();
       while (rs.length <= d) rs = '0' + rs;
       const pos = rs.length - d;
@@ -429,6 +431,7 @@
 
     // Join LF senza newline finale
     function joinLF(lines){ return lines.join('\n'); }
+    function removeFinalEOL(s){ return String(s).replace(/(?:\r?\n)+$/,''); }
 
     function buildGPX_RTE_WPT(orderedPts, rteSteps, title){
       const lines=[];
@@ -448,7 +451,7 @@
       }
       lines.push('  </rte>');
       lines.push('</gpx>');
-      return joinLF(lines);
+      return removeFinalEOL(joinLF(lines));
     }
     function buildGPX_TRK_WPT(orderedPts, trkCoords, title){
       const lines=[];
@@ -463,12 +466,12 @@
       }
       lines.push('  <trk><name>' + xmlEscape(title) + '</name><trkseg>');
       for (const c of trkCoords){
-        const lon=fmt6s(c[0]), lat=fmt6s(c[1]);
+        const lon=fmt6s(String(c[0])), lat=fmt6s(String(c[1]));
         lines.push(`    <trkpt lat="${lat}" lon="${lon}" />`);
       }
       lines.push('  </trkseg></trk>');
       lines.push('</gpx>');
-      return joinLF(lines);
+      return removeFinalEOL(joinLF(lines));
     }
 
     let gpxRTE=null, gpxTRK=null, nameRTE='', nameTRK='';
@@ -556,7 +559,9 @@
     });
 
     function downloadBlob(name, content, type){
-      const blob = new Blob([content], { type });
+      // ulteriore guardia: assicura niente newline finale
+      const clean = removeFinalEOL(content);
+      const blob = new Blob([clean], { type });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
