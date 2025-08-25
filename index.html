@@ -291,7 +291,7 @@
       if (!m) return null;
       return m[1].replace(/^\/+/, '').replace(/\/+$/, '');
     }
-    // TAB 2 usa questa (mantiene eventuale slash iniziale => "dir//" viene ignorato dai token filtrando vuoti)
+    // TAB 2 usa questa (mantiene eventuale slash iniziale => "dir//" ignorato)
     function extractDirSegmentKeepLeading(longLink){
       const s = stripAtTail(longLink.trim());
       const re = /^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i;
@@ -310,11 +310,6 @@
       } catch { return url; }
     }
 
-    function buildGoogleDirURL(parts){
-      const base = 'https://www.google.com/maps/dir';
-      return base + '/' + parts.join('/');
-    }
-
     function nowStamp(){
       const d = new Date(); const pad = n => String(n).padStart(2,'0');
       return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
@@ -329,13 +324,13 @@
     function xmlEscape(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
 
     /* ===== TAB 1: FUSIONE LINK ===== */
+    function buildGoogleDirURL(parts){
+      const base = 'https://www.google.com/maps/dir';
+      return base + '/' + parts.join('/');
+    }
     function dedupeAdjacent(arr){
-      const out = [];
-      let prev = null;
-      for (const x of arr){
-        if (x !== prev) out.push(x);
-        prev = x;
-      }
+      const out = []; let prev = null;
+      for (const x of arr){ if (x !== prev) out.push(x); prev = x; }
       return out;
     }
     function evenSample(inner, need){
@@ -353,23 +348,18 @@
     }
     function optimizeTo25(allPoints){
       if (allPoints.length <= 25) return allPoints;
-      const first = allPoints[0];
-      const last = allPoints[allPoints.length-1];
+      const first = allPoints[0], last = allPoints[allPoints.length-1];
       const middle = allPoints.slice(1, allPoints.length-1);
-      const sampled = evenSample(middle, 23);
+      const sampled = evenSample(middle, 23); // 1 + 23 + 1 = 25
       return [first, ...sampled, last].slice(0, 25);
     }
     function splitInBlocks(allPoints){
-      const MAX = 25;
-      const blocks = [];
-      let rest = allPoints.slice();
-      let first = true;
+      const MAX = 25, blocks = []; let rest = allPoints.slice(), first = true;
       while (rest.length){
         const chunk = rest.slice(0, MAX);
         if (!first && chunk[0] === "") chunk.shift();
         blocks.push(chunk);
-        rest = rest.slice(MAX);
-        first = false;
+        rest = rest.slice(MAX); first = false;
       }
       return blocks;
     }
@@ -404,10 +394,9 @@
     }
     document.getElementById('btnMerge').addEventListener('click', async () => {
       const lines = document.getElementById('linksInput').value.split('\n').map(s => s.trim()).filter(Boolean);
-      if (!lines.length){ toast('Inserisci almeno un link'); return; }
+      if (!lines.length){ toastCenter('Inserisci almeno un link'); return; }
       if (lines.length === 1 && /https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/\//i.test(lines[0])) {
-        toast('Errore: almeno due link sono necessari per la fusione.');
-        return;
+        toastCenter('Errore: almeno due link sono necessari per la fusione.'); return;
       }
       const resolved = [];
       for (const ln of lines){ resolved.push(await resolveIfShort(ln)); }
@@ -416,25 +405,17 @@
         const seg = extractDirSegment(link);
         if (seg) cleanParts.push(seg);
       }
-      if (!cleanParts.length){ toast('Nessun link valido "/maps/dir/..." rilevato'); return; }
+      if (!cleanParts.length){ toastCenter('Nessun link valido "/maps/dir/..." rilevato'); return; }
       let allPoints = [""];
       for (const seg of cleanParts){ allPoints.push(...seg.split('/')); }
       allPoints = dedupeAdjacent(allPoints);
-      if (allPoints.length <= 25){
-        renderOutput([buildGoogleDirURL(allPoints)]);
-        return;
-      }
+      if (allPoints.length <= 25){ renderOutput([buildGoogleDirURL(allPoints)]); return; }
       const dlg = document.getElementById('strategyDialog');
       dlg.showModal();
       const strategy = await new Promise(res => dlg.addEventListener('close', () => res(dlg.returnValue === 'opt' ? 'optimize' : dlg.returnValue === 'split' ? 'split' : null), { once:true }));
-      if (!strategy){ toast('Operazione annullata'); return; }
-      if (strategy === 'optimize'){
-        renderOutput([buildGoogleDirURL(optimizeTo25(allPoints))]);
-      } else {
-        const blocks = splitInBlocks(allPoints);
-        const urls = blocks.map(b => buildGoogleDirURL(b));
-        renderOutput(urls);
-      }
+      if (!strategy){ toastCenter('Operazione annullata'); return; }
+      if (strategy === 'optimize'){ renderOutput([buildGoogleDirURL(optimizeTo25(allPoints))]); }
+      else { const blocks = splitInBlocks(allPoints); renderOutput(blocks.map(b => buildGoogleDirURL(b))); }
     });
     document.getElementById('btnClear').addEventListener('click', () => {
       document.getElementById('linksInput').value = '';
@@ -456,7 +437,8 @@
       toast('File scaricato');
     });
 
-    /* ===== TAB 2: MAPS → GPX (WPT+RTE e WPT+TRK, clone PowerShell) ===== */
+    /* ===== TAB 2: MAPS → GPX (WPT+RTE e WPT+TRK) ===== */
+    function decodeTok(p){ try { return decodeURIComponent(p).replace(/\+/g,' ').trim(); } catch { return p.replace(/\+/g,' ').trim(); } }
     function isLatLon(s){
       const m = s.trim().match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/);
       if (!m) return null;
@@ -464,27 +446,12 @@
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
       return { lat, lon };
     }
-    async function geocodeName(name){
-      const q = encodeURIComponent(name);
-      try {
-        const r = await getJSON(`${CONFIG.workerBase}/geocode?q=${q}`);
-        if (Array.isArray(r) && r.length){
-          return { lat: parseFloat(r[0].lat), lon: parseFloat(r[0].lon), label: r[0].display_name || name };
-        }
-      } catch {}
-      return null;
-    }
     async function reverseLabel(lat, lon){
       try {
         const r = await getJSON(`${CONFIG.workerBase}/reverse?lat=${lat}&lon=${lon}`);
         return r.display_name || 'Località';
       } catch { return 'Località'; }
     }
-    function decodeTok(p){ try { return decodeURIComponent(p).replace(/\+/g,' ').trim(); } catch { return p.replace(/\+/g,' ').trim(); } }
-    function xmlEscape(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
-    function slug(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[^\w\s-]/g,'').replace(/[\s_-]+/g,'_').replace(/^_+|_+$/g,''); }
-    function nowStamp(){ const d = new Date(); const pad = n => String(n).padStart(2,'0'); return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`; }
-
     function buildGPX_RTE_WPT(orderedPts, rteSteps, title){
       const fmt = n => Number(n).toFixed(6);
       const lines = [];
@@ -494,12 +461,12 @@
       for (let i=0;i<orderedPts.length;i++){
         const p = orderedPts[i]; const lat=fmt(p.lat), lon=fmt(p.lon);
         const name = 'WP' + String(i+1).padStart(2,'0');
-        const desc = p.label ? xmlEscape(p.label) : `${lat},${lon}`;
+        const desc = p.label ? (''+p.label).replace(/[<&>"]/g,s=>({ '<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[s])) : `${lat},${lon}`;
         lines.push(`  <wpt lat="${lat}" lon="${lon}"><name>${name}</name><desc>${desc}</desc></wpt>`);
       }
-      lines.push('  <rte><name>' + xmlEscape(title) + '</name>');
+      lines.push('  <rte><name>' + (''+title).replace(/[<&>"]/g,s=>({ '<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[s])) + '</name>');
       for (const s of rteSteps){
-        const lat=fmt(s.lat), lon=fmt(s.lon); const lab = xmlEscape(s.type || 'via');
+        const lat=fmt(s.lat), lon=fmt(s.lon); const lab = (s.type || 'via').replace(/[<&>"]/g,x=>({ '<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[x]));
         lines.push(`    <rtept lat="${lat}" lon="${lon}"><name>${lab}</name></rtept>`);
       }
       lines.push('  </rte>');
@@ -515,10 +482,10 @@
       for (let i=0;i<orderedPts.length;i++){
         const p = orderedPts[i]; const lat=fmt(p.lat), lon=fmt(p.lon);
         const name = 'WP' + String(i+1).padStart(2,'0');
-        const desc = p.label ? xmlEscape(p.label) : `${lat},${lon}`;
+        const desc = p.label ? (''+p.label).replace(/[<&>"]/g,s=>({ '<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[s])) : `${lat},${lon}`;
         lines.push(`  <wpt lat="${lat}" lon="${lon}"><name>${name}</name><desc>${desc}</desc></wpt>`);
       }
-      lines.push('  <trk><name>' + xmlEscape(title) + '</name><trkseg>');
+      lines.push('  <trk><name>' + (''+title).replace(/[<&>"]/g,s=>({ '<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[s])) + '</name><trkseg>');
       for (const c of trkCoords){
         const lon = fmt(c[0]), lat = fmt(c[1]);
         lines.push(`    <trkpt lat="${lat}" lon="${lon}" />`);
@@ -532,51 +499,69 @@
 
     document.getElementById('btnGenGPX').addEventListener('click', async () => {
       const raw = document.getElementById('maps2gpxInput').value.split('\n').map(s => s.trim()).filter(Boolean);
-      if (!raw.length){ toast('Inserisci almeno una riga'); return; }
+      if (!raw.length){ toastCenter('Inserisci almeno una riga'); return; }
 
+      // 1) Tokenizzazione (salta // iniziale)
       let tokens = [];
       for (const line of raw){
         if (/^https?:\/\//i.test(line)){
           const resolved = await resolveIfShort(line);
-          const seg = extractDirSegmentKeepLeading(resolved); // mantiene eventuale "/" iniziale
-          if (!seg){ toast('Link non valido: manca /maps/dir/'); return; }
+          const seg = extractDirSegmentKeepLeading(resolved);
+          if (!seg){ toastCenter('Link non valido: manca /maps/dir/'); return; }
           let parts = seg.split('/');
-          parts = parts.filter(x => x !== ''); // <-- rimuove il blank iniziale se "dir//"
-          parts = parts.map(p => { try { return decodeURIComponent(p).replace(/\+/g,' ').trim(); } catch { return p.replace(/\+/g,' ').trim(); } }).filter(Boolean);
+          parts = parts.filter(x => x !== ''); // rimuove blank da "dir//"
+          parts = parts.map(decodeTok).filter(Boolean);
           tokens.push(...parts);
         } else {
-          if (line !== '//') { tokens.push(line); } // salta // standalone
+          if (line !== '//') tokens.push(line);
         }
       }
-      if (tokens.length < 2){ toast('Servono almeno 2 punti validi'); return; }
+      if (tokens.length < 2){ toastCenter('Servono almeno 2 punti validi'); return; }
 
-      // token -> coordinate (NO dedup)
+      // 2) Geocoding sequenziale con fallback ", Italia"
       const ordered = [];
       for (let i=0;i<tokens.length;i++){
-        document.getElementById('stats2').textContent = `Geocoding ${i+1}/${tokens.length}...`;
         const t = tokens[i];
-        const m = t.match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/);
-        if (m){
-          ordered.push({ lat: parseFloat(m[1]), lon: parseFloat(m[2]), label: t });
-        } else {
-          const g = await (async () => {
-            try { const r = await getJSON(`${CONFIG.workerBase}/geocode?q=${encodeURIComponent(t)}`); if (Array.isArray(r) && r.length) return r[0]; } catch {}
-            return null;
-          })();
-          if (!g){ toast(`Impossibile geocodificare: ${t}`); return; }
-          ordered.push({ lat: parseFloat(g.lat), lon: parseFloat(g.lon), label: g.display_name || t });
+        document.getElementById('stats2').textContent = `Geocoding ${i+1}/${tokens.length}...`;
+        const ll = isLatLon(t);
+        if (ll){ ordered.push({ lat: ll.lat, lon: ll.lon, label: `${ll.lat},${ll.lon}` }); continue; }
+
+        let g = null;
+        try {
+          const r1 = await getJSON(`${CONFIG.workerBase}/geocode?q=${encodeURIComponent(t)}`);
+          if (Array.isArray(r1) && r1.length) g = r1[0];
+          if (!g){
+            const t2 = `${t}, Italia`;
+            const r2 = await getJSON(`${CONFIG.workerBase}/geocode?q=${encodeURIComponent(t2)}`);
+            if (Array.isArray(r2) && r2.length) g = r2[0];
+          }
+        } catch(e){ /* ignore */ }
+
+        if (!g){
+          toastCenter(`Impossibile geocodificare: ${t}`);
+          document.getElementById('btnDownloadRTE').disabled = true;
+          document.getElementById('btnDownloadTRK').disabled = true;
+          document.getElementById('previewWrapRte').hidden = true;
+          document.getElementById('previewWrapTrk').hidden = true;
+          document.getElementById('stats2').textContent = 'Errore: geocoding fallito.';
+          return;
         }
+        ordered.push({ lat: parseFloat(g.lat), lon: parseFloat(g.lon), label: g.display_name || t });
       }
 
-      // OSRM
+      // 3) OSRM
       const coordsParam = ordered.map(p => `${p.lon},${p.lat}`).join(';');
       const osrmUrl = `${CONFIG.workerBase}/osrm?coords=${encodeURIComponent(coordsParam)}&profile=driving&overview=full&geometries=geojson&steps=true`;
       document.getElementById('stats2').textContent = 'Calcolo rotta (OSRM)...';
       let osrm;
-      try { osrm = await getJSON(osrmUrl); } catch(e){ toast('Errore OSRM'); return; }
-      if (!osrm || osrm.code !== 'Ok' || !osrm.routes || !osrm.routes[0]){ toast('OSRM non ha restituito una rotta valida'); return; }
+      try { osrm = await getJSON(osrmUrl); } catch(e){ toastCenter('Errore OSRM'); return; }
+      if (!osrm || osrm.code !== 'Ok' || !osrm.routes || !osrm.routes[0]){
+        toastCenter('OSRM non ha restituito una rotta valida');
+        document.getElementById('stats2').textContent = 'Errore: OSRM';
+        return;
+      }
 
-      // RTE da steps.maneuver.location (dedup consecutivo)
+      // 4) RTE da steps
       const rte = [];
       for (const leg of (osrm.routes[0].legs || [])){
         for (const step of (leg.steps || [])){
@@ -591,22 +576,22 @@
         }
       }
 
-      // TRK da geometry.coordinates (GeoJSON lon,lat)
+      // 5) TRK da geometry (GeoJSON)
       const trk = (osrm.routes[0].geometry && osrm.routes[0].geometry.coordinates) ? osrm.routes[0].geometry.coordinates : [];
 
-      // Titoli per file
+      // 6) Titoli e file names
       const startLabel = await reverseLabel(ordered[0].lat, ordered[0].lon);
       const endLabel   = await reverseLabel(ordered[ordered.length-1].lat, ordered[ordered.length-1].lon);
       const title = `GPX da: ${startLabel} a: ${endLabel}`;
+      const ts = nowStamp(); const sSlug = slug(startLabel), eSlug = slug(endLabel);
 
-      // GPX
+      // 7) Build GPX
       gpxRTE = buildGPX_RTE_WPT(ordered, rte, title);
       gpxTRK = buildGPX_TRK_WPT(ordered, trk, title);
-      const ts = nowStamp(); const sSlug = slug(startLabel), eSlug = slug(endLabel);
       nameRTE = `maps2gpx_osrm_rotta_${sSlug}_${eSlug}_${ts}.gpx`;
       nameTRK = `maps2gpx_osrm_traccia_${sSlug}_${eSlug}_${ts}.gpx`;
 
-      // UI
+      // 8) UI
       document.getElementById('stats2').textContent = `${ordered.length} punti convertiti (WPT) · RTE ${rte.length} step · TRK ${trk.length} vertici`;
       const prevR = gpxRTE.split('\n').slice(0, 200).join('\n');
       document.getElementById('gpxPreviewRte').textContent = prevR + (gpxRTE.length > prevR.length ? "\n..." : "");
@@ -626,12 +611,12 @@
       URL.revokeObjectURL(url);
     }
     document.getElementById('btnDownloadRTE').addEventListener('click', async () => {
-      if (!gpxRTE){ toast('Nessun GPX RTE'); return; }
+      if (!gpxRTE){ toastCenter('Nessun GPX RTE'); return; }
       const ok = await confirmAction('Scaricare il file GPX della rotta (WPT+RTE)?'); if (!ok) return;
       downloadBlob(nameRTE || `maps2gpx_rotta_${nowStamp()}.gpx`, gpxRTE, 'application/gpx+xml'); toast('Download avviato');
     });
     document.getElementById('btnDownloadTRK').addEventListener('click', async () => {
-      if (!gpxTRK){ toast('Nessun GPX TRK'); return; }
+      if (!gpxTRK){ toastCenter('Nessun GPX TRK'); return; }
       const ok = await confirmAction('Scaricare il file GPX della traccia (WPT+TRK)?'); if (!ok) return;
       downloadBlob(nameTRK || `maps2gpx_traccia_${nowStamp()}.gpx`, gpxTRK, 'application/gpx+xml'); toast('Download avviato');
     });
