@@ -196,20 +196,26 @@
     /* Helpers */
     function stripAtTail(s){ return s.replace(/\/@.*$/,'').replace(/\/data=.*$/,''); }
 
-    // HALF-EVEN a 6 decimali con gestione "quasi-tie" (replica MidpointRounding.ToEven)
+    // HALF-EVEN a 6 decimali con tolleranza sui quasi-tie (replica MidpointRounding.ToEven del PS)
     function roundHalfEvenFixed(x, d=6){
       const n = Number(x);
       if (!isFinite(n)) return (0).toFixed(d);
       const scale = 10**d;
-      const y = n * scale;
+      let y = n * scale;
+      let sign = 1;
+      if (y < 0){ sign = -1; y = -y; }
       const nFloor = Math.floor(y);
       const frac = y - nFloor;
-      const eps = 1e-12; // margine per fluttuazioni binarie
+      const eps = 5e-10; // <-- più largo: tratta 0.5±eps come tie
+      let out;
       if (Math.abs(frac - 0.5) < eps) {
         const even = (nFloor % 2 === 0) ? nFloor : nFloor + 1;
-        return (even / scale).toFixed(d);
+        out = even;
+      } else {
+        out = Math.round(y);
       }
-      return (Math.round(y) / scale).toFixed(d);
+      out *= sign;
+      return (out / scale).toFixed(d);
     }
     const fmt6s = x => roundHalfEvenFixed(x, 6);
 
@@ -219,7 +225,7 @@
     function nowStamp(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; }
     function timeHHMMSS(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
     function joinLF(a){ return a.join('\n'); }
-    function removeFinalEOL(s){ return String(s).replace(/[\r\n]+$/,''); }
+    function ensureFinalEOL(s){ return String(s).replace(/[\r\n]*$/,'\n'); }
 
     /* TAB 1 */
     function extractDirSegment(s){ const m=stripAtTail(s.trim()).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i); if(!m) return null; return m[1].replace(/^\/+/,'').replace(/\/+$/,''); }
@@ -287,8 +293,8 @@
     async function geocodeTry(q){ try{ const r=await getJSON(`${CONFIG.workerBase}/geocode?q=${encodeURIComponent(q)}`); if(Array.isArray(r)&&r.length) return r[0]; }catch{} return null; }
     async function geocodeFreeform(t){
       const ll=isLatLonStr(t); if(ll) return {lat:ll.lat,lon:ll.lon,label:`${ll.lat},${ll.lon}`};
-      let g=await geocodeTry(t); if(g) return {lat:String(g.lat),lon:String(g.lon),label:g.display_name||t};
-      g=await geocodeTry(`${t}, Italia`); if(g) return {lat:String(g.lat),lon:String(g.lon),label=g.display_name||t};
+      let g=await geocodeTry(t); if(g) return {lat:String(g.lat),lon:String(g.lon),label=g.display_name||t};
+      g=await geocodeTry(`${t}, Italia`); if(g) return {lat:String(g.lat),lon:String(g.lon),label:g.display_name||t};
       const head=t.split(',')[0].trim(); if(head&&head!==t){ g=await geocodeTry(`${head}, Italia`); if(g) return {lat:String(g.lat),lon:String(g.lon),label:g.display_name||head}; }
       return null;
     }
@@ -302,7 +308,7 @@
       L.push('  <rte><name>'+xmlEscape(title)+'</name>');
       for(const s of steps){ const lat=fmt6s(s.lat),lon=fmt6s(s.lon),lab=xmlEscape(s.type||'via'); L.push(`    <rtept lat="${lat}" lon="${lon}"><name>${lab}</name></rtept>`); }
       L.push('  </rte>'); L.push('</gpx>');
-      return removeFinalEOL(joinLF(L));
+      return ensureFinalEOL(joinLF(L));
     }
     function buildGPX_TRK_WPT(points, trkCoords, title){
       const L=[]; L.push('<?xml version="1.0" encoding="UTF-8"?>'); L.push('<gpx version="1.1" creator="MAPS2GPX OSRM" xmlns="http://www.topografix.com/GPX/1/1">'); L.push(`  <metadata><time>${new Date().toISOString()}</time></metadata>`);
@@ -310,7 +316,7 @@
       L.push('  <trk><name>'+xmlEscape(title)+'</name><trkseg>');
       for(const c of trkCoords){ const lon=fmt6s(String(c[0])),lat=fmt6s(String(c[1])); L.push(`    <trkpt lat="${lat}" lon="${lon}" />`); }
       L.push('  </trkseg></trk>'); L.push('</gpx>');
-      return removeFinalEOL(joinLF(L));
+      return ensureFinalEOL(joinLF(L));
     }
 
     let gpxRTE=null,gpxTRK=null,nameRTE='',nameTRK='';
@@ -383,8 +389,8 @@
     });
 
     function downloadBlob(name, content, mime){
-      const clean=removeFinalEOL(content);
-      const bytes=new TextEncoder().encode(clean);
+      const withEOL=ensureFinalEOL(content);
+      const bytes=new TextEncoder().encode(withEOL);
       const url=URL.createObjectURL(new Blob([bytes],{type:mime||'application/gpx+xml'}));
       const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     }
