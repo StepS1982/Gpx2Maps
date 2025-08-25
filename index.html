@@ -171,14 +171,17 @@
   <div id="toastsCenter" aria-live="polite" aria-atomic="true"></div>
 
   <script>
+  document.addEventListener('DOMContentLoaded', () => {
     // === CONFIG ===
     const CONFIG={workerBase:"https://gpx2maps-worker.stefano-vitro.workers.dev",paypalDonateUrl:"https://www.paypal.com/donate?business=stefano.vitro%40gmail.com&no_recurring=0&item_name=Supporto+sviluppo+GPX2MAPS&currency_code=EUR",amazonAffiliateUrl:"https://amzn.to/41o2XjA"};
 
     // CTA
-    document.getElementById('donateBtn').href = CONFIG.paypalDonateUrl;
-    document.getElementById('amazonBtn').href = CONFIG.amazonAffiliateUrl;
+    try{
+      document.getElementById('donateBtn').href = CONFIG.paypalDonateUrl;
+      document.getElementById('amazonBtn').href = CONFIG.amazonAffiliateUrl;
+    }catch(e){}
 
-    // Tabs robusti con delegation + stato iniziale
+    // Tabs: inizializzazione a prova di bomba
     (function(){
       const sections = ['merge','maps2gpx','gpx2maps','sanitize','meteo'];
       function showTab(id){
@@ -192,17 +195,19 @@
           if (sec) sec.hidden = (key !== id);
         });
       }
-      document.addEventListener('click', (e)=>{
-        const btn = e.target.closest('.tab');
-        if (!btn) return;
-        showTab(btn.dataset.tab || 'merge');
+      document.querySelectorAll('.tab').forEach(btn=>{
+        btn.addEventListener('click', (ev)=>{
+          ev.preventDefault();
+          showTab(btn.dataset.tab || 'merge');
+        });
       });
-      showTab('merge');
+      showTab('merge'); // stato iniziale
     })();
 
     // Toast center 3s
     function toastCenter(msg){
       const box=document.getElementById('toastsCenter');
+      if(!box) return;
       box.innerHTML='';
       const t=document.createElement('div');
       t.className='toast center';
@@ -495,6 +500,7 @@
     document.getElementById('btnDownloadRTE').addEventListener('click',async()=>{ if(!gpxRTE){toastCenter('Nessun GPX RTE');return} if(!(await confirmAction('Scaricare il file GPX della rotta (WPT+RTE)?')))return; downloadBlob(nameRTE||`maps2gpx_rotta_${nowStamp()}.gpx`,gpxRTE,'application/gpx+xml'); toast('Download avviato'); });
     document.getElementById('btnDownloadTRK').addEventListener('click',async()=>{ if(!gpxTRK){toastCenter('Nessun GPX TRK');return} if(!(await confirmAction('Scaricare il file GPX della traccia (WPT+TRK)?')))return; downloadBlob(nameTRK||`maps2gpx_traccia_${nowStamp()}.gpx`,gpxTRK,'application/gpx+xml'); toast('Download avviato'); });
     document.getElementById('btnClear2').addEventListener('click',()=>{ document.getElementById('maps2gpxInput').value=''; resetMaps2GPXUI(); document.getElementById('stats2').textContent='Pulito.'; });
+  }); // DOMContentLoaded
   </script>
 </body>
 </html>
