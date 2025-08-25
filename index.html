@@ -232,7 +232,7 @@
     function nowStamp(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; }
     function timeHHMMSS(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
     function joinLF(a){ return a.join('\n'); }
-    function ensureFinalEOL(s){ return String(s).replace(/[\r\n]*$/,'\n'); } // newline finale come PS
+    function removeFinalEOL(s){ return String(s).replace(/[\r\n]+$/,''); } // più severo
 
     /* TAB 1 */
     function extractDirSegment(s){ const m=stripAtTail(s.trim()).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i); if(!m) return null; return m[1].replace(/^\/+/,'').replace(/\/+$/,''); }
@@ -291,7 +291,7 @@
       const ok=await confirmAction('Scaricare un file .txt con i link generati?'); if(!ok) return;
       const name=(items.length===1?`merge_1_${nowStamp()}.txt`:`merge_${items.length}_${nowStamp()}.txt`);
       const sep=items.length>1?'\n\n':'\n';
-      const bytes=new TextEncoder().encode(items.join(sep));
+      const bytes=new TextEncoder().encode(items.join(sep)); // nessuna newline extra
       const url=URL.createObjectURL(new Blob([bytes],{type:'text/plain'}));
       const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
       toast('File scaricato');
@@ -304,8 +304,8 @@
     async function geocodeFreeform(t){
       const ll=isLatLonStr(t); if(ll) return {lat:ll.lat,lon:ll.lon,label:`${ll.lat},${ll.lon}`};
       let g=await geocodeTry(t); if(g) return {lat:String(g.lat),lon:String(g.lon),label:g.display_name||t};
-      g=await geocodeTry(`${t}, Italia`); if(g) return {lat:String(g.lat),lon:String(g.lon),label=g.display_name||t};
-      const head=t.split(',')[0].trim(); if(head&&head!==t){ g=await geocodeTry(`${head}, Italia`); if(g) return {lat:String(g.lat),lon:String(g.lon),label=g.display_name||head}; }
+      g=await geocodeTry(`${t}, Italia`); if(g) return {lat:String(g.lat),lon:String(g.lon),label:g.display_name||t};
+      const head=t.split(',')[0].trim(); if(head&&head!==t){ g=await geocodeTry(`${head}, Italia`); if(g) return {lat:String(g.lat),lon:String(g.lon),label:g.display_name||head}; }
       return null;
     }
     async function reverseShortLabel(lat,lon){
@@ -318,7 +318,7 @@
       L.push('  <rte><name>'+xmlEscape(title)+'</name>');
       for(const s of steps){ const lat=fmt6s(s.lat),lon=fmt6s(s.lon),lab=xmlEscape(s.type||'via'); L.push(`    <rtept lat="${lat}" lon="${lon}"><name>${lab}</name></rtept>`); }
       L.push('  </rte>'); L.push('</gpx>');
-      return ensureFinalEOL(joinLF(L));
+      return removeFinalEOL(joinLF(L));
     }
     function buildGPX_TRK_WPT(points, trkCoords, title){
       const L=[]; L.push('<?xml version="1.0" encoding="UTF-8"?>'); L.push('<gpx version="1.1" creator="MAPS2GPX OSRM" xmlns="http://www.topografix.com/GPX/1/1">'); L.push(`  <metadata><time>${new Date().toISOString()}</time></metadata>`);
@@ -326,7 +326,7 @@
       L.push('  <trk><name>'+xmlEscape(title)+'</name><trkseg>');
       for(const c of trkCoords){ const lon=fmt6s(String(c[0])),lat=fmt6s(String(c[1])); L.push(`    <trkpt lat="${lat}" lon="${lon}" />`); }
       L.push('  </trkseg></trk>'); L.push('</gpx>');
-      return ensureFinalEOL(joinLF(L));
+      return removeFinalEOL(joinLF(L));
     }
 
     let gpxRTE=null,gpxTRK=null,nameRTE='',nameTRK='';
@@ -369,7 +369,7 @@
       let osrm; try{ osrm=await getJSON(osrmUrl); }catch(e){ toastCenter('Errore OSRM'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
       if(!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]){ toastCenter('OSRM non ha restituito una rotta valida'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
 
-      // Steps RTE
+      // Steps RTE: uso i punti OSRM (anche depart/arrive) come fa lo script PS
       const rte=[];
       for(const leg of (osrm.routes[0].legs||[])){
         for(const step of (leg.steps||[])){
@@ -405,8 +405,8 @@
     });
 
     function downloadBlob(name, content, mime){
-      const withEOL=ensureFinalEOL(content); // newline finale (PS)
-      const bytes=new TextEncoder().encode(withEOL);
+      const clean=removeFinalEOL(content);                 // elimina newline finale
+      const bytes=new TextEncoder().encode(clean);
       const url=URL.createObjectURL(new Blob([bytes],{type:mime||'application/gpx+xml'}));
       const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     }
