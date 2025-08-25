@@ -263,11 +263,11 @@
     /* ===== Condivise ===== */
     function stripAtTail(s){ let out = s.replace(/\/@.*$/, ''); out = out.replace(/\/data=.*$/, ''); return out; }
 
-    // --- Rounding decimale "half away from zero" identico al PowerShell ---
+    // --- Rounding decimale “half away from zero” identico a PS (string-based, niente float) ---
     function roundFixedStr(x, d=6){
       let s = (typeof x === 'number') ? x.toString() : String(x).trim();
       if (!isFinite(+s)) return (0).toFixed(d);
-      if (/[eE]/.test(s)) s = (+s).toFixed(d+10); // espandi se notazione scientifica
+      if (/[eE]/.test(s)) s = (+s).toFixed(d+10); // espandi eventuale notazione scientifica
       let neg = false;
       if (s.startsWith('-')) { neg = true; s = s.slice(1); }
       if (!s.includes('.')) s += '.0';
@@ -275,12 +275,12 @@
       int = int.replace(/\D/g,'') || '0';
       frac = frac.replace(/\D/g,'');
       while (frac.length < d+1) frac += '0';
-      const all = int + frac;
-      const cut = int.length + d;
-      const head = all.slice(0, cut) || '0';
-      const next = all[cut] || '0';
+      const all = int + frac;                 // tutti i digit (int + frazione)
+      const cut = int.length + d;             // mantengo d decimali
+      const head = all.slice(0, cut) || '0';  // parte mantissa da tenere
+      const next = all[cut] || '0';           // primo scartato
       let n = BigInt(head);
-      if (next >= '5') n += 1n; // half-away-from-zero
+      if (next >= '5') n += 1n;               // half-away-from-zero (magnitude ↑)
       let rs = n.toString();
       while (rs.length <= d) rs = '0' + rs;
       const pos = rs.length - d;
@@ -401,7 +401,12 @@
     });
 
     /* ===== TAB 2: MAPS → GPX ===== */
-    function isLatLon(s){ const m=s.trim().match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/); if(!m) return null; const lat=parseFloat(m[1]), lon=parseFloat(m[2]); if(!Number.isFinite(lat)||!Number.isFinite(lon)) return null; return {lat,lon}; }
+    // Riconosce lat,lon e LI RESTITUISCE COME STRINGHE per preservare i decimali originali
+    function isLatLonStr(s){
+      const m = s.trim().match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/);
+      if(!m) return null;
+      return { lat: m[1], lon: m[2] }; // stringhe!
+    }
     async function reverseShortLabel(lat, lon){
       try {
         const r = await getJSON(`${CONFIG.workerBase}/reverse?lat=${lat}&lon=${lon}`);
@@ -414,15 +419,16 @@
     }
     async function geocodeTry(q){ try { const r=await getJSON(`${CONFIG.workerBase}/geocode?q=${encodeURIComponent(q)}`); if(Array.isArray(r)&&r.length) return r[0]; } catch{} return null; }
     async function geocodeFreeform(t){
-      const ll=isLatLon(t); if(ll) return {lat:ll.lat, lon:ll.lon, label:`${ll.lat},${ll.lon}`};
-      let g=await geocodeTry(t); if(g) return {lat:+g.lat, lon:+g.lon, label:g.display_name||t};
-      g=await geocodeTry(`${t}, Italia`); if(g) return {lat:+g.lat, lon:+g.lon, label:g.display_name||t};
-      const head=t.split(',')[0].trim(); if(head&&head!==t){ g=await geocodeTry(`${head}, Italia`); if(g) return {lat:+g.lat, lon:+g.lon, label:g.display_name||head}; }
+      const ll=isLatLonStr(t);
+      if(ll) return {lat: ll.lat, lon: ll.lon, label:`${ll.lat},${ll.lon}`}; // stringhe
+      let g=await geocodeTry(t); if(g) return {lat:String(g.lat), lon:String(g.lon), label:g.display_name||t};
+      g=await geocodeTry(`${t}, Italia`); if(g) return {lat:String(g.lat), lon:String(g.lon), label:g.display_name||t};
+      const head=t.split(',')[0].trim(); if(head&&head!==t){ g=await geocodeTry(`${head}, Italia`); if(g) return {lat:String(g.lat), lon:String(g.lon), label:g.display_name||head}; }
       return null;
     }
 
-    // Join con CRLF e senza newline finale
-    function joinCRLF(lines){ return lines.join('\r\n'); }
+    // Join LF senza newline finale
+    function joinLF(lines){ return lines.join('\n'); }
 
     function buildGPX_RTE_WPT(orderedPts, rteSteps, title){
       const lines=[];
@@ -442,7 +448,7 @@
       }
       lines.push('  </rte>');
       lines.push('</gpx>');
-      return joinCRLF(lines);
+      return joinLF(lines);
     }
     function buildGPX_TRK_WPT(orderedPts, trkCoords, title){
       const lines=[];
@@ -462,7 +468,7 @@
       }
       lines.push('  </trkseg></trk>');
       lines.push('</gpx>');
-      return joinCRLF(lines);
+      return joinLF(lines);
     }
 
     let gpxRTE=null, gpxTRK=null, nameRTE='', nameTRK='';
@@ -519,10 +525,10 @@
       for(const leg of (osrm.routes[0].legs||[])){
         for(const step of (leg.steps||[])){
           if(step.maneuver && Array.isArray(step.maneuver.location)){
-            const lon=step.maneuver.location[0], lat=step.maneuver.location[1];
+            const lon=String(step.maneuver.location[0]), lat=String(step.maneuver.location[1]);
             if(rte.length){
               const last=rte[rte.length-1];
-              if(Math.abs(last.lat-lat)<1e-7 && Math.abs(last.lon-lon)<1e-7) continue;
+              if(Math.abs(parseFloat(last.lat)-parseFloat(lat))<1e-7 && Math.abs(parseFloat(last.lon)-parseFloat(lon))<1e-7) continue;
             }
             rte.push({lat, lon, type:String(step.maneuver.type||'')});
           }
@@ -543,8 +549,8 @@
       nameTRK = `maps2gpx_osrm_traccia_${startLabel}_${endLabel}_${ts}.gpx`;
 
       document.getElementById('stats2').textContent = `${ordered.length} punti convertiti (WPT) · RTE ${rte.length} step · TRK ${trk.length} vertici`;
-      const prevR=gpxRTE.split('\r\n').slice(0,200).join('\r\n'); document.getElementById('gpxPreviewRte').textContent=prevR+(gpxRTE.length>prevR.length?'\n...':''); document.getElementById('previewWrapRte').hidden=false;
-      const prevT=gpxTRK.split('\r\n').slice(0,200).join('\r\n'); document.getElementById('gpxPreviewTrk').textContent=prevT+(gpxTRK.length>prevT.length?'\n...':''); document.getElementById('previewWrapTrk').hidden=false;
+      const prevR=gpxRTE.split('\n').slice(0,200).join('\n'); document.getElementById('gpxPreviewRte').textContent=prevR+(gpxRTE.length>prevR.length?'\n...':''); document.getElementById('previewWrapRte').hidden=false;
+      const prevT=gpxTRK.split('\n').slice(0,200).join('\n'); document.getElementById('gpxPreviewTrk').textContent=prevT+(gpxTRK.length>prevT.length?'\n...':''); document.getElementById('previewWrapTrk').hidden=false;
       document.getElementById('dlRow').style.display='';
       toastCenter('GPX RTE & TRK pronti');
     });
