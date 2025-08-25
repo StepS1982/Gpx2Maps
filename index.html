@@ -208,7 +208,7 @@
     }
     function toast(msg){ toastCenter(msg); }
 
-    // Confirm (once manuale)
+    // Confirm
     async function confirmAction(text){
       const dlg=document.getElementById('confirmDialog');
       document.getElementById('confirmText').textContent=text||'';
@@ -229,7 +229,7 @@
     /* Helpers */
     function stripAtTail(s){ return s.replace(/\/@.*$/,'').replace(/\/data=.*$/,''); }
 
-    // === Round .NET-like (Midpoint to Even) su NUMERO ===
+    // Round "midpoint to even" su numero
     function roundHalfEvenToFixed(n, d){
       d = (typeof d==='number')?d:6;
       const scale = Math.pow(10, d);
@@ -242,9 +242,8 @@
       let up;
       if (frac > 0.5 + EPS) up = true;
       else if (frac < 0.5 - EPS) up = false;
-      else up = (Math.abs(base) % 2 === 1); // exactly half -> to even
-      let units = base + (up ? 1 : 0);      // integer units at 10^d
-      // ricomponi stringa senza usare toFixed (evita ri-arrotondamenti)
+      else up = (Math.abs(base) % 2 === 1);
+      let units = base + (up ? 1 : 0);
       let whole = Math.floor(units / scale);
       let fracUnits = units - whole * scale;
       const fracStr = String(fracUnits).padStart(d, '0');
@@ -260,7 +259,7 @@
     function joinLF(a){ return a.join('\n'); }
     function ensureFinalLF(s){ return /\n$/.test(s) ? s : (s + '\n'); }
 
-    /* TAB 1 */
+    /* TAB 1 (invariato rispetto al tuo baseline) */
     function extractDirSegment(s){
       var m=stripAtTail(s.trim()).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i);
       if(!m) return null;
@@ -304,7 +303,6 @@
       }
       return blocks;
     }
-
     function renderOutput(urls){
       var out=document.getElementById('output'),stats=document.getElementById('stats'); out.innerHTML='';
       if(!urls.length){ stats.textContent='Nessun risultato.'; document.getElementById('btnDownloadAll').style.display='none'; return; }
@@ -325,7 +323,6 @@
       document.getElementById('btnDownloadAll').style.display='';
       toastCenter('Risultati aggiornati ('+n+' link)');
     }
-
     function chooseStrategy(){
       const dlg=document.getElementById('strategyDialog');
       dlg.showModal();
@@ -338,7 +335,6 @@
         dlg.addEventListener('close',handler);
       });
     }
-
     document.getElementById('btnMerge').addEventListener('click', async function(){
       var lines=document.getElementById('linksInput').value.split('\n').map(function(s){return s.trim()}).filter(Boolean);
       if(!lines.length){toastCenter('Inserisci almeno un link');return}
@@ -354,14 +350,12 @@
       if(strategy==='optimize'){renderOutput([buildGoogleDirURL(optimizeTo25(all))]);}
       else{var blocks=splitInBlocks(all); renderOutput(blocks.map(function(b){return buildGoogleDirURL(b)}));}
     });
-
     document.getElementById('btnClear').addEventListener('click',function(){
       document.getElementById('linksInput').value='';
       document.getElementById('output').innerHTML='';
       document.getElementById('stats').textContent='Pulito.';
       document.getElementById('btnDownloadAll').style.display='none';
     });
-
     document.getElementById('btnDownloadAll').addEventListener('click',async function(){
       var items=[].slice.call(document.querySelectorAll('#output .out-item .mono')).map(function(x){return x.textContent;});
       if(!items.length) return;
@@ -468,7 +462,7 @@
         document.getElementById('stats2').textContent='Geocoding '+(i+1)+'/'+tokens.length+'...';
         var g=await geocodeFreeform(tokens[i]);
         if(!g){ skipped.push(tokens[i]); continue; }
-        // allinea a PS: dagli già a 6 decimali come double
+        // arrotonda come PS già qui
         g.lat = roundHalfEvenToFixed(Number(g.lat), 6);
         g.lon = roundHalfEvenToFixed(Number(g.lon), 6);
         ordered.push(g);
@@ -483,7 +477,7 @@
       var osrm; try{ osrm=await getJSON(osrmUrl); }catch(e){ toastCenter('Errore OSRM'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
       if(!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]){ toastCenter('OSRM non ha restituito una rotta valida'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
 
-      // Steps RTE (dedup su coordinate raw OSRM; poi arrotondo a 6 come PS)
+      // Steps RTE (dedup su raw; poi override testa/coda con i waypoint geocodificati)
       var rte=[];
       var legs=(osrm.routes[0].legs||[]);
       for(var li=0; li<legs.length; li++){
@@ -506,9 +500,21 @@
           }
         }
       }
+      // >>> Allineamento PowerShell: forza primo/ultimo RTE = waypoint input (arrotondati a 6)
+      if(rte.length){
+        rte[0].lat  = roundHalfEvenToFixed(Number(ordered[0].lat), 6);
+        rte[0].lon  = roundHalfEvenToFixed(Number(ordered[0].lon), 6);
+        rte[rte.length-1].lat = roundHalfEvenToFixed(Number(ordered[ordered.length-1].lat), 6);
+        rte[rte.length-1].lon = roundHalfEvenToFixed(Number(ordered[ordered.length-1].lon), 6);
+      }
 
-      // TRK
+      // TRK: idem, testa/coda = waypoint input
       var trk=(osrm.routes[0].geometry && osrm.routes[0].geometry.coordinates)?osrm.routes[0].geometry.coordinates:[];
+      if(trk.length){
+        trk[0] = [ Number(ordered[0].lon), Number(ordered[0].lat) ];
+        trk[trk.length-1] = [ Number(ordered[ordered.length-1].lon), Number(ordered[ordered.length-1].lat) ];
+      }
+
       var startLabel=fileNameSafe(await reverseShortLabel(ordered[0].lat,ordered[0].lon));
       var endLabel=fileNameSafe(await reverseShortLabel(ordered[ordered.length-1].lat,ordered[ordered.length-1].lon));
       var title='GPX da: '+startLabel+' a: '+endLabel;
@@ -528,8 +534,7 @@
     });
 
     function downloadBlob(name, content, mime){
-      // NON rimuovo la newline finale: PS mette sempre \n a fine file
-      var bytes=new TextEncoder().encode(content);
+      var bytes=new TextEncoder().encode(content); // mantiene newline finale
       var url=URL.createObjectURL(new Blob([bytes],{type:mime||'application/gpx+xml'}));
       var a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     }
