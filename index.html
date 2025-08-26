@@ -293,27 +293,25 @@
         return true;
       });
     }
+    // match "severo ma giusto", con soglia morbida per passi/colle
     function nameMatchesToken(token, display){
-      const kw = keywordsFromToken(token);
-      if(!kw.length) return true; // token di fatto “vuoto” => ok
-      const hay = normStr(display);
+      const hay = ' ' + applySynonyms(display) + ' ';
+      const kw  = keywordsFromToken(token);
+      if(!kw.length) return true;
     
       let hit = 0;
       for(const w of kw){
-        // match da parola intera...
-        if(hay.includes(' '+w+' ') || hay.startsWith(w+' ') || hay.endsWith(' '+w) || hay===w){
+        // parola intera…
+        if(hay.includes(' '+w+' ') || hay.startsWith(w+' ') || hay.endsWith(' '+w) || hay === (' '+w+' ')){
           hit++; continue;
         }
-        // ...oppure sottostringa quando il termine è "robusto" (>=5)
-        if(w.length >= 5 && hay.includes(w)){
-          hit++; continue;
-        }
+        // …o sottostringa quando il termine è “robusto”
+        if(w.length >= 5 && hay.includes(w)){ hit++; continue; }
       }
     
       const ratio = hit / kw.length;
-      const isPass = /\b(pass(o)?|col(le)?|forcella)\b/i.test(normStr(token));
-      // soglia normale 0.6, per "passo/colle" basta 0.45
-      return ratio >= (isPass ? 0.45 : 0.6);
+      const isPass = /\b(pass|passo|colle|forcella)\b/.test(normStr(token));
+      return ratio >= (isPass ? 0.40 : 0.60);
     }
     function looksLocalityClass(g){
       const c = String(g && g.class || '');
