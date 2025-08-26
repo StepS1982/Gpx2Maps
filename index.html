@@ -252,49 +252,55 @@
     const fmt6s = x => roundHalfEvenStr(x, 6);
 
     /* ===== TAB 1: Merge ===== */
-    function extractDirSegment(s){
-    const clean = stripAtTail(s.trim());
+    function extractDirSegment(raw){
+    const clean = stripAtTail(String(raw).trim());
   
-    // Caso classico: /maps/dir/...
-    const m = clean.match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i);
-    if (m) return m[1].replace(/^\/+/, '').replace(/\/+$/,'');
+    // 1) Caso classico: /maps/dir/...
+    if (clean.includes('/maps/dir/')) {
+      const seg = clean.split('/maps/dir/')[1] || '';
+      return seg.replace(/^\/+/, '').replace(/\/+$/, '');
+    }
   
-    // Caso "vecchio" Google Maps: /maps? ... con saddr/daddr(+ to:)
-    // Esempio: .../maps?daddr=A to:B to:C&saddr=Partenza
-    const q = clean.match(/^https?:\/\/[^/]*google\.[^/]+\/maps(?:\/)?\?/i);
-    if (q){
-      try{
+    // 2) Vecchio formato: /maps? ... con saddr, daddr (contenente "to:")
+    if (clean.includes('/maps?')) {
+      try {
         const u  = new URL(clean);
         const sp = u.searchParams;
   
-        // Nota: URLSearchParams già decodifica + -> spazio
+        // URLSearchParams decodifica "+" in spazio (application/x-www-form-urlencoded)
         const saddr = (sp.get('saddr') || '').trim();
-        const daddr = (sp.get('daddr') || '').trim();
+        let   daddr = (sp.get('daddr') || '').trim();
+  
+        // Alcuni short link mettono tutto in "q": "A to:B to:C"
+        if (!daddr && sp.get('q')) {
+          const q = sp.get('q').trim();
+          if (/to:/i.test(q)) daddr = q;
+        }
   
         if (!saddr && !daddr) return null;
   
-        // daddr può contenere "to:" concatenati: split in tappe
+        // "A to:B to:C" -> ["A","B","C"]
         const dParts = daddr
-          ? daddr.split(/\s+to:\s*/i).map(v => v.trim()).filter(Boolean)
+          ? daddr.split(/\s*to:\s*/i).map(v => v.trim()).filter(Boolean)
           : [];
   
-        // La sequenza per /dir è: [saddr?, ...dParts]
+        // Sequenza per /dir: [saddr?, ...dParts]
         const items = [];
         if (saddr) items.push(saddr);
         items.push(...dParts);
-  
         if (!items.length) return null;
   
-        // Ricrea i token stile Google: encodeURIComponent e spazio -> '+'
+        // Encodiamo come fa Google: encodeURIComponent con spazi -> '+'
         const enc = t => encodeURIComponent(t).replace(/%20/g, '+');
         return items.map(enc).join('/');
-      }catch{
+      } catch {
         return null;
       }
     }
   
     return null;
   }
+
 
     async function resolveIfShort(url){
       try{
