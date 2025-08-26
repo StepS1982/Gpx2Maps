@@ -165,7 +165,7 @@
         <button id="btnStrategyOptimize" class="btn" value="opt">1) Ottimizza a 25 (mantieni testa/coda, campiona gli intermedi)</button>
         <button id="btnStrategySplit" class="btn secondary" value="split">2) Dividi in più link (max 25 punti; solo il primo ha “//”)</button>
       </div>
-      <div class="row" style="justify-content:flex-end;margin-top:10px;">
+      <div class="row" style="justify-content:flex-end;margin-top:10px%;">
         <button class="btn ghost" value="cancel">Chiudi</button>
       </div>
     </form>
@@ -208,7 +208,7 @@
     }
     function toast(msg){ toastCenter(msg); }
 
-    // Confirm
+    // Confirm (once manuale)
     async function confirmAction(text){
       const dlg=document.getElementById('confirmDialog');
       document.getElementById('confirmText').textContent=text||'';
@@ -229,7 +229,7 @@
     /* Helpers */
     function stripAtTail(s){ return s.replace(/\/@.*$/,'').replace(/\/data=.*$/,''); }
 
-    // Round "midpoint to even" su numero
+    // Round half-even a 6 decimali (PS-like)
     function roundHalfEvenToFixed(n, d){
       d = (typeof d==='number')?d:6;
       const scale = Math.pow(10, d);
@@ -259,7 +259,7 @@
     function joinLF(a){ return a.join('\n'); }
     function ensureFinalLF(s){ return /\n$/.test(s) ? s : (s + '\n'); }
 
-    /* TAB 1 (invariato rispetto al tuo baseline) */
+    /* TAB 1 */
     function extractDirSegment(s){
       var m=stripAtTail(s.trim()).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i);
       if(!m) return null;
@@ -303,6 +303,7 @@
       }
       return blocks;
     }
+
     function renderOutput(urls){
       var out=document.getElementById('output'),stats=document.getElementById('stats'); out.innerHTML='';
       if(!urls.length){ stats.textContent='Nessun risultato.'; document.getElementById('btnDownloadAll').style.display='none'; return; }
@@ -323,6 +324,7 @@
       document.getElementById('btnDownloadAll').style.display='';
       toastCenter('Risultati aggiornati ('+n+' link)');
     }
+
     function chooseStrategy(){
       const dlg=document.getElementById('strategyDialog');
       dlg.showModal();
@@ -335,6 +337,7 @@
         dlg.addEventListener('close',handler);
       });
     }
+
     document.getElementById('btnMerge').addEventListener('click', async function(){
       var lines=document.getElementById('linksInput').value.split('\n').map(function(s){return s.trim()}).filter(Boolean);
       if(!lines.length){toastCenter('Inserisci almeno un link');return}
@@ -350,12 +353,14 @@
       if(strategy==='optimize'){renderOutput([buildGoogleDirURL(optimizeTo25(all))]);}
       else{var blocks=splitInBlocks(all); renderOutput(blocks.map(function(b){return buildGoogleDirURL(b)}));}
     });
+
     document.getElementById('btnClear').addEventListener('click',function(){
       document.getElementById('linksInput').value='';
       document.getElementById('output').innerHTML='';
       document.getElementById('stats').textContent='Pulito.';
       document.getElementById('btnDownloadAll').style.display='none';
     });
+
     document.getElementById('btnDownloadAll').addEventListener('click',async function(){
       var items=[].slice.call(document.querySelectorAll('#output .out-item .mono')).map(function(x){return x.textContent;});
       if(!items.length) return;
@@ -378,9 +383,9 @@
     async function geocodeTry(q){ try{ var r=await getJSON(CONFIG.workerBase+'/geocode?q='+encodeURIComponent(q)); if(Array.isArray(r)&&r.length) return r[0]; }catch(e){} return null; }
     async function geocodeFreeform(t){
       var ll=isLatLonStr(t); if(ll) return {lat:ll.lat,lon:ll.lon,label:String(ll.lat)+','+String(ll.lon)};
-      var g=await geocodeTry(t); if(g) return {lat:String(g.lat),lon:String(g.lon),label:g.display_name||t};
-      g=await geocodeTry(t+', Italia'); if(g) return {lat:String(g.lat),lon:String(g.lon),label:g.display_name||t};
-      var head=t.split(',')[0].trim(); if(head&&head!==t){ g=await geocodeTry(head+', Italia'); if(g) return {lat:String(g.lat),lon:String(g.lon),label:g.display_name||head}; }
+      var g=await geocodeTry(t); if(g) return {lat:String(g.lat),lon:String(g.lon),label=g.display_name||t};
+      g=await geocodeTry(t+', Italia'); if(g) return {lat:String(g.lat),lon:String(g.lon),label=g.display_name||t};
+      var head=t.split(',')[0].trim(); if(head&&head!==t){ g=await geocodeTry(head+', Italia'); if(g) return {lat:String(g.lat),lon:String(g.lon),label=g.display_name||head}; }
       return null;
     }
     async function reverseShortLabel(lat,lon){
@@ -456,13 +461,12 @@
         }
       }
 
-      // Geocoding con salta-errori
+      // Geocoding con salta-errori + arrotondamento PS-like
       var ordered=[], skipped=[];
       for(i=0;i<tokens.length;i++){
         document.getElementById('stats2').textContent='Geocoding '+(i+1)+'/'+tokens.length+'...';
         var g=await geocodeFreeform(tokens[i]);
         if(!g){ skipped.push(tokens[i]); continue; }
-        // arrotonda come PS già qui
         g.lat = roundHalfEvenToFixed(Number(g.lat), 6);
         g.lon = roundHalfEvenToFixed(Number(g.lon), 6);
         ordered.push(g);
@@ -477,7 +481,7 @@
       var osrm; try{ osrm=await getJSON(osrmUrl); }catch(e){ toastCenter('Errore OSRM'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
       if(!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]){ toastCenter('OSRM non ha restituito una rotta valida'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
 
-      // Steps RTE (dedup su raw; poi override testa/coda con i waypoint geocodificati)
+      // Steps RTE (dedup su raw)
       var rte=[];
       var legs=(osrm.routes[0].legs||[]);
       for(var li=0; li<legs.length; li++){
@@ -500,7 +504,7 @@
           }
         }
       }
-      // >>> Allineamento PowerShell: forza primo/ultimo RTE = waypoint input (arrotondati a 6)
+      // Allineamento PS: testa/coda = waypoint input
       if(rte.length){
         rte[0].lat  = roundHalfEvenToFixed(Number(ordered[0].lat), 6);
         rte[0].lon  = roundHalfEvenToFixed(Number(ordered[0].lon), 6);
