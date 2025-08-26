@@ -265,6 +265,17 @@
       ['sempione', 'simplon'],
       ['goms', 'obergoms'] // comune rinominato
     ];
+    function applySynonyms(str){
+      let out = ' ' + normStr(str) + ' ';
+      for(const group of SYN_EQUIV){
+        const core = group[0];
+        for(const alias of group){
+          const re = new RegExp(`(?<=\\s)${alias}(?=\\s)`,'g');
+          out = out.replace(re, ' '+core+' ');
+        }
+      }
+      return out.trim();
+    }
     const IT_STOP = new Set(['di','del','della','dei','degli','delle','de','da','la','il','lo','i','gli','le','e','ed','in','a','al','allo','ai','agli','alla','alle','con','per','su','tra','fra']);
     function keywordsFromToken(s){
       // normalizza + tokenizza
