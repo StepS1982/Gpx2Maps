@@ -257,49 +257,14 @@
       if(!m) return null;
       return m[1].replace(/^\/+/, '').replace(/\/+$/,''); // rimuovi slash iniziali per evitare /dir///
     }
-
-    // >>>>>>>>>>>>>>> FIX SHORTLINK & MAPS?DADDR= → /maps/dir//…  <<<<<<<<<<<<<<<
     async function resolveIfShort(url){
-      let u = url;
-  
-      // 1) segui gli shortlink (maps.app.goo.gl / goo.gl / g.co) via worker /resolve
       try{
         const h=(new URL(url)).host;
-        if (/(^|\.)maps\.app\.goo\.gl$/i.test(h) || /(^|\.)goo\.gl$/i.test(h) || /(^|\.)g\.co$/i.test(h)) {
-          const {finalUrl} = await getJSON(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`);
-          if (finalUrl) u = finalUrl;
-        }
-      }catch{}
-  
-      // 2) se è un long "strano" di Google con daddr/to: (anche path "/")
-      try{
-        const U = new URL(u);
-        const isGoogle = /(^|\.)google\./i.test(U.host);
-        if (isGoogle && (U.pathname === '/' || U.pathname === '/maps')) {
-          const raw = U.searchParams.get('daddr');
-          if (raw) {
-            // decodifica con "+" -> spazio
-            const decodePlus = s => decodeURIComponent(String(s).replace(/\+/g,' ')).trim();
-            const daddr = decodePlus(raw);
-  
-            // split su "to:" con o senza spazi
-            const dests = daddr.split(/\s+to:/i).map(s=>s.trim()).filter(Boolean);
-  
-            // costruisci /maps/dir// + destinazioni (ignoriamo saddr: vogliamo "//")
-            if (dests.length){
-              const segs = ['']; // "//" come primo punto
-              segs.push(...dests.map(s => encodeURIComponent(s).replace(/%20/g,'+')));
-              return 'https://www.google.com/maps/dir/' + segs.join('/');
-            }
-          }
-        }
-      }catch{}
-  
-      return u;
+        if(!/(^|\.)maps\.app\.goo\.gl$/i.test(h)&&!/(^|\.)goo\.gl$/i.test(h)&&!/(^|\.)g\.co$/i.test(h)) return url;
+        const {finalUrl}=await getJSON(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`);
+        return finalUrl||url;
+      }catch{return url;}
     }
-
-    // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
     function buildGoogleDirURL(parts){ return 'https://www.google.com/maps/dir/'+parts.join('/'); }
     function dedupeAdjacent(a){ const out=[]; let prev=null; for(const x of a){ if(x!==prev) out.push(x); prev=x; } return out; }
     function evenSample(inner,need){ if(need<=0)return[]; if(inner.length<=need)return inner.slice(); const out=[]; for(let i=0;i<need;i++){ const idx=Math.round(i*(inner.length-1)/(need-1)); out.push(inner[idx]); } const res=[]; for(const v of out){ if(res[res.length-1]!==v) res.push(v); } while(res.length>need) res.pop(); return res; }
@@ -337,7 +302,7 @@
         return;
       }
 
-      // Risolvi shortlink / normalizza
+      // Risolvi shortlink
       const resolved=[]; for(const ln of lines){ resolved.push(await resolveIfShort(ln)); }
 
       // Estrai segmenti /maps/dir/
@@ -387,13 +352,18 @@
     }
     function isLatLonStr(s){ const m=s.trim().match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/); return m?{lat:m[1],lon:m[2]}:null; }
     async function geocodeTry(q){ try{ const r=await getJSON(`${CONFIG.workerBase}/geocode?q=${encodeURIComponent(q)}`); if(Array.isArray(r)&&r.length) return r[0]; }catch{} return null; }
+
+    // === CLONE PS 1:1 ===
+    // - niente fallback ", Italia" o head trimming
+    // - lat/lon già arrotondati a 6 decimali qui
     async function geocodeFreeform(t){
-      const ll=isLatLonStr(t); if(ll) return { lat: ll.lat, lon: ll.lon, label: `${ll.lat},${ll.lon}` };
-      let g=await geocodeTry(t); if(g) return { lat: String(g.lat), lon: String(g.lon), label: (g.display_name || t) };
-      g=await geocodeTry(`${t}, Italia`); if(g) return { lat: String(g.lat), lon: String(g.lon), label: (g.display_name || t) };
-      const head=t.split(',')[0].trim(); if(head && head!==t){ g=await geocodeTry(`${head}, Italia`); if(g) return { lat: String(g.lat), lon: String(g.lon), label: (g.display_name || head) }; }
-      return null;
+      const ll=isLatLonStr(t);
+      if(ll) return { lat: fmt6s(ll.lat), lon: fmt6s(ll.lon), label: `${fmt6s(ll.lat)},${fmt6s(ll.lon)}` };
+      const g=await geocodeTry(t);
+      if(g)  return { lat: fmt6s(g.lat), lon: fmt6s(g.lon), label: (g.display_name || t) };
+      return null; // se Nominatim non trova, si salta come in PS
     }
+
     async function reverseShortLabel(lat,lon){
       try{
         const r=await getJSON(`${CONFIG.workerBase}/reverse?lat=${lat}&lon=${lon}`);
@@ -407,7 +377,7 @@
 
     function buildGPX_RTE_WPT(points, steps, title){
       const L=[];
-      L.push('<?xml version="1.0" encoding="UTF-8"/>');
+      L.push('<?xml version="1.0" encoding="UTF-8"?>');
       L.push('<gpx version="1.1" creator="MAPS2GPX OSRM" xmlns="http://www.topografix.com/GPX/1/1">');
       L.push(`  <metadata><time>${new Date().toISOString()}</time></metadata>`);
       for(let i=0;i<points.length;i++){
@@ -422,11 +392,11 @@
       }
       L.push('  </rte>');
       L.push('</gpx>');
-      return joinLF(L) + '\n';
+      return joinLF(L) + '\n'; // newline finale come PS
     }
     function buildGPX_TRK_WPT(points, trkCoords, title){
       const L=[];
-      L.push('<?xml version="1.0" encoding="UTF-8"/>');
+      L.push('<?xml version="1.0" encoding="UTF-8"?>');
       L.push('<gpx version="1.1" creator="MAPS2GPX OSRM" xmlns="http://www.topografix.com/GPX/1/1">');
       L.push(`  <metadata><time>${new Date().toISOString()}</time></metadata>`);
       for(let i=0;i<points.length;i++){
@@ -441,7 +411,7 @@
       }
       L.push('  </trkseg></trk>');
       L.push('</gpx>');
-      return joinLF(L) + '\n';
+      return joinLF(L) + '\n'; // newline finale come PS
     }
 
     let gpxRTE=null,gpxTRK=null,nameRTE='',nameTRK='';
@@ -474,7 +444,7 @@
         }
       }
 
-      // Geocoding con salta-errori
+      // Geocoding con salta-errori (1:1 PS)
       const ordered=[], skipped=[];
       for(let i=0;i<tokens.length;i++){
         document.getElementById('stats2').textContent=`Geocoding ${i+1}/${tokens.length}...`;
@@ -485,14 +455,14 @@
       if(ordered.length<2){ document.getElementById('stats2').textContent='Errore: geocoding fallito (troppi pochi punti).'; return; }
       if(skipped.length){ toastCenter(`Saltati ${skipped.length} punto/i non geocodificati`); }
 
-      // OSRM
+      // OSRM con coppie lon,lat ARROTONDATE A 6 (come PS)
       const coordsParam=ordered.map(p=>`${p.lon},${p.lat}`).join(';');
       const osrmUrl=`${CONFIG.workerBase}/osrm?coords=${encodeURIComponent(coordsParam)}&profile=driving&overview=full&geometries=geojson&steps=true`;
       document.getElementById('stats2').textContent='Calcolo rotta (OSRM)...';
       let osrm; try{ osrm=await getJSON(osrmUrl); }catch(e){ toastCenter('Errore OSRM'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
       if(!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]){ toastCenter('OSRM non ha restituito una rotta valida'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
 
-      // Steps RTE
+      // Steps RTE: includi tutti i maneuver (depart/arrive compresi) con dedup adiacente 1e-7 (1:1 PS)
       const rte=[];
       for(const leg of (osrm.routes[0].legs||[])){
         for(const step of (leg.steps||[])){
@@ -528,6 +498,7 @@
     });
 
     function downloadBlob(name, content, mime){
+      // Manteniamo newline finale se presente (PS style)
       const out = content.endsWith('\n') ? content : (content + '\n');
       const bytes=new TextEncoder().encode(out);
       const url=URL.createObjectURL(new Blob([bytes],{type:mime||'application/gpx+xml'}));
