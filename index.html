@@ -252,66 +252,19 @@
     const fmt6s = x => roundHalfEvenStr(x, 6);
 
     /* ===== TAB 1: Merge ===== */
-    function extractDirSegment(raw){
-    const clean = stripAtTail(String(raw).trim());
-  
-    // 1) Caso classico: /maps/dir/...
-    if (clean.includes('/maps/dir/')) {
-      const seg = clean.split('/maps/dir/')[1] || '';
-      return seg.replace(/^\/+/, '').replace(/\/+$/, '');
+    function extractDirSegment(s){
+      const m=stripAtTail(s.trim()).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i);
+      if(!m) return null;
+      return m[1].replace(/^\/+/, '').replace(/\/+$/,''); // rimuovi slash iniziali per evitare /dir///
     }
-  
-    // 2) Vecchio formato: /maps? ... con saddr, daddr (contenente "to:")
-    if (clean.includes('/maps?')) {
-      try {
-        const u  = new URL(clean);
-        const sp = u.searchParams;
-  
-        // URLSearchParams decodifica "+" in spazio (application/x-www-form-urlencoded)
-        const saddr = (sp.get('saddr') || '').trim();
-        let   daddr = (sp.get('daddr') || '').trim();
-  
-        // Alcuni short link mettono tutto in "q": "A to:B to:C"
-        if (!daddr && sp.get('q')) {
-          const q = sp.get('q').trim();
-          if (/to:/i.test(q)) daddr = q;
-        }
-  
-        if (!saddr && !daddr) return null;
-  
-        // "A to:B to:C" -> ["A","B","C"]
-        const dParts = daddr
-          ? daddr.split(/\s*to:\s*/i).map(v => v.trim()).filter(Boolean)
-          : [];
-  
-        // Sequenza per /dir: [saddr?, ...dParts]
-        const items = [];
-        if (saddr) items.push(saddr);
-        items.push(...dParts);
-        if (!items.length) return null;
-  
-        // Encodiamo come fa Google: encodeURIComponent con spazi -> '+'
-        const enc = t => encodeURIComponent(t).replace(/%20/g, '+');
-        return items.map(enc).join('/');
-      } catch {
-        return null;
-      }
-    }
-  
-    return null;
-  }
-
-
     async function resolveIfShort(url){
       try{
         const h=(new URL(url)).host;
-        const isShort = /(^|\.)maps\.app\.goo\.gl$/i.test(h) || /(^|\.)goo\.gl$/i.test(h) || /(^|\.)g\.co$/i.test(h);
-        if(!isShort) return url;
-        const {finalUrl} = await getJSON(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`);
-        return finalUrl || url;
-      }catch{ return url; }
+        if(!/(^|\.)maps\.app\.goo\.gl$/i.test(h)&&!/(^|\.)goo\.gl$/i.test(h)&&!/(^|\.)g\.co$/i.test(h)) return url;
+        const {finalUrl}=await getJSON(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`);
+        return finalUrl||url;
+      }catch{return url;}
     }
-
     function buildGoogleDirURL(parts){ return 'https://www.google.com/maps/dir/'+parts.join('/'); }
     function dedupeAdjacent(a){ const out=[]; let prev=null; for(const x of a){ if(x!==prev) out.push(x); prev=x; } return out; }
     function evenSample(inner,need){ if(need<=0)return[]; if(inner.length<=need)return inner.slice(); const out=[]; for(let i=0;i<need;i++){ const idx=Math.round(i*(inner.length-1)/(need-1)); out.push(inner[idx]); } const res=[]; for(const v of out){ if(res[res.length-1]!==v) res.push(v); } while(res.length>need) res.pop(); return res; }
@@ -399,13 +352,16 @@
     }
     function isLatLonStr(s){ const m=s.trim().match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/); return m?{lat:m[1],lon:m[2]}:null; }
     async function geocodeTry(q){ try{ const r=await getJSON(`${CONFIG.workerBase}/geocode?q=${encodeURIComponent(q)}`); if(Array.isArray(r)&&r.length) return r[0]; }catch{} return null; }
+
+    // >>> ALIGN 1:1 CON PS — niente fallback “, Italia”, niente tagli su virgole
     async function geocodeFreeform(t){
-      const ll=isLatLonStr(t); if(ll) return { lat: ll.lat, lon: ll.lon, label: `${ll.lat},${ll.lon}` };
-      let g=await geocodeTry(t); if(g) return { lat: String(g.lat), lon: String(g.lon), label: (g.display_name || t) };
-      g=await geocodeTry(`${t}, Italia`); if(g) return { lat: String(g.lat), lon: String(g.lon), label: (g.display_name || t) };
-      const head=t.split(',')[0].trim(); if(head && head!==t){ g=await geocodeTry(`${head}, Italia`); if(g) return { lat: String(g.lat), lon: String(g.lon), label: (g.display_name || head) }; }
+      const ll=isLatLonStr(t); 
+      if(ll) return { lat: ll.lat, lon: ll.lon, label: `${ll.lat},${ll.lon}` };
+      const g = await geocodeTry(t);
+      if (g) return { lat: String(g.lat), lon: String(g.lon), label: (g.display_name || t) };
       return null;
     }
+
     async function reverseShortLabel(lat,lon){
       try{
         const r=await getJSON(`${CONFIG.workerBase}/reverse?lat=${lat}&lon=${lon}`);
@@ -486,7 +442,7 @@
         }
       }
 
-      // Geocoding con salta-errori
+      // Geocoding con salta-errori (come PS: una sola query, nessun “, Italia”)
       const ordered=[], skipped=[];
       for(let i=0;i<tokens.length;i++){
         document.getElementById('stats2').textContent=`Geocoding ${i+1}/${tokens.length}...`;
@@ -504,7 +460,7 @@
       let osrm; try{ osrm=await getJSON(osrmUrl); }catch(e){ toastCenter('Errore OSRM'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
       if(!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]){ toastCenter('OSRM non ha restituito una rotta valida'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
 
-      // Steps RTE
+      // Steps RTE: includi tutti i maneuver (depart/arrive compresi) e dedup strettissimo
       const rte=[];
       for(const leg of (osrm.routes[0].legs||[])){
         for(const step of (leg.steps||[])){
