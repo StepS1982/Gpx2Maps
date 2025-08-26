@@ -591,7 +591,10 @@
         ordered.push(g);
       }
       if(ordered.length<2){ document.getElementById('stats2').textContent='Errore: geocoding fallito (troppi pochi punti).'; return; }
-      if(skipped.length){ toastCenter(`Saltati ${skipped.length} punto/i non geocodificati`); }
+      if (skipped.length){
+        const preview = skipped.slice(0,3).join(' · ');
+        toastCenter(`Saltati ${skipped.length} punto/i: ${preview}${skipped.length>3?'…':''}`);
+      }
 
       // OSRM con coppie lon,lat ARROTONDATE A 6 (come PS)
       const coordsParam=ordered.map(p=>`${p.lon},${p.lat}`).join(';');
