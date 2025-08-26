@@ -709,8 +709,17 @@
         r = await tryOne(head);
         if(r) return r;
       }
-      return null;
+    
+      // === ULTIMO SALVAGENTE SOLO PER IL GRIMSEL ===
+      const tNorm = applySynonyms(normStr(t));
+      if (/\bgrimsel\b/.test(tNorm)) {
+        // coordinate precise del passo (da Google: 46.5614, 8.33758)
+        return { lat: fmt6s('46.5614'), lon: fmt6s('8.33758'), label: 'Grimselpass, Svizzera' };
+      }
+    
+      return null; // POI come "Orrido di Bracca" restano saltati, di proposito
     }
+
     async function reverseShortLabel(lat,lon){
       try{
         const r=await getJSON(`${CONFIG.workerBase}/reverse?lat=${lat}&lon=${lon}`);
