@@ -489,7 +489,9 @@
           const resolved=await resolveIfShort(line);
           const seg=extractDirSegmentKeepLeading(resolved);
           if(!seg){toastCenter('Link non valido: manca /maps/dir/');return;}
-          let parts=seg.split('/'); parts=parts.filter(x=>x!==''); parts=parts.map(decodeTok).filter(Boolean);
+          let parts=seg.split('/'); 
+          parts=parts.filter(x=>x!==''); 
+          parts=parts.map(decodeTok).filter(Boolean);
           tokens.push(...parts);
         }else{
           if(line!=='//') tokens.push(line);
