@@ -252,9 +252,10 @@
     // === Helpers per matching "strict" token vs display_name Nominatim
     function normStr(s){
       return String(s).toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-        .replace(/[^\p{L}\p{N}]+/gu,' ')
-        .trim().replace(/\s+/g,' ');
+        .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // senza accenti
+        .replace(/[.,;:()'’"“”]/g,' ')
+        .replace(/\s+/g,' ')
+        .trim();
     }
     const IT_STOP = new Set(['di','del','della','dei','degli','delle','de','da','la','il','lo','i','gli','le','e','ed','in','a','al','allo','ai','agli','alla','alle','con','per','su','tra','fra']);
     function keywordsFromToken(s){
