@@ -258,13 +258,40 @@
       return m[1].replace(/^\/+/, '').replace(/\/+$/,''); // rimuovi slash iniziali per evitare /dir///
     }
     async function resolveIfShort(url){
+      // 1) segui eventuali shortlink (maps.app.goo.gl, goo.gl, g.co) via worker /resolve
+      let u = url;
       try{
         const h=(new URL(url)).host;
-        if(!/(^|\.)maps\.app\.goo\.gl$/i.test(h)&&!/(^|\.)goo\.gl$/i.test(h)&&!/(^|\.)g\.co$/i.test(h)) return url;
-        const {finalUrl}=await getJSON(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`);
-        return finalUrl||url;
-      }catch{return url;}
+        if (/(^|\.)maps\.app\.goo\.gl$/i.test(h) || /(^|\.)goo\.gl$/i.test(h) || /(^|\.)g\.co$/i.test(h)) {
+          const {finalUrl} = await getJSON(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`);
+          if (finalUrl) u = finalUrl;
+        }
+      }catch{}
+  
+      // 2) normalizza i “weird” long link tipo:
+      //    https://maps.google.com/maps?daddr=…++to:…&saddr=…
+      //    in un classico /maps/dir//… così il resto della logica torna uguale
+      try{
+        const U = new URL(u);
+        const isGoogleMapsQuery = /(^|\.)google\./i.test(U.host) && U.pathname === '/maps';
+        if (isGoogleMapsQuery) {
+          const daddrRaw = U.searchParams.get('daddr');
+          if (daddrRaw) {
+            const decodePlus = s => decodeURIComponent(s.replace(/\+/g,' ')).trim();
+            const daddr = decodePlus(daddrRaw);
+            // “to:” può comparire più volte: split by “to:”
+            const dests = daddr.split(/\s+to:/i).map(s=>s.trim()).filter(Boolean);
+            // costruiamo un /dir//… (blank iniziale) come fanno i link navigabili
+            const segs = [''];
+            segs.push(...dests.map(s=>encodeURIComponent(s).replace(/%20/g,'+')));
+            return 'https://www.google.com/maps/dir/' + segs.join('/');
+          }
+        }
+      }catch{}
+  
+      return u;
     }
+
     function buildGoogleDirURL(parts){ return 'https://www.google.com/maps/dir/'+parts.join('/'); }
     function dedupeAdjacent(a){ const out=[]; let prev=null; for(const x of a){ if(x!==prev) out.push(x); prev=x; } return out; }
     function evenSample(inner,need){ if(need<=0)return[]; if(inner.length<=need)return inner.slice(); const out=[]; for(let i=0;i<need;i++){ const idx=Math.round(i*(inner.length-1)/(need-1)); out.push(inner[idx]); } const res=[]; for(const v of out){ if(res[res.length-1]!==v) res.push(v); } while(res.length>need) res.pop(); return res; }
