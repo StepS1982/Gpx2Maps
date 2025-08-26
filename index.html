@@ -867,7 +867,7 @@
       // OSRM con coppie lon,lat ARROTONDATE A 6 (come PS)
       const coordsParam = ordered.map(p => `${p.lon},${p.lat}`).join(';');
       // radius fisso per ogni punto (metri) — solo per questo test
-      const radiusesParam = new Array(ordered.length).fill(2000).join(';');
+      const radiusesParam = new Array(ordered.length).fill(1000).join(';');
       const osrmUrl =
         `${CONFIG.workerBase}/osrm?coords=${encodeURIComponent(coordsParam)}` +
         `&profile=driving&overview=full&geometries=geojson&steps=true` +
