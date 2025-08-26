@@ -508,52 +508,29 @@
     // - niente fallback ", Italia" o head trimming
     // - lat/lon già arrotondati a 6 decimali qui
     // === geocode con fallback MIRATI SOLO se fallisce il primo tentativo ===
+    // === geocode con indizi: i fallback si accettano solo se combaciano con gli indizi ===
     async function geocodeFreeform(t){
-      // lat,lon diretto
+      // coordinate pure
       const ll = isLatLonStr(t);
-      if (ll) {
-        return { lat: fmt6s(ll.lat), lon: fmt6s(ll.lon), label: `${fmt6s(ll.lat)},${fmt6s(ll.lon)}` };
-      }
+      if(ll) return { lat: fmt6s(ll.lat), lon: fmt6s(ll.lon), label: `${fmt6s(ll.lat)},${fmt6s(ll.lon)}`, _fb:false };
     
-      // 0) primo tentativo: come arriva dal link (massima fedeltà)
+      // 1) tentativo "as-is" (accettato sempre, come prima)
       let g = await geocodeTry(t);
-      if (g) return { lat: fmt6s(g.lat), lon: fmt6s(g.lon), label: (g.display_name || t) };
+      if(g) return { lat: fmt6s(g.lat), lon: fmt6s(g.lon), label: (g.display_name || t), _fb:false };
     
-      // 1) pulizia mirata brand/sigla prov.
-      const cleaned = cleanAddressTokenForGeocode(t);
-    
-      if (cleaned && cleaned !== t) {
-        g = await geocodeTry(cleaned);
-        if (g) return { lat: fmt6s(g.lat), lon: fmt6s(g.lon), label: (g.display_name || cleaned) };
-      }
-    
-      // 2) cleaned + Italia
-      if (cleaned) {
-        g = await geocodeTry(`${cleaned}, Italia`);
-        if (g) return { lat: fmt6s(g.lat), lon: fmt6s(g.lon), label: (g.display_name || cleaned) };
-      }
-    
-      // 3) se c'è un CAP, prova dalla parte dopo il CAP (es. "Casarza Ligure")
-      const m = cleaned.match(/\b(\d{5})\b\s*(.*)$/);
-      if (m && m[2]) {
-        const afterCap = m[2].trim();
-        g = await geocodeTry(`${afterCap}, Italia`);
-        if (g) return { lat: fmt6s(g.lat), lon: fmt6s(g.lon), label: (g.display_name || afterCap) };
-      }
-    
-      // 4) ultimissimo tentativo: ultime 2 parti (es. "Casarza Ligure, 16030")
-      if (cleaned.includes(',')) {
-        const p = cleaned.split(',').map(s=>s.trim()).filter(Boolean);
-        const tail = p.slice(-2).join(', ');
-        if (tail) {
-          g = await geocodeTry(`${tail}, Italia`);
-          if (g) return { lat: fmt6s(g.lat), lon: fmt6s(g.lon), label: (g.display_name || tail) };
+      // 2) fallback (accettati solo se passano gli indizi)
+      const tries = buildFallbackQueries(t);
+      for(const q of tries){
+        g = await geocodeTry(q);
+        if(g && acceptByHints(t, g)){
+          return { lat: fmt6s(g.lat), lon: fmt6s(g.lon), label: (g.display_name || t), _fb:true };
         }
       }
     
-      return null; // fallito
+      // niente di buono
+      return null;
     }
-
+    
     async function reverseShortLabel(lat,lon){
       try{
         const r=await getJSON(`${CONFIG.workerBase}/reverse?lat=${lat}&lon=${lon}`);
