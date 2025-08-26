@@ -195,15 +195,30 @@
       });
     }));
 
-    /* Toast center 3s */
-    function toastCenter(msg){
-      const box=document.getElementById('toastsCenter');
-      box.innerHTML='';
-      const t=document.createElement('div');
-      t.className='toast center';
-      t.textContent=msg;
+    /* Toast center 3s con coda (no overwrite) */
+    const toastQueue = [];
+    let toastShowing = false;
+    
+    function showNextToast(){
+      if (!toastQueue.length) { toastShowing = false; return; }
+      toastShowing = true;
+      const msg = toastQueue.shift();
+      const box = document.getElementById('toastsCenter');
+      box.innerHTML = '';
+      const t = document.createElement('div');
+      t.className = 'toast center';
+      t.textContent = msg;
       box.appendChild(t);
-      setTimeout(()=>{if(t.parentNode)t.parentNode.removeChild(t)},3000);
+      setTimeout(()=>{
+        if (t.parentNode) t.parentNode.removeChild(t);
+        // breve respiro, poi mostriamo il prossimo
+        setTimeout(showNextToast, 50);
+      }, 3000);
+    }
+    
+    function toastCenter(msg){
+      toastQueue.push(msg);
+      if (!toastShowing) showNextToast();
     }
     function toast(msg){ toastCenter(msg); }
 
