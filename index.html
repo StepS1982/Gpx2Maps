@@ -258,18 +258,38 @@
     }
     const IT_STOP = new Set(['di','del','della','dei','degli','delle','de','da','la','il','lo','i','gli','le','e','ed','in','a','al','allo','ai','agli','alla','alle','con','per','su','tra','fra']);
     function keywordsFromToken(s){
+      // normalizza + tokenizza
       const arr = normStr(s).split(' ');
-      return arr.filter(w => w && !IT_STOP.has(w) && w.length>=2);
+      return arr.filter(w => {
+        if(!w) return false;
+        if(IT_STOP.has(w)) return false;
+        if(/^[0-9]+$/.test(w)) return false;          // ignora CAP/numeri (es. 22100, 3999)
+        if(/^[a-z]{1,3}$/.test(w)) return false;       // ignora sigle corte tipo co, va, lc, bg, vs...
+        return w.length >= 2;
+      });
     }
+    
     function nameMatchesToken(token, display){
       const kw = keywordsFromToken(token);
-      if(!kw.length) return true; // token vuoto di fatto -> ok
-      const hay = ' '+normStr(display)+' ';
-      let hit=0;
+      if(!kw.length) return true; // token di fatto “vuoto” => ok
+      const hay = normStr(display);
+    
+      let hit = 0;
       for(const w of kw){
-        if(hay.includes(' '+w+' ')) hit++;
+        // match da parola intera...
+        if(hay.includes(' '+w+' ') || hay.startsWith(w+' ') || hay.endsWith(' '+w) || hay===w){
+          hit++; continue;
+        }
+        // ...oppure sottostringa quando il termine è "robusto" (>=5)
+        if(w.length >= 5 && hay.includes(w)){
+          hit++; continue;
+        }
       }
-      return (hit/kw.length) >= 0.6; // soglia "abbastanza coerente"
+    
+      const ratio = hit / kw.length;
+      const isPass = /\b(pass(o)?|col(le)?|forcella)\b/i.test(normStr(token));
+      // soglia normale 0.6, per "passo/colle" basta 0.45
+      return ratio >= (isPass ? 0.45 : 0.6);
     }
     function looksLocalityClass(g){
       const c = String(g && g.class || '');
