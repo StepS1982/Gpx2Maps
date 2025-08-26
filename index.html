@@ -664,31 +664,43 @@
     // - lat/lon già arrotondati a 6 decimali qui
     // Geocoding "strict": SOLO da /dir/; accetto il risultato se il nome combacia col token.
     // Unico fallback per località: aggiungo ", Italia" se il token non contiene già il paese.
+    // Geocoding "strict": pochi tentativi, sempre verificando il nome trovato
     async function geocodeFreeform(t){
+      // 1) coordinate pure?
       const ll = isLatLonStr(t);
-      if(ll){
-        const lat = fmt6s(ll.lat), lon = fmt6s(ll.lon);
-        return { lat, lon, label: `${lat},${lon}` };
-      }
+      if(ll) return { lat: fmt6s(ll.lat), lon: fmt6s(ll.lon), label: `${fmt6s(ll.lat)},${fmt6s(ll.lon)}` };
     
-      // 1) primo tentativo
-      let g = await geocodeTry(t); // ritorna l'oggetto Nominatim grezzo
-      if(g && nameMatchesToken(t, g.display_name||'')){
-        return { lat: fmt6s(g.lat), lon: fmt6s(g.lon), label: (g.display_name || t) };
-      }
-    
-      // 2) fallback UNICO: solo se è "località" e senza paese nel token
-      if(g && looksLocalityClass(g) && !tokenMentionsCountry(t)){
-        const g2 = await geocodeTry(`${t}, Italia`);
-        if(g2 && nameMatchesToken(t, g2.display_name||'')){
-          return { lat: fmt6s(g2.lat), lon: fmt6s(g2.lon), label: (g2.display_name || t) };
+      // helper: prova una query e accetta solo se il nome combacia col token
+      const tryOne = async (q) => {
+        const g = await geocodeTry(q);
+        if(!g) return null;
+        const name = g.display_name || '';
+        if(nameMatchesToken(t, name)){
+          return { lat: fmt6s(g.lat), lon: fmt6s(g.lon), label: name };
         }
+        return null;
+      };
+    
+      // A) token ripulito (niente CAP/codici)
+      const qA = cleanForGeocode(t);
+      let r = await tryOne(qA);
+      if(r) return r;
+    
+      // B) stessa query ma con sinonimi (es. simplon->sempione, obergoms->goms…)
+      const qB = applySynonyms(qA);
+      r = await tryOne(qB);
+      if(r) return r;
+    
+      // C) estrema: solo la “testa” prima della prima virgola (es. “Passo del Grimsel”)
+      const head = qA.split(',')[0]?.trim();
+      if(head && head.length>=3){
+        r = await tryOne(head);
+        if(r) return r;
       }
     
-      // 3) niente da fare -> skip
+      // niente: lo saltiamo (verrà elencato nel toast)
       return null;
-    }       
-    
+    }    
     async function reverseShortLabel(lat,lon){
       try{
         const r=await getJSON(`${CONFIG.workerBase}/reverse?lat=${lat}&lon=${lon}`);
