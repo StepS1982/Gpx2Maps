@@ -249,6 +249,35 @@
     }
 
     /* Helpers */
+    // === Helpers per matching "strict" token vs display_name Nominatim
+    function normStr(s){
+      return String(s).toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+        .replace(/[^\p{L}\p{N}]+/gu,' ')
+        .trim().replace(/\s+/g,' ');
+    }
+    const IT_STOP = new Set(['di','del','della','dei','degli','delle','de','da','la','il','lo','i','gli','le','e','ed','in','a','al','allo','ai','agli','alla','alle','con','per','su','tra','fra']);
+    function keywordsFromToken(s){
+      const arr = normStr(s).split(' ');
+      return arr.filter(w => w && !IT_STOP.has(w) && w.length>=2);
+    }
+    function nameMatchesToken(token, display){
+      const kw = keywordsFromToken(token);
+      if(!kw.length) return true; // token vuoto di fatto -> ok
+      const hay = ' '+normStr(display)+' ';
+      let hit=0;
+      for(const w of kw){
+        if(hay.includes(' '+w+' ')) hit++;
+      }
+      return (hit/kw.length) >= 0.6; // soglia "abbastanza coerente"
+    }
+    function looksLocalityClass(g){
+      const c = String(g && g.class || '');
+      return /^(place|boundary|highway|natural|mountain_pass|waterway|aeroway|railway|man_made)$/.test(c);
+    }
+    function tokenMentionsCountry(t){
+      return /\b(italia|svizzera|francia|france|germania|austria|slovenia)\b/i.test(String(t));
+    }
     // === Riconoscimento "località" vs "POI/commerciale" + match stretto per POI ===
     const POI_KEYWORDS = [
       'autogrill','hotel','ristorante','pizzeria','birroteca','trattoria','osteria','bar',
