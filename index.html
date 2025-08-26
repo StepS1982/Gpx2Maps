@@ -682,11 +682,9 @@
     // Unico fallback per località: aggiungo ", Italia" se il token non contiene già il paese.
     // Geocoding "strict": pochi tentativi, sempre verificando il nome trovato
     async function geocodeFreeform(t){
-      // 1) coordinate pure?
       const ll = isLatLonStr(t);
       if(ll) return { lat: fmt6s(ll.lat), lon: fmt6s(ll.lon), label: `${fmt6s(ll.lat)},${fmt6s(ll.lon)}` };
     
-      // helper: prova una query e accetta solo se il nome combacia col token
       const tryOne = async (q) => {
         const g = await geocodeTry(q);
         if(!g) return null;
@@ -697,26 +695,21 @@
         return null;
       };
     
-      // A) token ripulito (niente CAP/codici)
       const qA = cleanForGeocode(t);
       let r = await tryOne(qA);
       if(r) return r;
     
-      // B) stessa query ma con sinonimi (es. simplon->sempione, obergoms->goms…)
       const qB = applySynonyms(qA);
       r = await tryOne(qB);
       if(r) return r;
     
-      // C) estrema: solo la “testa” prima della prima virgola (es. “Passo del Grimsel”)
       const head = qA.split(',')[0]?.trim();
       if(head && head.length>=3){
         r = await tryOne(head);
         if(r) return r;
       }
-    
-      // niente: lo saltiamo (verrà elencato nel toast)
       return null;
-    }    
+    }
     async function reverseShortLabel(lat,lon){
       try{
         const r=await getJSON(`${CONFIG.workerBase}/reverse?lat=${lat}&lon=${lon}`);
