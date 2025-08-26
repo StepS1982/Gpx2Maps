@@ -683,41 +683,49 @@
     // Unico fallback per località: aggiungo ", Italia" se il token non contiene già il paese.
     // Geocoding "strict": pochi tentativi, sempre verificando il nome trovato
     async function geocodeFreeform(t){
+      // coordinate già pronte?
       const ll = isLatLonStr(t);
-      if(ll) return { lat: fmt6s(ll.lat), lon: fmt6s(ll.lon), label: `${fmt6s(ll.lat)},${fmt6s(ll.lon)}` };
+      if (ll) {
+        return { lat: fmt6s(ll.lat), lon: fmt6s(ll.lon), label: `${fmt6s(ll.lat)},${fmt6s(ll.lon)}` };
+      }
     
+      // --- SALVAGENTE MIRATO: GRIMSEL ---
+      // intercetta qualsiasi variazione che contenga "grimsel"
+      const tNorm = normStr(t);
+      if (/\bgrimsel\b/.test(tNorm)) {
+        // coordinate del passo (centro strada) – stabili
+        return { lat: fmt6s('46.5614'), lon: fmt6s('8.33758'), label: 'Grimselpass, Svizzera' };
+      }
+    
+      // geocoding "secco"
       const tryOne = async (q) => {
         const g = await geocodeTry(q);
-        if(!g) return null;
+        if (!g) return null;
         const name = g.display_name || '';
-        if(nameMatchesToken(t, name)){
+        if (nameMatchesToken(t, name)) {
           return { lat: fmt6s(g.lat), lon: fmt6s(g.lon), label: name };
         }
         return null;
       };
     
-      const qA = cleanForGeocode(t);
-      let r = await tryOne(qA);
-      if(r) return r;
+      // 1) query originale
+      let r = await tryOne(t);
+      if (r) return r;
     
-      const qB = applySynonyms(qA);
-      r = await tryOne(qB);
-      if(r) return r;
+      // 2) con sinonimi normalizzati
+      const qSyn = applySynonyms(tNorm);      // es. "passo del grimsel" -> "grimsel"
+      r = await tryOne(qSyn);
+      if (r) return r;
     
-      const head = qA.split(',')[0]?.trim();
-      if(head && head.length>=3){
+      // 3) testa la sola "head" (es. "Bellagio" da "Bellagio, CO")
+      const head = t.split(',')[0]?.trim();
+      if (head && head.length >= 3) {
         r = await tryOne(head);
-        if(r) return r;
+        if (r) return r;
       }
     
-      // === ULTIMO SALVAGENTE SOLO PER IL GRIMSEL ===
-      const tNorm = applySynonyms(normStr(t));
-      if (/\bgrimsel\b/.test(tNorm)) {
-        // coordinate precise del passo (da Google: 46.5614, 8.33758)
-        return { lat: fmt6s('46.5614'), lon: fmt6s('8.33758'), label: 'Grimselpass, Svizzera' };
-      }
-    
-      return null; // POI come "Orrido di Bracca" restano saltati, di proposito
+      // NIENTE fallback su POI generici (p.es. "Orrido di Bracca"): li saltiamo di proposito
+      return null;
     }
 
     async function reverseShortLabel(lat,lon){
