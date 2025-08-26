@@ -250,31 +250,46 @@
 
     /* Helpers */
     // === Helpers per matching "strict" token vs display_name Nominatim
-    // --- normalizzazione & sinonimi (IT <-> DE) ---
+    // --- normalizzazioni/sinonimi per match "leggero" ---
     function normStr(s){
       return String(s).toLowerCase()
         .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // senza accenti
         .replace(/[.,;:()'’"“”]/g,' ')
-        .replace(/\s+/g,' ')
-        .trim();
+        .replace(/\s+/g,' ').trim();
     }
     // gruppo di equivalenze: la prima parola è il "core"
     const SYN_EQUIV = [
-      ['grimsel', 'grimselpass', 'passodelgrimsel'],
-      ['nufenen', 'novena', 'nufenenpass', 'passodellanovena', 'passonovena'],
-      ['sempione', 'simplon'],
-      ['goms', 'obergoms'] // comune rinominato
+      ['grimsel','grimselpass','passodelgrimsel','grimsel pass'],
+      ['nufenen','novena','nufenenpass','passodellanovena','passo della novena','passonovena'],
+      ['sempione','simplon','simplonpass','passodelsempione','passo del sempione'],
+      ['goms','obergoms']
     ];
-    function applySynonyms(str){
-      let out = ' ' + normStr(str) + ' ';
+    function applySynonyms(s){
+      let out = ' ' + normStr(s) + ' ';
       for(const group of SYN_EQUIV){
         const core = group[0];
         for(const alias of group){
-          const re = new RegExp(`(?<=\\s)${alias}(?=\\s)`,'g');
-          out = out.replace(re, ' '+core+' ');
+          const re = new RegExp(`(?<=\\s)${alias.replace(/[-/\\^$*+?.()|[\]{}]/g,'\\$&')}(?=\\s)`,'g');
+          out = out.replace(re, ` ${core} `);
         }
       }
       return out.trim();
+    }
+    // parole da ignorare per il matching (generiche)
+    const GENERIC_WORDS = new Set([
+      'passo','pass','colle','forcella','galleria','tunnel','orrido'
+    ]);
+    function keywordsForMatch(token){
+      const words = applySynonyms(token).split(' ');
+      const out = [];
+      for(const w of words){
+        if(!w) continue;
+        if(GENERIC_WORDS.has(w)) continue;
+        if(/^\d+$/.test(w)) continue;
+        if(w.length<=2) continue;
+        out.push(w);
+      }
+      return [...new Set(out)];
     }
     const IT_STOP = new Set([
       'di','del','della','delle','dei','degli','la','il','lo','i','gli','le','e','ed',
@@ -296,22 +311,25 @@
     // match "severo ma giusto", con soglia morbida per passi/colle
     function nameMatchesToken(token, display){
       const hay = ' ' + applySynonyms(display) + ' ';
-      const kw  = keywordsFromToken(token);
+      const kw  = keywordsForMatch(token);
       if(!kw.length) return true;
-    
-      let hit = 0;
+      let hit=0;
       for(const w of kw){
-        // parola intera…
-        if(hay.includes(' '+w+' ') || hay.startsWith(w+' ') || hay.endsWith(' '+w) || hay === (' '+w+' ')){
-          hit++; continue;
-        }
-        // …o sottostringa quando il termine è “robusto”
-        if(w.length >= 5 && hay.includes(w)){ hit++; continue; }
+        if(hay.includes(' ' + w + ' ') || hay.includes(w)) hit++;
       }
-    
-      const ratio = hit / kw.length;
-      const isPass = /\b(pass|passo|colle|forcella)\b/.test(normStr(token));
-      return ratio >= (isPass ? 0.40 : 0.60);
+      const isPass = /\b(pass|passo|colle|forcella)\b/i.test(token);
+      const threshold = isPass ? 0.45 : 0.60;
+      return (hit/kw.length) >= threshold;
+    }
+    // pulizia *prima* del geocoding (togli CAP/codici, “Provincia di …”)
+    function cleanForGeocode(t){
+      let s = decodeTok(t);
+      s = s.replace(/\bch[-\s]?\d{4,5}\b/gi,'');   // CH-3999
+      s = s.replace(/\b\d{4,5}\b/g,'');           // 3999, 3907, 20100...
+      s = s.replace(/,\s*(?:MI|CO|VA|LC|BG|GE|NO|VB|VS|TI|GR|UR|BE|ZH|ZG|SG|VD|JU|FR|BS|BL|AG|SO|AR|AI|GE|LU|NE|OW|NW|SH|SZ|TG)\b/gi,''); // codici 2 lettere
+      s = s.replace(/\bprovincia\s+di\s+[a-zà-ù]+/gi,'');
+      s = s.replace(/\s{2,}/g,' ').trim();
+      return s;
     }
     function looksLocalityClass(g){
       const c = String(g && g.class || '');
