@@ -250,6 +250,14 @@
 
     /* Helpers */
     // === Helpers per matching "strict" token vs display_name Nominatim
+    /* POI hard-coded (eccezioni “benedette”) */
+    const POI_FIX = [
+      // Grimselpass – già usato come esempio
+      { match: /\bgrimsel\b|passo\s+del\s+grimsel/i, lat: '46.561400', lon: '8.337580', label: 'Passo del Grimsel' },
+    
+      // NEW: Orrido di Bracca (accetta “di/del”)
+      { match: /\borrido\s+(di|del)\s+bracca\b/i,         lat: '45.846870', lon: '9.731200', label: 'Orrido di Bracca' },
+    ];
     // --- normalizzazioni/sinonimi per match "leggero" ---
     function normStr(s){
       return String(s).toLowerCase()
