@@ -253,16 +253,18 @@
     // --- normalizzazioni/sinonimi per match "leggero" ---
     function normStr(s){
       return String(s).toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // senza accenti
+        .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
         .replace(/[.,;:()'’"“”]/g,' ')
         .replace(/\s+/g,' ').trim();
     }
     // gruppo di equivalenze: la prima parola è il "core"
     const SYN_EQUIV = [
       ['grimsel','grimselpass','passodelgrimsel','grimsel pass'],
-      ['nufenen','novena','nufenenpass','passodellanovena','passo della novena','passonovena'],
+      ['nufenen','novena','nufenenpass','passonovena','passo della novena'],
       ['sempione','simplon','simplonpass','passodelsempione','passo del sempione'],
-      ['goms','obergoms']
+      ['goms','obergoms'],
+      ['svizzera','switzerland'],
+      ['italia','italy']
     ];
     function applySynonyms(s){
       let out = ' ' + normStr(s) + ' ';
@@ -275,10 +277,11 @@
       }
       return out.trim();
     }
-    // parole da ignorare per il matching (generiche)
+    // parole generiche da ignorare nei keyword
     const GENERIC_WORDS = new Set([
-      'passo','pass','colle','forcella','galleria','tunnel','orrido'
-    ]);
+      'passo','pass','colle','forcella','galleria','tunnel','orrido',
+      'provincia','cantone','distretto','circolo','comune'
+    ]);    
     function keywordsForMatch(token){
       const words = applySynonyms(token).split(' ');
       const out = [];
@@ -310,14 +313,24 @@
     }
     // match "severo ma giusto", con soglia morbida per passi/colle
     function nameMatchesToken(token, display){
-      const hay = ' ' + applySynonyms(display) + ' ';
-      const kw  = keywordsForMatch(token);
+      const hayNorm = ' ' + applySynonyms(display) + ' ';
+      const tokNorm = applySynonyms(token);
+      const kw = keywordsForMatch(tokNorm);
       if(!kw.length) return true;
+    
+      // caso "passo/colle": basta che compaia il nome del passo
+      const PASS_KEYS = ['grimsel','nufenen','novena','sempione','simplon'];
+      const isPass = /\b(pass|passo|colle)\b/i.test(tokNorm);
+      if(isPass){
+        for(const k of PASS_KEYS){
+          if(tokNorm.includes(k) && hayNorm.includes(' ' + k + ' ')) return true;
+        }
+      }
+    
       let hit=0;
       for(const w of kw){
-        if(hay.includes(' ' + w + ' ') || hay.includes(w)) hit++;
+        if(hayNorm.includes(' ' + w + ' ') || hayNorm.includes(w)) hit++;
       }
-      const isPass = /\b(pass|passo|colle|forcella)\b/i.test(token);
       const threshold = isPass ? 0.45 : 0.60;
       return (hit/kw.length) >= threshold;
     }
