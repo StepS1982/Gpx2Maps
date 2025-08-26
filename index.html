@@ -236,6 +236,24 @@
     }
 
     /* Helpers */
+    // Normalizza query "rognose" (Provincia di..., CAP+sigla, ecc.)
+    function normalizeQuery(q){
+      let s = String(q);
+    
+      // "Provincia di Bergamo" -> "Bergamo"
+      s = s.replace(/\bProvincia di\s+([^,]+)/gi, '$1');
+    
+      // ", 24121-24129" o ", 22100 CO" o ", 22100"
+      s = s.replace(/,\s*\d{5}(?:-\d{5})?\s*[A-Z]{0,2}\b/gi, '');
+    
+      // ", CO" (solo sigla provincia)
+      s = s.replace(/,\s*[A-Z]{2}\b/g, '');
+    
+      // spazi multipli / virgole sporche
+      s = s.replace(/\s{2,}/g, ' ').replace(/\s*,\s*/g, ', ').trim();
+    
+      return s;
+    }
     function stripAtTail(s){ return s.replace(/\/@.*$/,'').replace(/\/data=.*$/,''); }
     function decodeTok(p){ try{return decodeURIComponent(p).replace(/\+/g,' ').trim()}catch{return p.replace(/\+/g,' ').trim()} }
     function xmlEscape(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
