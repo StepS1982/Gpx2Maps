@@ -562,38 +562,32 @@
     // === CLONE PS 1:1 ===
     // - niente fallback ", Italia" o head trimming
     // - lat/lon già arrotondati a 6 decimali qui
-    // === Regola: fallback solo per località; per POI il primo risultato deve combaciare ===
+    // === STRICT come la primissima versione che ti funzionava ===
     async function geocodeFreeform(t){
-      // coordinate pure: sempre ok
       const ll = isLatLonStr(t);
-      if(ll) return { lat: fmt6s(ll.lat), lon: fmt6s(ll.lon), label: `${fmt6s(ll.lat)},${fmt6s(ll.lon)}`, _fb:false };
-    
-      const isLoc = isLocalityToken(t);
-    
-      // 1) primo tentativo "as-is"
-      let g = await geocodeTry(t);
-      if(g){
-        const ok = isLoc ? acceptByHints(t, g) : poiAccept(t, g);
-        if(ok) return { lat: fmt6s(g.lat), lon: fmt6s(g.lon), label: (g.display_name || t), _fb:false };
-        // se è POI/indirizzo e NON combacia, lo saltiamo subito (no fallback)
-        if(!isLoc) return null;
+      if (ll) {
+        // arrotondo qui a 6 decimali (half-even) come già fai nel resto
+        return {
+          lat: fmt6s(ll.lat),
+          lon: fmt6s(ll.lon),
+          label: `${fmt6s(ll.lat)},${fmt6s(ll.lon)}`
+        };
       }
-    
-      // 2) solo per località: fallback con indizi
-      if(isLoc){
-        const tries = buildFallbackQueries(t);
-        for(const q of tries){
-          g = await geocodeTry(q);
-          if(g && acceptByHints(t, g)){
-            return { lat: fmt6s(g.lat), lon: fmt6s(g.lon), label: (g.display_name || t), _fb:true };
-          }
-        }
+  
+      // una sola chiamata "secca" a Nominatim sul token così com'è (già passato da decodeTok a monte)
+      const g = await geocodeTry(t);
+      if (g) {
+        return {
+          lat: fmt6s(g.lat),
+          lon: fmt6s(g.lon),
+          label: (g.display_name || t)
+        };
       }
-    
-      // 3) niente di buono
+  
+      // se non trova, salta il punto (verrà contati tra gli "skipped")
       return null;
-    }
-        
+    }        
+    
     async function reverseShortLabel(lat,lon){
       try{
         const r=await getJSON(`${CONFIG.workerBase}/reverse?lat=${lat}&lon=${lon}`);
