@@ -613,20 +613,19 @@
         }
       }
 
-      // Geocoding con salta-errori (1:1 PS)
-      const ordered=[], skipped=[];
+      // Geocoding con salta-errori + segnalazione fallback
+      const ordered=[], skipped=[], usedFallback=[];
       for(let i=0;i<tokens.length;i++){
         document.getElementById('stats2').textContent=`Geocoding ${i+1}/${tokens.length}...`;
         const g=await geocodeFreeform(tokens[i]);
         if(!g){ skipped.push(tokens[i]); continue; }
+        if(g._fb) usedFallback.push(tokens[i]);
         ordered.push(g);
       }
       if(ordered.length<2){ document.getElementById('stats2').textContent='Errore: geocoding fallito (troppi pochi punti).'; return; }
-      if (skipped.length){
-        const preview = skipped.slice(0,3).join(' · ');
-        toastCenter(`Saltati ${skipped.length} punto/i: ${preview}${skipped.length>3?'…':''}`);
-      }
-
+      if(skipped.length){ toastCenter(`Saltati ${skipped.length} punto/i non geocodificati: ${skipped.join(' · ')}`); }
+      if(usedFallback.length){ toastCenter(`Geocodificati con fallback (verifica): ${usedFallback.join(' · ')}`); }
+      
       // OSRM con coppie lon,lat ARROTONDATE A 6 (come PS)
       const coordsParam=ordered.map(p=>`${p.lon},${p.lat}`).join(';');
       const osrmUrl=`${CONFIG.workerBase}/osrm?coords=${encodeURIComponent(coordsParam)}&profile=driving&overview=full&geometries=geojson&steps=true`;
