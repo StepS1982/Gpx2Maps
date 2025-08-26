@@ -250,6 +250,7 @@
 
     /* Helpers */
     // === Helpers per matching "strict" token vs display_name Nominatim
+    
     /* POI hard-coded (eccezioni “benedette”) */
     const POI_FIX = [
       // Grimselpass – già usato come esempio
@@ -507,7 +508,14 @@
     function nowStamp(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; }
     function timeHHMMSS(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
     function joinLF(a){ return a.join('\n'); }
-
+    // Normalizza un testo: toglie accenti, punteggiatura, lowercase e comprime gli spazi
+    function normText(s){
+      return String(s)
+        .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // rimuovi diacritici
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g,' ') // tieni solo lettere/numeri
+        .trim();
+    }
     // HALF-EVEN (banker's) a 6 decimali – come PS
     function roundHalfEvenStr(x, d=6){
       let s=(typeof x==='number')?x.toString():String(x).trim();
