@@ -838,28 +838,32 @@
         }
       }
       // Geocoding con salta-errori (1:1 PS)
-      const ordered=[], skipped=[];
-      for(let i=0;i<tokens.length;i++){
-        document.getElementById('stats2').textContent=`Geocoding ${i+1}/${tokens.length}...`;
-      
+      const ordered = [], skipped = [], usedFallback = [];  // <-- AGGIUNTO
+      for (let i = 0; i < tokens.length; i++) {
+        document.getElementById('stats2').textContent = `Geocoding ${i+1}/${tokens.length}...`;
         const tok = tokens[i];
       
-        // --- check POI hard-coded (PRIMA del geocode) ---
+        // --- POI hard-coded (match prima del geocode) ---
         let fixed = null;
         for (const poi of POI_FIX) {
-          if (poi.match(tok)) { fixed = { lat: poi.lat, lon: poi.lon, label: poi.label }; break; }
+          if (poi.match(tok)) { 
+            fixed = { lat: poi.lat, lon: poi.lon, label: poi.label };
+            // se vuoi conteggiarli come “fallback”, registra il nome
+            usedFallback.push(poi.label);                 // <-- facoltativo
+            break;
+          }
         }
         if (fixed) { ordered.push(fixed); continue; }
-        // --- fine check POI ---
       
-        const g=await geocodeFreeform(tok);
-        if(!g){ skipped.push(tok); continue; }
+        const g = await geocodeFreeform(tok);
+        if (!g) { skipped.push(tok); continue; }
         ordered.push(g);
       }
       if(ordered.length<2){ document.getElementById('stats2').textContent='Errore: geocoding fallito (troppi pochi punti).'; return; }
       if(skipped.length){ toastCenter(`Saltati ${skipped.length} punto/i non geocodificati: ${skipped.join(' · ')}`); }
-      if(usedFallback.length){ toastCenter(`Geocodificati con fallback (verifica): ${usedFallback.join(' · ')}`); }
-      
+      if (usedFallback.length) {
+        toastCenter(`Geocodificati con fallback (verifica): ${usedFallback.join(' · ')}`);
+      }
       // OSRM con coppie lon,lat ARROTONDATE A 6 (come PS)
       const coordsParam=ordered.map(p=>`${p.lon},${p.lat}`).join(';');
       const osrmUrl=`${CONFIG.workerBase}/osrm?coords=${encodeURIComponent(coordsParam)}&profile=driving&overview=full&geometries=geojson&steps=true`;
