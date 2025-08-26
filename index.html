@@ -276,7 +276,13 @@
       }
       return out.trim();
     }
-    const IT_STOP = new Set(['di','del','della','dei','degli','delle','de','da','la','il','lo','i','gli','le','e','ed','in','a','al','allo','ai','agli','alla','alle','con','per','su','tra','fra']);
+    const IT_STOP = new Set([
+      'di','del','della','delle','dei','degli','la','il','lo','i','gli','le','e','ed',
+      'in','da','su','al','ai','agli','alla','alle','dal','sul','per','con',
+      // paesi/province/sigle
+      'italia','svizzera','switzerland','italy','provincia','province',
+      'mi','co','va','lc','bg','ge','no','vb','vs'
+    ]);
     function keywordsFromToken(s){
       // normalizza + tokenizza
       const arr = normStr(s).split(' ');
