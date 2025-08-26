@@ -238,6 +238,49 @@
     }
 
     /* Helpers */
+    // === Indizi per validare i fallback Nominatim ===
+    function _norm(s){
+      return String(s||'').toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g,''); // togli accenti
+    }
+    function hasCountryWord(s){
+      return /\b(italia|italy|svizzera|switzerland)\b/i.test(s);
+    }
+    function hintsFromToken(token){
+      const cap = (token.match(/\b\d{5}\b/g)||[])[0] || null;       // CAP italiano
+      const parts = token.split(',').map(x=>x.trim()).filter(Boolean);
+      const tail = parts.slice(-2).join(' ');                       // ultime 1-2 parti
+      const tailKw = _norm(tail).split(/\s+/).filter(w=>w.length>=4 && /^[a-z]/.test(w));
+      return { cap, tailKw };
+    }
+    function acceptByHints(originalToken, geocoded){
+      if(!geocoded) return false;
+      const disp = _norm(geocoded.display_name||'');
+      const {cap, tailKw} = hintsFromToken(originalToken);
+    
+      // 1) CAP presente nel display_name => forte indicazione
+      if(cap && disp.includes(cap)) return true;
+    
+      // 2) almeno 2 keyword significative dalle ultime parti compaiono nel display_name
+      let hits = 0;
+      for(const kw of tailKw){ if(disp.includes(kw)) hits++; }
+      return hits >= 2;
+    }
+    function buildFallbackQueries(token){
+      const out = [];
+      const needCountry = !hasCountryWord(token);
+      const add = q => { if(q && q!==token && !out.includes(q)) out.push(q); };
+    
+      const stripProvincia = s => s.replace(/\bprovincia di\b\s*/i,'').replace(/\bprov\.\s*/i,'');
+    
+      const parts = token.split(',').map(s=>s.trim()).filter(Boolean);
+      if(parts.length>=2) add(stripProvincia(parts.slice(-2).join(', ')) + (needCountry? ', Italia' : ''));
+      if(parts.length>=1) add(stripProvincia(parts.slice(-1)[0])          + (needCountry? ', Italia' : ''));
+      add(stripProvincia(token) + (needCountry? ', Italia' : ''));
+    
+      return out;
+    }
+    
     // --- helper: pulizia minima indirizzi IT quando il primo tentativo fallisce ---
     function cleanAddressTokenForGeocode(raw){
       let s = decodeTok(raw).replace(/\s+/g,' ').trim();
