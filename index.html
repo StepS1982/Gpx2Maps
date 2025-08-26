@@ -352,16 +352,13 @@
     }
     function isLatLonStr(s){ const m=s.trim().match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/); return m?{lat:m[1],lon:m[2]}:null; }
     async function geocodeTry(q){ try{ const r=await getJSON(`${CONFIG.workerBase}/geocode?q=${encodeURIComponent(q)}`); if(Array.isArray(r)&&r.length) return r[0]; }catch{} return null; }
-
-    // >>> ALIGN 1:1 CON PS — niente fallback “, Italia”, niente tagli su virgole
     async function geocodeFreeform(t){
-      const ll=isLatLonStr(t); 
-      if(ll) return { lat: ll.lat, lon: ll.lon, label: `${ll.lat},${ll.lon}` };
-      const g = await geocodeTry(t);
-      if (g) return { lat: String(g.lat), lon: String(g.lon), label: (g.display_name || t) };
+      const ll=isLatLonStr(t); if(ll) return { lat: ll.lat, lon: ll.lon, label: `${ll.lat},${ll.lon}` };
+      let g=await geocodeTry(t); if(g) return { lat: String(g.lat), lon: String(g.lon), label: (g.display_name || t) };
+      g=await geocodeTry(`${t}, Italia`); if(g) return { lat: String(g.lat), lon: String(g.lon), label: (g.display_name || t) };
+      const head=t.split(',')[0].trim(); if(head && head!==t){ g=await geocodeTry(`${head}, Italia`); if(g) return { lat: String(g.lat), lon: String(g.lon), label: (g.display_name || head) }; }
       return null;
     }
-
     async function reverseShortLabel(lat,lon){
       try{
         const r=await getJSON(`${CONFIG.workerBase}/reverse?lat=${lat}&lon=${lon}`);
@@ -373,9 +370,44 @@
       return 'Località';
     }
 
+    // *** NOVITÀ: snap WPT ai depart/arrive delle legs OSRM (replica PS) ***
+    function snapWptsToOsrmLegBoundaries(ordered, osrm){
+      try{
+        const legs = osrm?.routes?.[0]?.legs;
+        if(!Array.isArray(legs) || !legs.length) return ordered;
+
+        const out = ordered.map(p => ({...p}));
+
+        // WP1 -> depart della prima leg (se presente)
+        const s0 = legs[0]?.steps?.[0]?.maneuver?.location;
+        if (Array.isArray(s0) && s0.length === 2){
+          out[0].lon = String(s0[0]);
+          out[0].lat = String(s0[1]);
+        }
+
+        // arrive di ogni leg -> waypoint successivo
+        for(let i=0; i<legs.length; i++){
+          const steps = legs[i]?.steps || [];
+          let loc = null;
+          for(let j=steps.length-1; j>=0; j--){
+            const man = steps[j]?.maneuver;
+            if(man && Array.isArray(man.location)){
+              loc = man.location;
+              if((man.type||'') === 'arrive') break;
+            }
+          }
+          if(loc && out[i+1]){
+            out[i+1].lon = String(loc[0]);
+            out[i+1].lat = String(loc[1]);
+          }
+        }
+        return out;
+      }catch{ return ordered; }
+    }
+
     function buildGPX_RTE_WPT(points, steps, title){
       const L=[];
-      L.push('<?xml version="1.0" encoding="UTF-8"?>');
+      L.push('<?xml version="1.0" encoding="UTF-8"/>');
       L.push('<gpx version="1.1" creator="MAPS2GPX OSRM" xmlns="http://www.topografix.com/GPX/1/1">');
       L.push(`  <metadata><time>${new Date().toISOString()}</time></metadata>`);
       for(let i=0;i<points.length;i++){
@@ -394,7 +426,7 @@
     }
     function buildGPX_TRK_WPT(points, trkCoords, title){
       const L=[];
-      L.push('<?xml version="1.0" encoding="UTF-8"?>');
+      L.push('<?xml version="1.0" encoding="UTF-8"/>');
       L.push('<gpx version="1.1" creator="MAPS2GPX OSRM" xmlns="http://www.topografix.com/GPX/1/1">');
       L.push(`  <metadata><time>${new Date().toISOString()}</time></metadata>`);
       for(let i=0;i<points.length;i++){
@@ -442,7 +474,7 @@
         }
       }
 
-      // Geocoding con salta-errori (come PS: una sola query, nessun “, Italia”)
+      // Geocoding con salta-errori
       const ordered=[], skipped=[];
       for(let i=0;i<tokens.length;i++){
         document.getElementById('stats2').textContent=`Geocoding ${i+1}/${tokens.length}...`;
@@ -460,7 +492,7 @@
       let osrm; try{ osrm=await getJSON(osrmUrl); }catch(e){ toastCenter('Errore OSRM'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
       if(!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]){ toastCenter('OSRM non ha restituito una rotta valida'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
 
-      // Steps RTE: includi tutti i maneuver (depart/arrive compresi) e dedup strettissimo
+      // Steps RTE: includi tutti i maneuver (depart/arrive compresi)
       const rte=[];
       for(const leg of (osrm.routes[0].legs||[])){
         for(const step of (leg.steps||[])){
@@ -477,17 +509,22 @@
 
       // TRK
       const trk=(osrm.routes[0].geometry && osrm.routes[0].geometry.coordinates)?osrm.routes[0].geometry.coordinates:[];
-      const startLabel=fileNameSafe(await reverseShortLabel(ordered[0].lat,ordered[0].lon));
-      const endLabel=fileNameSafe(await reverseShortLabel(ordered[ordered.length-1].lat,ordered[ordered.length-1].lon));
+
+      // *** Snap WPT ai depart/arrive (PS-like) ***
+      const snapped = snapWptsToOsrmLegBoundaries(ordered, osrm);
+
+      // Etichette e GPX (usano WPT snappati)
+      const startLabel=fileNameSafe(await reverseShortLabel(snapped[0].lat, snapped[0].lon));
+      const endLabel=fileNameSafe(await reverseShortLabel(snapped[snapped.length-1].lat, snapped[snapped.length-1].lon));
       const title=`GPX da: ${startLabel} a: ${endLabel}`;
       const ts=nowStamp();
 
-      gpxRTE=buildGPX_RTE_WPT(ordered,rte,title);
-      gpxTRK=buildGPX_TRK_WPT(ordered,trk,title);
+      gpxRTE=buildGPX_RTE_WPT(snapped,rte,title);
+      gpxTRK=buildGPX_TRK_WPT(snapped,trk,title);
       nameRTE=`maps2gpx_osrm_rotta_${startLabel}_${endLabel}_${ts}.gpx`;
       nameTRK=`maps2gpx_osrm_traccia_${startLabel}_${endLabel}_${ts}.gpx`;
 
-      document.getElementById('stats2').textContent=`${ordered.length} punti convertiti (WPT) · RTE ${rte.length} step · TRK ${trk.length} vertici`;
+      document.getElementById('stats2').textContent=`${snapped.length} punti convertiti (WPT) · RTE ${rte.length} step · TRK ${trk.length} vertici`;
 
       const prevR=gpxRTE.split('\n').slice(0,200).join('\n'); document.getElementById('gpxPreviewRte').textContent=prevR+(gpxRTE.length>prevR.length?'\n...':''); document.getElementById('previewWrapRte').hidden=false;
       const prevT=gpxTRK.split('\n').slice(0,200).join('\n'); document.getElementById('gpxPreviewTrk').textContent=prevT+(gpxTRK.length>prevT.length?'\n...':''); document.getElementById('previewWrapTrk').hidden=false;
