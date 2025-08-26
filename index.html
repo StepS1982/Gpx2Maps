@@ -337,11 +337,14 @@
     // pulizia *prima* del geocoding (togli CAP/codici, “Provincia di …”)
     function cleanForGeocode(t){
       let s = decodeTok(t);
-      s = s.replace(/\bch[-\s]?\d{4,5}\b/gi,'');   // CH-3999
-      s = s.replace(/\b\d{4,5}\b/g,'');           // 3999, 3907, 20100...
-      s = s.replace(/,\s*(?:MI|CO|VA|LC|BG|GE|NO|VB|VS|TI|GR|UR|BE|ZH|ZG|SG|VD|JU|FR|BS|BL|AG|SO|AR|AI|GE|LU|NE|OW|NW|SH|SZ|TG)\b/gi,''); // codici 2 lettere
+      s = s.replace(/\bch[-\s]?\d{4,5}\b/gi,''); // CH-3999
+      s = s.replace(/\b\d{4,5}\b/g,'');         // 3999, 3907, 20100...
+      s = s.replace(/,\s*(?:MI|CO|VA|LC|BG|GE|NO|VB|VS|TI|GR|UR|BE|ZH|ZG|SG|VD|JU|FR|BS|BL|AG|SO|AR|AI|GE|LU|NE|OW|NW|SH|SZ|TG)\b/gi,'');
       s = s.replace(/\bprovincia\s+di\s+[a-zà-ù]+/gi,'');
+      s = s.replace(/\s*,\s*,+/g,',');          // comprime virgole doppie
+      s = s.replace(/^[,\s]+|[,\s]+$/g,'');     // toglie virgole/spazi ai bordi
       s = s.replace(/\s{2,}/g,' ').trim();
+      if(s.endsWith(',')) s = s.slice(0,-1).trim();
       return s;
     }
     function looksLocalityClass(g){
