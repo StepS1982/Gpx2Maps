@@ -257,14 +257,39 @@
       if(!m) return null;
       return m[1].replace(/^\/+/, '').replace(/\/+$/,''); // rimuovi slash iniziali per evitare /dir///
     }
+
+    // >>> FIX MINIMALE STILE PS: coerciamo URL Google non-/dir in /dir//DEST
+    function coerceToDirIfNeeded(u){
+      try{
+        const UU=new URL(u);
+        const hostOK = /(^|\.)google\.[^/]+$/i.test(UU.host) || /^maps\.google\.[^/]+$/i.test(UU.host) || /^www\.google\.[^/]+$/i.test(UU.host);
+        if(!hostOK) return u;
+        if(/^\/maps\/dir\//i.test(UU.pathname)) return stripAtTail(u);
+
+        let dest=null;
+        const mPlace = UU.pathname.match(/^\/maps\/place\/([^\/?#]+)/i);
+        if(mPlace && mPlace[1]) dest = decodeURIComponent(mPlace[1]);
+        if(!dest){ const d1=UU.searchParams.get('destination'); if(d1) dest=d1; }
+        if(!dest){ const q=UU.searchParams.get('q')||UU.searchParams.get('query'); if(q) dest=q; }
+        if(!dest && UU.pathname==='/' && (UU.searchParams.get('q')||UU.searchParams.get('query'))){
+          dest = UU.searchParams.get('q') || UU.searchParams.get('query');
+        }
+        return dest ? ('https://www.google.com/maps/dir//' + encodeURIComponent(dest.trim()).replace(/%20/g,'+')) : stripAtTail(u);
+      }catch{return u;}
+    }
+
     async function resolveIfShort(url){
       try{
         const h=(new URL(url)).host;
-        if(!/(^|\.)maps\.app\.goo\.gl$/i.test(h)&&!/(^|\.)goo\.gl$/i.test(h)&&!/(^|\.)g\.co$/i.test(h)) return url;
-        const {finalUrl}=await getJSON(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`);
-        return finalUrl||url;
-      }catch{return url;}
+        const isShort = /(^|\.)maps\.app\.goo\.gl$/i.test(h) || /(^|\.)goo\.gl$/i.test(h) || /(^|\.)g\.co$/i.test(h);
+        if(!isShort) return url;
+        const {finalUrl} = await getJSON(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`);
+        // FIX: se non è già /maps/dir/..., coerciamo (stile PS)
+        const normalized = coerceToDirIfNeeded(finalUrl || url);
+        return normalized || url;
+      }catch{ return url; }
     }
+
     function buildGoogleDirURL(parts){ return 'https://www.google.com/maps/dir/'+parts.join('/'); }
     function dedupeAdjacent(a){ const out=[]; let prev=null; for(const x of a){ if(x!==prev) out.push(x); prev=x; } return out; }
     function evenSample(inner,need){ if(need<=0)return[]; if(inner.length<=need)return inner.slice(); const out=[]; for(let i=0;i<need;i++){ const idx=Math.round(i*(inner.length-1)/(need-1)); out.push(inner[idx]); } const res=[]; for(const v of out){ if(res[res.length-1]!==v) res.push(v); } while(res.length>need) res.pop(); return res; }
@@ -457,7 +482,7 @@
       let osrm; try{ osrm=await getJSON(osrmUrl); }catch(e){ toastCenter('Errore OSRM'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
       if(!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]){ toastCenter('OSRM non ha restituito una rotta valida'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
 
-      // Steps RTE: includi tutti i maneuver (depart/arrive compresi)
+      // Steps RTE
       const rte=[];
       for(const leg of (osrm.routes[0].legs||[])){
         for(const step of (leg.steps||[])){
