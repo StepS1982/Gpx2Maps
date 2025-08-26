@@ -195,33 +195,35 @@
       });
     }));
 
-    /* Toast center 3s con coda (no overwrite) */
+    // === Toast queue (5s) ===
+    const TOAST_MS = 5000;
     const toastQueue = [];
-    let toastShowing = false;
-    
-    function showNextToast(){
-      if (!toastQueue.length) { toastShowing = false; return; }
-      toastShowing = true;
-      const msg = toastQueue.shift();
-      const box = document.getElementById('toastsCenter');
-      box.innerHTML = '';
-      const t = document.createElement('div');
-      t.className = 'toast center';
-      t.textContent = msg;
-      box.appendChild(t);
-      setTimeout(()=>{
-        if (t.parentNode) t.parentNode.removeChild(t);
-        // breve respiro, poi mostriamo il prossimo
-        setTimeout(showNextToast, 50);
-      }, 3000);
-    }
+    let toastBusy = false;
     
     function toastCenter(msg){
-      toastQueue.push(msg);
-      if (!toastShowing) showNextToast();
+      toastQueue.push(String(msg));
+      _pumpToast();
     }
     function toast(msg){ toastCenter(msg); }
-
+    
+    function _pumpToast(){
+      if (toastBusy || toastQueue.length===0) return;
+      toastBusy = true;
+    
+      const box = document.getElementById('toastsCenter');
+      box.innerHTML = ''; // mostro un solo toast per volta
+      const t = document.createElement('div');
+      t.className = 'toast center';
+      t.textContent = toastQueue.shift();
+      box.appendChild(t);
+    
+      setTimeout(()=>{
+        if (t.parentNode) t.parentNode.removeChild(t);
+        toastBusy = false;
+        _pumpToast(); // mostra il prossimo in coda
+      }, TOAST_MS);
+    }
+    
     async function confirmAction(text){
       const dlg=document.getElementById('confirmDialog');
       document.getElementById('confirmText').textContent=text||'';
@@ -236,6 +238,27 @@
     }
 
     /* Helpers */
+    // --- helper: pulizia minima indirizzi IT quando il primo tentativo fallisce ---
+    function cleanAddressTokenForGeocode(raw){
+      let s = decodeTok(raw).replace(/\s+/g,' ').trim();
+    
+      // 1) se il primo pezzo prima della virgola sembra un brand (niente numeri e non "via/viale/..."), lo scarto
+      const parts = s.split(',');
+      if (parts.length >= 2) {
+        const first = parts[0].trim().toLowerCase();
+        const looksLikeBrand = !/\d/.test(first) &&
+          !/^(via|viale|v\.|viale|piazza|p\.za|corso|largo|strada|ss|sp|sr|autostrada|a\d+)/i.test(first);
+        if (looksLikeBrand) s = parts.slice(1).join(',').trim();
+      }
+    
+      // 2) tolgo eventuale sigla provincia finale (", MI" oppure " MI")
+      s = s.replace(/,\s*[A-Z]{2}\b$/,'').replace(/\s+[A-Z]{2}\b$/,'');
+    
+      // 3) normalizzo un possibile inizio tipo "A1" -> "Autostrada A1" (aiuta Nominatim)
+      s = s.replace(/^A(\d+)\b/i,'Autostrada A$1');
+    
+      return s.replace(/\s+/g,' ').trim();
+    }
     // Normalizza query "rognose" (Provincia di..., CAP+sigla, ecc.)
     function normalizeQuery(q){
       let s = String(q);
@@ -443,62 +466,50 @@
     // - lat/lon già arrotondati a 6 decimali qui
     // === geocode con fallback MIRATI SOLO se fallisce il primo tentativo ===
     async function geocodeFreeform(t){
+      // lat,lon diretto
       const ll = isLatLonStr(t);
       if (ll) {
-        return {
-          lat: fmt6s(ll.lat),
-          lon: fmt6s(ll.lon),
-          label: `${fmt6s(ll.lat)},${fmt6s(ll.lon)}`
-        };
+        return { lat: fmt6s(ll.lat), lon: fmt6s(ll.lon), label: `${fmt6s(ll.lat)},${fmt6s(ll.lon)}` };
       }
     
-      // 1) tentativo "puro"
+      // 0) primo tentativo: come arriva dal link (massima fedeltà)
       let g = await geocodeTry(t);
+      if (g) return { lat: fmt6s(g.lat), lon: fmt6s(g.lon), label: (g.display_name || t) };
     
-      // 2) fallback SOLO se fallisce
-      if (!g) {
-        const head = t.split(',')[0].trim();
-        const inCH = /svizzera|switzerland/i.test(t);
+      // 1) pulizia mirata brand/sigla prov.
+      const cleaned = cleanAddressTokenForGeocode(t);
     
-        // normalizzazione generica (Provincia di..., CAP+sigla, ecc.)
-        const norm = normalizeQuery(t);
+      if (cleaned && cleaned !== t) {
+        g = await geocodeTry(cleaned);
+        if (g) return { lat: fmt6s(g.lat), lon: fmt6s(g.lon), label: (g.display_name || cleaned) };
+      }
     
-        if (inCH) {
-          g = await geocodeTry(norm) ||
-              await geocodeTry(`${norm}, Svizzera`) ||
-              await geocodeTry(`${head}, Svizzera`) ||
-              await geocodeTry(head);
+      // 2) cleaned + Italia
+      if (cleaned) {
+        g = await geocodeTry(`${cleaned}, Italia`);
+        if (g) return { lat: fmt6s(g.lat), lon: fmt6s(g.lon), label: (g.display_name || cleaned) };
+      }
     
-          // micro-fallback per "Passo del ..."
-          if (!g && /passo\s+del/i.test(t)) {
-            const alt = t.replace(/passo\s+del/i, '').trim();
-            g = await geocodeTry(`${alt}, Svizzera`) || await geocodeTry(alt);
-          }
-        } else {
-          g = await geocodeTry(norm) ||
-              await geocodeTry(`${norm}, Italia`) ||
-              await geocodeTry(`${head}, Italia`) ||
-              await geocodeTry(head);
+      // 3) se c'è un CAP, prova dalla parte dopo il CAP (es. "Casarza Ligure")
+      const m = cleaned.match(/\b(\d{5})\b\s*(.*)$/);
+      if (m && m[2]) {
+        const afterCap = m[2].trim();
+        g = await geocodeTry(`${afterCap}, Italia`);
+        if (g) return { lat: fmt6s(g.lat), lon: fmt6s(g.lon), label: (g.display_name || afterCap) };
+      }
     
-          // micro-fallback generico per "Orrido di X" -> "X, Italia"
-          const mOrrido = t.match(/orrido\s+di\s+(.+)/i);
-          if (!g && mOrrido) {
-            const place = mOrrido[1].split(',')[0].trim();
-            g = await geocodeTry(`${place}, Italia`) || await geocodeTry(place);
-          }
+      // 4) ultimissimo tentativo: ultime 2 parti (es. "Casarza Ligure, 16030")
+      if (cleaned.includes(',')) {
+        const p = cleaned.split(',').map(s=>s.trim()).filter(Boolean);
+        const tail = p.slice(-2).join(', ');
+        if (tail) {
+          g = await geocodeTry(`${tail}, Italia`);
+          if (g) return { lat: fmt6s(g.lat), lon: fmt6s(g.lon), label: (g.display_name || tail) };
         }
       }
     
-      if (g) {
-        return {
-          lat: fmt6s(g.lat),
-          lon: fmt6s(g.lon),
-          label: (g.display_name || t)
-        };
-      }
-      return null; // se non trova, si salta ma si continua (come da logica attuale)
+      return null; // fallito
     }
-
 
     async function reverseShortLabel(lat,lon){
       try{
