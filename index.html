@@ -195,15 +195,26 @@
       });
     }));
 
-    // === Toast queue (5s) ===
-    const TOAST_MS = 5000;
-    const toastQueue = [];
-    let toastBusy = false;
+    /* Toast center in coda (5s, niente overwrite) */
+    const _toastQ = [];
+    let _toastShowing = false;
     
-    function toastCenter(msg){
-      toastQueue.push(String(msg));
-      _pumpToast();
+    function _toastShowNext(){
+      if(_toastShowing || !_toastQ.length) return;
+      _toastShowing = true;
+      const msg = _toastQ.shift();
+      const box = document.getElementById('toastsCenter');
+      const t = document.createElement('div');
+      t.className = 'toast center';
+      t.textContent = msg;
+      box.appendChild(t);
+      setTimeout(()=>{
+        if(t.parentNode) t.parentNode.removeChild(t);
+        _toastShowing = false;
+        _toastShowNext();
+      }, 5000);
     }
+    function toastCenter(msg){ _toastQ.push(msg); _toastShowNext(); }
     function toast(msg){ toastCenter(msg); }
     
     function _pumpToast(){
