@@ -253,10 +253,48 @@
 
     /* ===== TAB 1: Merge ===== */
     function extractDirSegment(s){
-      const m=stripAtTail(s.trim()).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i);
-      if(!m) return null;
-      return m[1].replace(/^\/+/, '').replace(/\/+$/,''); // rimuovi slash iniziali per evitare /dir///
+    const clean = stripAtTail(s.trim());
+  
+    // Caso classico: /maps/dir/...
+    const m = clean.match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i);
+    if (m) return m[1].replace(/^\/+/, '').replace(/\/+$/,'');
+  
+    // Caso "vecchio" Google Maps: /maps? ... con saddr/daddr(+ to:)
+    // Esempio: .../maps?daddr=A to:B to:C&saddr=Partenza
+    const q = clean.match(/^https?:\/\/[^/]*google\.[^/]+\/maps(?:\/)?\?/i);
+    if (q){
+      try{
+        const u  = new URL(clean);
+        const sp = u.searchParams;
+  
+        // Nota: URLSearchParams già decodifica + -> spazio
+        const saddr = (sp.get('saddr') || '').trim();
+        const daddr = (sp.get('daddr') || '').trim();
+  
+        if (!saddr && !daddr) return null;
+  
+        // daddr può contenere "to:" concatenati: split in tappe
+        const dParts = daddr
+          ? daddr.split(/\s+to:\s*/i).map(v => v.trim()).filter(Boolean)
+          : [];
+  
+        // La sequenza per /dir è: [saddr?, ...dParts]
+        const items = [];
+        if (saddr) items.push(saddr);
+        items.push(...dParts);
+  
+        if (!items.length) return null;
+  
+        // Ricrea i token stile Google: encodeURIComponent e spazio -> '+'
+        const enc = t => encodeURIComponent(t).replace(/%20/g, '+');
+        return items.map(enc).join('/');
+      }catch{
+        return null;
+      }
     }
+  
+    return null;
+  }
 
     async function resolveIfShort(url){
       try{
