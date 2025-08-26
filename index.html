@@ -195,33 +195,35 @@
       });
     }));
 
-    /* Toast center 3s con coda (no overwrite) */
+    // === Toast queue (5s) ===
+    const TOAST_MS = 5000;
     const toastQueue = [];
-    let toastShowing = false;
-    
-    function showNextToast(){
-      if (!toastQueue.length) { toastShowing = false; return; }
-      toastShowing = true;
-      const msg = toastQueue.shift();
-      const box = document.getElementById('toastsCenter');
-      box.innerHTML = '';
-      const t = document.createElement('div');
-      t.className = 'toast center';
-      t.textContent = msg;
-      box.appendChild(t);
-      setTimeout(()=>{
-        if (t.parentNode) t.parentNode.removeChild(t);
-        // breve respiro, poi mostriamo il prossimo
-        setTimeout(showNextToast, 50);
-      }, 3000);
-    }
+    let toastBusy = false;
     
     function toastCenter(msg){
-      toastQueue.push(msg);
-      if (!toastShowing) showNextToast();
+      toastQueue.push(String(msg));
+      _pumpToast();
     }
     function toast(msg){ toastCenter(msg); }
-
+    
+    function _pumpToast(){
+      if (toastBusy || toastQueue.length===0) return;
+      toastBusy = true;
+    
+      const box = document.getElementById('toastsCenter');
+      box.innerHTML = ''; // mostro un solo toast per volta
+      const t = document.createElement('div');
+      t.className = 'toast center';
+      t.textContent = toastQueue.shift();
+      box.appendChild(t);
+    
+      setTimeout(()=>{
+        if (t.parentNode) t.parentNode.removeChild(t);
+        toastBusy = false;
+        _pumpToast(); // mostra il prossimo in coda
+      }, TOAST_MS);
+    }
+    
     async function confirmAction(text){
       const dlg=document.getElementById('confirmDialog');
       document.getElementById('confirmText').textContent=text||'';
