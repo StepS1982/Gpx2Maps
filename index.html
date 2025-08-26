@@ -238,6 +238,61 @@
     }
 
     /* Helpers */
+    // === Riconoscimento "località" vs "POI/commerciale" + match stretto per POI ===
+    const POI_KEYWORDS = [
+      'autogrill','hotel','ristorante','pizzeria','birroteca','trattoria','osteria','bar',
+      'mcdonald','burger king','ikea','decathlon','outlet','supermercato','esselunga',
+      'carrefour','coop','lidl','iper','ipercoop','conad','eni','q8','tamoil','ip',
+      'stazione di servizio','area di servizio','area servizio','services','service'
+    ];
+    const STREET_WORDS_RE = /\b(via|viale|piazza|piazzale|corso|largo|strada|autostrada|uscita|svincolo|tangenziale)\b/i;
+    const ROAD_CODE_RE    = /\b(a\d+|ss\d+|sp\d+|sr\d+)\b/i;
+    
+    function _norm(s){
+      return String(s||'').toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g,''); // senza accenti
+    }
+    function hasPOIKeyword(token){
+      const s=_norm(token);
+      return POI_KEYWORDS.some(k=>s.includes(k));
+    }
+    function coreWordsForPOI(token){
+      const s=_norm(token).replace(/[^\p{L}\p{N}\s]/gu,' ');
+      const stop = new Set(['italia','italy','svizzera','switzerland','provincia','comune','citta','city','town','village','hamlet','localita',
+        'di','del','della','delle','degli','dei','da','dal','dallo','dalla','allo','alla','al','ai','agli','alle','lo','la','le','il','in','su'
+      ]);
+      return s.split(/\s+/).filter(w => w && w.length>=3 && !stop.has(w) && !/^\d{5}$/.test(w));
+    }
+    function isLocalityToken(token){
+      const s=_norm(token);
+      if (STREET_WORDS_RE.test(s)) return false;
+      if (ROAD_CODE_RE.test(s))   return false;
+      if (hasPOIKeyword(token))   return false;
+      // indirizzo preciso "Via ..., 11"
+      if (/, *\d+\b/.test(token) && /\b(via|viale|piazza|corso|largo|piazzale)\b/i.test(token)) return false;
+      return true;
+    }
+    function poiAccept(token, geocoded){
+      if(!geocoded) return false;
+      const disp=_norm(geocoded.display_name||'');
+      const cls=(geocoded.class||geocoded.category||'').toLowerCase();
+      const type=(geocoded.type||'').toLowerCase();
+    
+      const words = coreWordsForPOI(token);
+      let hits=0; for(const w of words){ if(disp.includes(w)) hits++; }
+    
+      // se il token ha un brand esplicito, deve comparire nel risultato
+      const tokenHasBrand = hasPOIKeyword(token);
+      const brandOk = !tokenHasBrand || POI_KEYWORDS.some(k=>disp.includes(k));
+    
+      // classi accettabili per POI; per highway accettiamo solo aree/servizi autostradali
+      const classOk = /^(amenity|tourism|shop|leisure|man_made|highway|place)$/.test(cls);
+      const highwayOk = (cls!=='highway') || /^(services|rest_area|motorway_junction|service|fuel)$/.test(type);
+    
+      // Match stretto: almeno 2 parole significative, e se c'è brand dev'essere presente
+      return classOk && highwayOk && brandOk && (hits>=2);
+    }
+    
     // === Indizi per validare i fallback Nominatim ===
     function _norm(s){
       return String(s||'').toLowerCase()
