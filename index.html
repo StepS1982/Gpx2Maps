@@ -250,14 +250,26 @@
 
     /* Helpers */
     // === Helpers per matching "strict" token vs display_name Nominatim
-    
-    /* POI hard-coded (eccezioni “benedette”) */
+    /* POI hard-coded (eccezioni controllate) */
     const POI_FIX = [
-      // Grimselpass – già usato come esempio
-      { match: /\bgrimsel\b|passo\s+del\s+grimsel/i, lat: '46.561400', lon: '8.337580', label: 'Passo del Grimsel' },
-    
-      // NEW: Orrido di Bracca (accetta “di/del”)
-      { match: /\borrido\s+(di|del)\s+bracca\b/i,         lat: '45.846870', lon: '9.731200', label: 'Orrido di Bracca' },
+      {
+        label: 'Orrido di Bracca',
+        lat: '45.846870', lon: '9.731200',
+        match: (raw) => {
+          const n = normText(raw);
+          // copre “Orrido di Bracca”, “Orrido del Bracca”, varianti con punteggiatura o plus
+          return n.includes('orrido di bracca') || n.includes('orrido del bracca') || n.includes('orrido bracca');
+        }
+      },
+      {
+        label: 'Passo del Grimsel',
+        lat: '46.561400', lon: '8.337580',
+        match: (raw) => {
+          const n = normText(raw);
+          // copre "Passo del Grimsel", "Grimselpass", ecc.
+          return n.includes('grimsel');
+        }
+      },
     ];
     // --- normalizzazioni/sinonimi per match "leggero" ---
     function normStr(s){
@@ -827,21 +839,21 @@
       }
       // Geocoding con salta-errori (1:1 PS)
       const ordered=[], skipped=[];
-      for (let i=0; i<tokens.length; i++) {
+      for(let i=0;i<tokens.length;i++){
         document.getElementById('stats2').textContent=`Geocoding ${i+1}/${tokens.length}...`;
       
         const tok = tokens[i];
       
-        // --- check POI hard-coded ---
+        // --- check POI hard-coded (PRIMA del geocode) ---
         let fixed = null;
         for (const poi of POI_FIX) {
-          if (poi.match.test(tok)) { fixed = { lat: poi.lat, lon: poi.lon, label: poi.label }; break; }
+          if (poi.match(tok)) { fixed = { lat: poi.lat, lon: poi.lon, label: poi.label }; break; }
         }
         if (fixed) { ordered.push(fixed); continue; }
         // --- fine check POI ---
       
-        const g = await geocodeFreeform(tok);
-        if (!g) { skipped.push(tok); continue; }
+        const g=await geocodeFreeform(tok);
+        if(!g){ skipped.push(tok); continue; }
         ordered.push(g);
       }
       if(ordered.length<2){ document.getElementById('stats2').textContent='Errore: geocoding fallito (troppi pochi punti).'; return; }
