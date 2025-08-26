@@ -409,12 +409,48 @@
     // - niente fallback ", Italia" o head trimming
     // - lat/lon già arrotondati a 6 decimali qui
     async function geocodeFreeform(t){
-      const ll=isLatLonStr(t);
-      if(ll) return { lat: fmt6s(ll.lat), lon: fmt6s(ll.lon), label: `${fmt6s(ll.lat)},${fmt6s(ll.lon)}` };
-      const g=await geocodeTry(t);
-      if(g)  return { lat: fmt6s(g.lat), lon: fmt6s(g.lon), label: (g.display_name || t) };
-      return null; // se Nominatim non trova, si salta come in PS
+    const ll = isLatLonStr(t);
+    if (ll) {
+      return {
+        lat: fmt6s(ll.lat),
+        lon: fmt6s(ll.lon),
+        label: `${fmt6s(ll.lat)},${fmt6s(ll.lon)}`
+      };
     }
+  
+    // 1) tentativo "puro"
+    let g = await geocodeTry(t);
+  
+    // 2) fallback SOLO se fallisce
+    if (!g) {
+      const head = t.split(',')[0].trim(); // parte prima della prima virgola
+      const inCH = /svizzera|switzerland/i.test(t);
+      if (inCH) {
+        // CH: prova "head, Svizzera" poi "head" se serve
+        g = await geocodeTry(`${head}, Svizzera`) || await geocodeTry(head);
+        // micro-fallback per i "Passo del ..." in italiano (es. Grimsel)
+        if (!g && /passo\s+del/i.test(t)) {
+          const alt = t.replace(/passo\s+del/i, ''); // es. "Grimsel"
+          g = await geocodeTry(`${alt.trim()}, Svizzera`) || await geocodeTry(alt.trim());
+        }
+      } else {
+        // IT / resto: prova con ", Italia", poi solo "head, Italia", poi "head"
+        g = await geocodeTry(`${t}, Italia`) ||
+            await geocodeTry(`${head}, Italia`) ||
+            await geocodeTry(head);
+      }
+    }
+  
+    if (g) {
+      return {
+        lat: fmt6s(g.lat),
+        lon: fmt6s(g.lon),
+        label: (g.display_name || t)
+      };
+    }
+    return null; // come prima: se non trova, si salta ma proseguiamo
+  }
+
 
     async function reverseShortLabel(lat,lon){
       try{
