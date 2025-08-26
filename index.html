@@ -817,14 +817,23 @@
           if(line!=='//') tokens.push(line);
         }
       }
-
-      // Geocoding con salta-errori + segnalazione fallback
-      const ordered=[], skipped=[], usedFallback=[];
-      for(let i=0;i<tokens.length;i++){
+      // Geocoding con salta-errori (1:1 PS)
+      const ordered=[], skipped=[];
+      for (let i=0; i<tokens.length; i++) {
         document.getElementById('stats2').textContent=`Geocoding ${i+1}/${tokens.length}...`;
-        const g=await geocodeFreeform(tokens[i]);
-        if(!g){ skipped.push(tokens[i]); continue; }
-        if(g._fb) usedFallback.push(tokens[i]);
+      
+        const tok = tokens[i];
+      
+        // --- check POI hard-coded ---
+        let fixed = null;
+        for (const poi of POI_FIX) {
+          if (poi.match.test(tok)) { fixed = { lat: poi.lat, lon: poi.lon, label: poi.label }; break; }
+        }
+        if (fixed) { ordered.push(fixed); continue; }
+        // --- fine check POI ---
+      
+        const g = await geocodeFreeform(tok);
+        if (!g) { skipped.push(tok); continue; }
         ordered.push(g);
       }
       if(ordered.length<2){ document.getElementById('stats2').textContent='Errore: geocoding fallito (troppi pochi punti).'; return; }
