@@ -602,31 +602,32 @@
     // === CLONE PS 1:1 ===
     // - niente fallback ", Italia" o head trimming
     // - lat/lon già arrotondati a 6 decimali qui
-    // === STRICT come la primissima versione che ti funzionava ===
+    // Geocoding "strict": SOLO da /dir/; accetto il risultato se il nome combacia col token.
+    // Unico fallback per località: aggiungo ", Italia" se il token non contiene già il paese.
     async function geocodeFreeform(t){
       const ll = isLatLonStr(t);
-      if (ll) {
-        // arrotondo qui a 6 decimali (half-even) come già fai nel resto
-        return {
-          lat: fmt6s(ll.lat),
-          lon: fmt6s(ll.lon),
-          label: `${fmt6s(ll.lat)},${fmt6s(ll.lon)}`
-        };
+      if(ll){
+        const lat = fmt6s(ll.lat), lon = fmt6s(ll.lon);
+        return { lat, lon, label: `${lat},${lon}` };
       }
-  
-      // una sola chiamata "secca" a Nominatim sul token così com'è (già passato da decodeTok a monte)
-      const g = await geocodeTry(t);
-      if (g) {
-        return {
-          lat: fmt6s(g.lat),
-          lon: fmt6s(g.lon),
-          label: (g.display_name || t)
-        };
+    
+      // 1) primo tentativo
+      let g = await geocodeTry(t); // ritorna l'oggetto Nominatim grezzo
+      if(g && nameMatchesToken(t, g.display_name||'')){
+        return { lat: fmt6s(g.lat), lon: fmt6s(g.lon), label: (g.display_name || t) };
       }
-  
-      // se non trova, salta il punto (verrà contati tra gli "skipped")
+    
+      // 2) fallback UNICO: solo se è "località" e senza paese nel token
+      if(g && looksLocalityClass(g) && !tokenMentionsCountry(t)){
+        const g2 = await geocodeTry(`${t}, Italia`);
+        if(g2 && nameMatchesToken(t, g2.display_name||'')){
+          return { lat: fmt6s(g2.lat), lon: fmt6s(g2.lon), label: (g2.display_name || t) };
+        }
+      }
+    
+      // 3) niente da fare -> skip
       return null;
-    }        
+    }       
     
     async function reverseShortLabel(lat,lon){
       try{
