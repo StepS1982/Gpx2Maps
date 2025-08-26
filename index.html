@@ -236,6 +236,27 @@
     }
 
     /* Helpers */
+    // --- helper: pulizia minima indirizzi IT quando il primo tentativo fallisce ---
+    function cleanAddressTokenForGeocode(raw){
+      let s = decodeTok(raw).replace(/\s+/g,' ').trim();
+    
+      // 1) se il primo pezzo prima della virgola sembra un brand (niente numeri e non "via/viale/..."), lo scarto
+      const parts = s.split(',');
+      if (parts.length >= 2) {
+        const first = parts[0].trim().toLowerCase();
+        const looksLikeBrand = !/\d/.test(first) &&
+          !/^(via|viale|v\.|viale|piazza|p\.za|corso|largo|strada|ss|sp|sr|autostrada|a\d+)/i.test(first);
+        if (looksLikeBrand) s = parts.slice(1).join(',').trim();
+      }
+    
+      // 2) tolgo eventuale sigla provincia finale (", MI" oppure " MI")
+      s = s.replace(/,\s*[A-Z]{2}\b$/,'').replace(/\s+[A-Z]{2}\b$/,'');
+    
+      // 3) normalizzo un possibile inizio tipo "A1" -> "Autostrada A1" (aiuta Nominatim)
+      s = s.replace(/^A(\d+)\b/i,'Autostrada A$1');
+    
+      return s.replace(/\s+/g,' ').trim();
+    }
     // Normalizza query "rognose" (Provincia di..., CAP+sigla, ecc.)
     function normalizeQuery(q){
       let s = String(q);
