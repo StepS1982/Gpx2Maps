@@ -261,6 +261,8 @@
     // >>>>>>>>>>>>>>> FIX SHORTLINK & MAPS?DADDR= → /maps/dir//…  <<<<<<<<<<<<<<<
     async function resolveIfShort(url){
       let u = url;
+  
+      // 1) segui gli shortlink (maps.app.goo.gl / goo.gl / g.co) via worker /resolve
       try{
         const h=(new URL(url)).host;
         if (/(^|\.)maps\.app\.goo\.gl$/i.test(h) || /(^|\.)goo\.gl$/i.test(h) || /(^|\.)g\.co$/i.test(h)) {
@@ -268,29 +270,34 @@
           if (finalUrl) u = finalUrl;
         }
       }catch{}
-
-      // se è un long "strano" tipo /maps?daddr=…to:…&saddr=…
+  
+      // 2) se è un long "strano" di Google con daddr/to: (anche path "/")
       try{
         const U = new URL(u);
         const isGoogle = /(^|\.)google\./i.test(U.host);
-        if (isGoogle && U.pathname === '/maps') {
+        if (isGoogle && (U.pathname === '/' || U.pathname === '/maps')) {
           const raw = U.searchParams.get('daddr');
           if (raw) {
-            // decode "+" come spazio e poi decodifica percent-encoding
+            // decodifica con "+" -> spazio
             const decodePlus = s => decodeURIComponent(String(s).replace(/\+/g,' ')).trim();
             const daddr = decodePlus(raw);
-            // split su "to:" anche se separato da spazi
+  
+            // split su "to:" con o senza spazi
             const dests = daddr.split(/\s+to:/i).map(s=>s.trim()).filter(Boolean);
-            // costruisci /maps/dir// + dests
-            const segs = ['']; // blank iniziale => //
-            segs.push(...dests.map(s => encodeURIComponent(s).replace(/%20/g,'+')));
-            return 'https://www.google.com/maps/dir/' + segs.join('/');
+  
+            // costruisci /maps/dir// + destinazioni (ignoriamo saddr: vogliamo "//")
+            if (dests.length){
+              const segs = ['']; // "//" come primo punto
+              segs.push(...dests.map(s => encodeURIComponent(s).replace(/%20/g,'+')));
+              return 'https://www.google.com/maps/dir/' + segs.join('/');
+            }
           }
         }
       }catch{}
-
+  
       return u;
     }
+
     // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     function buildGoogleDirURL(parts){ return 'https://www.google.com/maps/dir/'+parts.join('/'); }
