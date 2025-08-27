@@ -167,7 +167,36 @@
         </div>
       </div>
     </section>
-    <section id="tab-sanitize" class="card" hidden><div class="hd">4) Sanitizza GPX</div><div class="bd">In arrivo.</div></section>
+    <!-- TAB 4 -->
+    <section id="tab-sanitize" class="card" hidden>
+      <div class="hd">4) Sanitizza GPX</div>
+      <div class="bd grid grid-2">
+        <div>
+          <label for="sanitizeInput" style="font-weight:800;">Incolla il GPX (oppure apri un file)</label>
+          <textarea id="sanitizeInput" placeholder="Incolla qui il contenuto del file .gpx"></textarea>
+          <div class="row" style="margin-top:12px;">
+            <input id="sanitizeFile" type="file" accept=".gpx,application/gpx+xml" />
+            <button id="btnSanitize" class="btn">Sanifica GPX</button>
+            <button id="btnClear4" class="btn ghost">Pulisci</button>
+          </div>
+        </div>
+        <div>
+          <div class="out card">
+            <div class="hd">Risultati</div>
+            <div class="bd">
+              <div id="stats4" class="note">Nessun file sanificato.</div>
+              <details id="previewWrapSan" style="margin-top:8px;" hidden>
+                <summary>Anteprima GPX sanificato</summary>
+                <pre id="gpxPreviewSan" class="mono" style="max-height:220px;overflow:auto;white-space:pre;background:#f8fafc;border:1px solid var(--border);padding:10px;border-radius:10px;"></pre>
+              </details>
+              <div class="row" id="dlRow4" style="margin-top:10px;display:none;">
+                <button id="btnDownloadSan" class="btn small">Scarica GPX sanificato</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
     <section id="tab-meteo" class="card" hidden><div class="hd">5) Meteo + Info percorso</div><div class="bd">In arrivo.</div></section>
   </div>
 
