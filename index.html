@@ -1440,7 +1440,7 @@
         let parts = seg.split('/');
         // se il primo è vuoto => chiedi località
         if(parts[0]===''){
-          const first = window.prompt('Il link ha “//” iniziale: inserisci la prima località (es. Milano, IT):','');
+          const first = window.prompt('Il link ha la prima posizione vuota. Inserisci la prima località in formato città e provincia per esteso anche in minuscolo. Esempio: arluno milano:','');
           if(!first) throw new Error('Operazione annullata: prima località mancante');
           parts[0] = encodeURIComponent(first).replace(/%20/g,'+');
         }
