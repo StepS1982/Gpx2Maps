@@ -1180,6 +1180,198 @@
       document.getElementById('whichButtons').style.display='none';
       gpxParsed=null;
     });
+
+    // ===== TAB 4: Sanitizza GPX =====
+    (function(){
+      const $in  = ()=>document.getElementById('sanitizeInput');
+      const $f   = ()=>document.getElementById('sanitizeFile');
+      const $st  = ()=>document.getElementById('stats4');
+      const $preW= ()=>document.getElementById('previewWrapSan');
+      const $pre = ()=>document.getElementById('gpxPreviewSan');
+      const $dlW = ()=>document.getElementById('dlRow4');
+      const $btnDl=()=>document.getElementById('btnDownloadSan');
+    
+      let sanitizedText = '';
+      let sanitizedName = '';
+    
+      function resetSanUI(){
+        $st().textContent='Nessun file sanificato.';
+        $pre().textContent='';
+        $preW().hidden=true;
+        $dlW().style.display='none';
+        sanitizedText='';
+        sanitizedName='';
+      }
+    
+      // Core: arrotonda lat/lon, dedupe adiacente, LF only, UTF-8 on download
+      function sanitizeGPX(raw){
+        // forza LF e rimuove eventuale BOM
+        let txt = String(raw).replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+    
+        // parse XML
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(txt, 'application/xml');
+        if(doc.querySelector('parsererror')){
+          throw new Error('XML non valido (parsererror)');
+        }
+        const root = doc.documentElement;
+        if(!root || root.nodeName.toLowerCase()!=='gpx') throw new Error('File non GPX');
+    
+        const stats = {
+          wpt:0, rtept:0, trkpt:0,
+          normalized:0,
+          dropped:{ wpt:0, rtept:0, trkpt:0 }
+        };
+    
+        // arrotonda attributi lat/lon
+        function roundLatLon(el){
+          const hasLat = el.hasAttribute('lat');
+          const hasLon = el.hasAttribute('lon');
+          if(!hasLat || !hasLon) return false;
+          const latRaw = el.getAttribute('lat');
+          const lonRaw = el.getAttribute('lon');
+          // normalizza numeri strani
+          const toNum = v => {
+            const s = String(v).trim().replace(',', '.');
+            const n = Number(s);
+            return isFinite(n) ? n : NaN;
+          };
+          const latNum = toNum(latRaw);
+          const lonNum = toNum(lonRaw);
+          if(isNaN(latNum) || isNaN(lonNum)) return false;
+    
+          const lat = fmt6s(latNum);
+          const lon = fmt6s(lonNum);
+    
+          if(el.getAttribute('lat')!==lat){ el.setAttribute('lat', lat); stats.normalized++; }
+          if(el.getAttribute('lon')!==lon){ el.setAttribute('lon', lon); stats.normalized++; }
+          return true;
+        }
+    
+        // conta e round su wpt/rtept/trkpt
+        const wpts = Array.from(doc.getElementsByTagName('wpt'));
+        wpts.forEach(el=>{ stats.wpt++; roundLatLon(el); });
+    
+        const rtes = Array.from(doc.getElementsByTagName('rte'));
+        rtes.forEach(rte=>{
+          const pts = Array.from(rte.getElementsByTagName('rtept'));
+          pts.forEach(el=>{ stats.rtept++; roundLatLon(el); });
+        });
+    
+        const trks = Array.from(doc.getElementsByTagName('trk'));
+        trks.forEach(trk=>{
+          const segs = Array.from(trk.getElementsByTagName('trkseg'));
+          segs.forEach(seg=>{
+            const pts = Array.from(seg.getElementsByTagName('trkpt'));
+            pts.forEach(el=>{ stats.trkpt++; roundLatLon(el); });
+          });
+        });
+    
+        // dedupe adiacente conservativo
+        function dedupeAdjacent(list, kind, parent){
+          if(list.length<=1) return;
+          let prev = list[0];
+          for(let i=1;i<list.length;i++){
+            const cur = list[i];
+            const same = prev.getAttribute('lat')===cur.getAttribute('lat')
+                      && prev.getAttribute('lon')===cur.getAttribute('lon');
+            if(same){
+              parent.removeChild(cur);
+              stats.dropped[kind]++;
+            }else{
+              prev = cur;
+            }
+          }
+        }
+    
+        // WPT: dedupe solo su sequenze adiacenti a livello root
+        {
+          const children = Array.from(root.children);
+          let run = [];
+          for(const ch of children){
+            if(ch.tagName && ch.tagName.toLowerCase()==='wpt') run.push(ch);
+            else{
+              if(run.length) dedupeAdjacent(run, 'wpt', root);
+              run = [];
+            }
+          }
+          if(run.length) dedupeAdjacent(run, 'wpt', root);
+        }
+    
+        // RTE: per ogni rte, dedupe sulla lista diretta di rtept
+        rtes.forEach(rte=>{
+          const pts = Array.from(rte.children).filter(n=>n.tagName && n.tagName.toLowerCase()==='rtept');
+          if(pts.length) dedupeAdjacent(pts, 'rtept', rte);
+        });
+    
+        // TRK: per ogni trkseg, dedupe sulla lista diretta di trkpt
+        trks.forEach(trk=>{
+          const segs = Array.from(trk.getElementsByTagName('trkseg'));
+          segs.forEach(seg=>{
+            const pts = Array.from(seg.children).filter(n=>n.tagName && n.tagName.toLowerCase()==='trkpt');
+            if(pts.length) dedupeAdjacent(pts, 'trkpt', seg);
+          });
+        });
+    
+        // Serializza, forza intestazione XML UTF-8, LF-only, newline finale
+        let body = new XMLSerializer().serializeToString(doc);
+        body = body.replace(/^\s*<\?xml[\s\S]*?\?>\s*/,''); // togli eventuale vecchia declaration
+        let out = `<?xml version="1.0" encoding="UTF-8"?>\n` + body;
+        out = out.replace(/\r\n?/g, '\n');
+        if(!out.endsWith('\n')) out += '\n';
+    
+        return { text: out, stats };
+      }
+    
+      // UI handlers
+      document.getElementById('btnSanitize').addEventListener('click', ()=>{
+        const raw = $in().value.trim();
+        if(!raw){ toastCenter('Incolla un GPX o apri un file'); return; }
+        try{
+          const {text, stats} = sanitizeGPX(raw);
+          sanitizedText = text;
+          sanitizedName = `gpx_sanitizzato_${nowStamp()}.gpx`;
+    
+          $st().textContent =
+            `WPT ${stats.wpt} · RTEPT ${stats.rtept} · TRKPT ${stats.trkpt} · `+
+            `Normalizzati ${stats.normalized} · Duplicati rimossi: `+
+            `WPT ${stats.dropped.wpt}, RTE ${stats.dropped.rtept}, TRK ${stats.dropped.trkpt}`;
+          const prev = text.split('\n').slice(0,200).join('\n');
+          $pre().textContent = prev + (text.length>prev.length?'\n...':'');
+          $preW().hidden = false;
+          $dlW().style.display = '';
+          toastCenter('Sanitizzazione completata (LF + UTF-8)');
+        }catch(e){
+          console.error(e);
+          toastCenter('Errore di parsing GPX: verifica il file');
+          resetSanUI();
+        }
+      });
+    
+      document.getElementById('btnDownloadSan').addEventListener('click', async ()=>{
+        if(!sanitizedText){ toastCenter('Nessun file sanificato'); return; }
+        const ok = await confirmAction('Scaricare il file GPX sanificato?');
+        if(!ok) return;
+        // Forziamo charset UTF-8; LF già garantito dal testo
+        const bytes = new TextEncoder().encode(sanitizedText.endsWith('\n') ? sanitizedText : (sanitizedText+'\n'));
+        const url = URL.createObjectURL(new Blob([bytes], {type:'application/gpx+xml; charset=utf-8'}));
+        const a=document.createElement('a'); a.href=url; a.download=(sanitizedName||`gpx_sanitizzato_${nowStamp()}.gpx`);
+        document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+        toastCenter('Download avviato');
+      });
+    
+      document.getElementById('btnClear4').addEventListener('click', ()=>{
+        $in().value=''; $f().value=''; resetSanUI(); $st().textContent='Pulito.';
+      });
+    
+      document.getElementById('sanitizeFile').addEventListener('change', async (e)=>{
+        const file = e.target.files && e.target.files[0];
+        if(!file) return;
+        const txt = await file.text(); // UTF-8 by default
+        $in().value = txt;
+        toastCenter(`Caricato: ${file.name}`);
+      });
+    })();
   </script>
 </body>
 </html>
