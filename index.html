@@ -197,7 +197,32 @@
         </div>
       </div>
     </section>
-    <section id="tab-meteo" class="card" hidden><div class="hd">5) Meteo + Info percorso</div><div class="bd">In arrivo.</div></section>
+    <section id="tab-meteo" class="card" hidden>
+      <div class="hd">5) Meteo + Info percorso</div>
+      <div class="bd grid grid-2">
+        <div>
+          <label for="meteoInput" style="font-weight:800;">Incolla 1 link Google Maps <em>(/dir/…)</em> oppure località/coordinate (una per riga)</label>
+          <textarea id="meteoInput" placeholder="Esempi:
+    - https://maps.app.goo.gl/...
+    - https://www.google.com/maps/dir/Como/.../Bellagio/...
+    - Località o lat,lon (una per riga)"></textarea>
+          <div class="row" style="margin-top:12px;">
+            <button id="btnGenMeteo" class="btn">Genera Meteo (HTML, TXT, CSV)</button>
+            <button id="btnClear5" class="btn ghost">Pulisci</button>
+          </div>
+          <p id="stats5" class="note" style="margin-top:8px;">Nessun file generato.</p>
+        </div>
+    
+        <div>
+          <div class="out card">
+            <div class="hd">File generati</div>
+            <div class="bd" id="files5">
+              <div class="note">Niente ancora.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 
   <footer>
