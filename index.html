@@ -1651,53 +1651,67 @@
       return H;
     }
   
-    function buildInfoTXTCSV(titleFrom, titleTo, labels, legs, totals){
-      // labels: array di nomi località
-      // legs: [{dist, dur}] per ogni salto i->i+1
-      // totals: {dist, dur}
-      // TXT
-      const L=[];
-      L.push(`Percorso da: ${titleFrom} a: ${titleTo}`);
-      L.push(`Punti totali: ${labels.length} | Distanza totale: ${it1(totals.dist/1000)} km | Tempo totale: ${toHM(totals.dur)}`);
-      L.push('');
-      L.push('Punto | Localita                                 | Totale Km | Totale Tempo | Parziale Km | Parziale Tempo');
-      L.push('----- | ---------------------------------------- | --------- | ------------ | ----------- | --------------');
-      let cumD=0, cumT=0;
-      for(let i=0;i<labels.length;i++){
-        let dPar=0, tPar=0;
-        if(i>0 && legs[i-1]){ dPar=legs[i-1].dist; tPar=legs[i-1].dur; }
-        cumD += dPar; cumT += tPar;
-        const cKm = (it1(cumD/1000)+'').padStart(6,' ');
-        const pKm = (it1(dPar/1000)+'').padStart(6,' ');
-        const cTm = toHM(cumT).replace(' h ',' h ');
-        const pTm = toHM(tPar).replace(' h ',' h ');
-        const idx = String(i+1).padStart(4,' ');
-        const loc = (labels[i]||'').padEnd(40,' ').slice(0,40);
-        L.push(`${idx} | ${loc} | ${cKm} km | ${cTm.padStart(10,' ')} | ${pKm} km | ${pTm.padStart(12,' ')}`);
-      }
-      const txt = L.join('\n')+'\n';
-  
-      // CSV (separatore “,” con decimale “.”, ma header italiano)
-      const C=[];
-      C.push('Punto,Localita,Totale_km,Totale_tempo,Parziale_km,Parziale_tempo');
-      cumD=0; cumT=0;
-      for(let i=0;i<labels.length;i++){
-        let dPar=0, tPar=0;
-        if(i>0 && legs[i-1]){ dPar=legs[i-1].dist; tPar=legs[i-1].dur; }
-        cumD += dPar; cumT += tPar;
-        C.push([
-          i+1,
-          `"${labels[i].replace(/"/g,'""')}"`,
-          (Math.round(cumD/100)/10).toFixed(1),
-          toHM(cumT),
-          (Math.round(dPar/100)/10).toFixed(1),
-          toHM(tPar),
-        ].join(','));
-      }
-      const csv = C.join('\n')+'\n';
-  
-      return {txt,csv};
+    function formatKmIT(km){
+      // 1 decimale, ma niente ",0"
+      const v = Math.round(km*10)/10;
+      const s = Number.isInteger(v) ? String(v) : v.toFixed(1);
+      return s.replace('.', ',') + ' km';
     }
+    function formatDur(h, m){
+      return `${h} h ${m} m`;
+    }
+    
+    // rows: [{idx,name,totKm,totH,totM,parzKm,parzH,parzM}]
+    function buildInfoPercorsoTXT(rows, titolo){
+      // Calcolo larghezze colonne
+      const col1H = 'Punto';
+      const col2H = 'Localita';
+      const col3H = 'Totale Km';
+      const col4H = 'Totale Tempo';
+      const col5H = 'Parziale Km';
+      const col6H = 'Parziale Tempo';
+    
+      const col1W = Math.max(col1H.length, ...rows.map(r=>String(r.idx).length));
+      const col2W = Math.max(col2H.length, ...rows.map(r=>r.name.length));
+      const col3W = Math.max(col3H.length, ...rows.map(r=>formatKmIT(r.totKm).length));
+      const col4W = Math.max(col4H.length, ...rows.map(r=>formatDur(r.totH,r.totM).length));
+      const col5W = Math.max(col5H.length, ...rows.map(r=>formatKmIT(r.parzKm).length));
+      const col6W = Math.max(col6H.length, ...rows.map(r=>formatDur(r.parzH,r.parzM).length));
+    
+      const sep = ' | ';
+      const line = (c1,c2,c3,c4,c5,c6) =>
+        c1.padStart(col1W) + sep +
+        c2.padEnd(col2W) + sep +
+        c3.padStart(col3W) + sep +
+        c4.padStart(col4W) + sep +
+        c5.padStart(col5W) + sep +
+        c6.padStart(col6W);
+    
+      const dash = (n)=>'-'.repeat(n);
+      const header = line(col1H,col2H,col3H,col4H,col5H,col6H);
+      const underline = [
+        dash(col1W), dash(col2W), dash(col3W), dash(col4W), dash(col5W), dash(col6W)
+      ].join(sep);
+    
+      const lines = [];
+      lines.push(`Percorso da: ${titolo.da} a: ${titolo.a}`);
+      lines.push(`Punti totali: ${rows.length} | Distanza totale: ${formatKmIT(rows.at(-1).totKm)} | Tempo totale: ${formatDur(rows.at(-1).totH, rows.at(-1).totM)}`);
+      lines.push('');
+      lines.push(header);
+      lines.push(underline);
+      for(const r of rows){
+        lines.push(line(
+          String(r.idx),
+          r.name,
+          formatKmIT(r.totKm),
+          formatDur(r.totH,r.totM),
+          formatKmIT(r.parzKm),
+          formatDur(r.parzH,r.parzM)
+        ));
+      }
+      return lines.join('\n');
+    }
+
   
     async function buildRouteLegs(points){
       // OSRM full route con legs (driving)
