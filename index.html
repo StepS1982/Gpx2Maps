@@ -1397,297 +1397,34 @@
         toastCenter(`Caricato: ${file.name}`);
       });
     })();
-    /* ===== TAB 5: Meteo (PS-style) ===== */
-
-    // Usa le stesse helper già presenti: getJSON, resolveIfShort, extractDirSegmentKeepLeading, decodeTok,
-    // isLatLonStr, geocodeTry, geocodeFreeform, fileNameSafe, nowStamp, joinLF, toastCenter, confirmAction.
+    <!-- TAB 5 -->
+    <section id="tab-meteo" class="card" hidden>
+      <div class="hd">5) Meteo + Info percorso</div>
+      <div class="bd grid grid-2">
+        <div>
+          <label for="meteoInput" style="font-weight:800;">Incolla un link Google Maps (unico) o una lista di località/coordinate (una per riga)</label>
+          <textarea id="meteoInput" placeholder="Esempi:
+    - https://www.google.com/maps/dir/...
+    - https://maps.app.goo.gl/...
+    - Località o lat,lon (una per riga)
+    Nota: se il long link fosse /maps/dir//... ti chiederò la prima località."></textarea>
+          <div class="row" style="margin-top:12px;">
+            <button id="btnGenMeteo" class="btn">Genera Meteo + Info percorso</button>
+            <button id="btnClearMeteo" class="btn ghost">Pulisci</button>
+          </div>
+        </div>
     
-    // Daypart (fisso come PS)
-    const DAYPARTS = [
-      {key:'notte',      from:0,  to:5},
-      {key:'mattina',    from:6,  to:11},
-      {key:'pomeriggio', from:12, to:17},
-      {key:'sera',       from:18, to:23},
-    ];
-    
-    // Mappa WMO → categoria semplice (PS-style: sole/nuvole/pioggia/neve/temporale/nebbia)
-    function wmoCategory(code){
-      code = Number(code);
-      if ([95,96,99].includes(code)) return 'temporale';
-      if ([71,73,75,77,85,86].includes(code)) return 'neve';
-      if (
-        [51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)
-      ) return 'pioggia';
-      if ([45,48].includes(code)) return 'nebbia';
-      if ([1,2,3].includes(code)) return 'nuvole';
-      if (code === 0) return 'sole';
-      return 'nuvole';
-    }
-    
-    // Aggrega 7 giorni x 4 fasce: per fascia solo condizione + Tmin/Tmax
-    function aggregateMeteoHourly(hourly){
-      // hourly: { time:[], temperature_2m:[], precipitation_probability:[], precipitation:[], weathercode:[] }
-      const out = []; // [{date:'YYYY-MM-DD', parts:{ notte:{tmin,tmax,cat}, ... } }]
-      if(!hourly || !hourly.time || !hourly.time.length) return out;
-    
-      // Gruppo per data locale
-      const byDate = new Map();
-      for(let i=0;i<hourly.time.length;i++){
-        const t = hourly.time[i]; // ISO string in timezone locale (Open-Meteo)
-        const d = t.slice(0,10);  // YYYY-MM-DD
-        if(!byDate.has(d)) byDate.set(d, []);
-        byDate.get(d).push({
-          hour: Number(t.slice(11,13)),
-          temp: Number(hourly.temperature_2m?.[i]),
-          wcode: Number(hourly.weathercode?.[i]),
-          pprob: Number(hourly.precipitation_probability?.[i]),
-          rain: Number(hourly.precipitation?.[i]),
-        });
-      }
-    
-      for(const [date, items] of byDate){
-        const parts = {};
-        for(const p of DAYPARTS){
-          const slice = items.filter(x=>x.hour>=p.from && x.hour<=p.to);
-          if(!slice.length){ parts[p.key] = null; continue; }
-          const tmin = Math.min(...slice.map(x=>x.temp));
-          const tmax = Math.max(...slice.map(x=>x.temp));
-          // categoria: priorità temporale > neve > pioggia > nuvole > sole
-          let cat = 'sole';
-          const codes = slice.map(x=>x.wcode);
-          if (codes.some(c=>[95,96,99].includes(c))) cat='temporale';
-          else if (codes.some(c=>[71,73,75,77,85,86].includes(c))) cat='neve';
-          else if (codes.some(c=>[51,53,55,56,57,61,63,65,66,67,80,81,82].includes(c))) cat='pioggia';
-          else if (codes.some(c=>[1,2,3,45,48].includes(c))) cat = (codes.some(c=>[45,48].includes(c))?'nebbia':'nuvole');
-          parts[p.key] = { tmin: Math.round(tmin), tmax: Math.round(tmax), cat };
-        }
-        out.push({ date, parts });
-        if(out.length>=7) break; // 7 giorni
-      }
-      return out;
-    }
-    
-    // Template HTML (semplice e compatto, stile PS: tabellare 7×4, solo cat + Tmin/Tmax)
-    function buildWeatherHTML(routeInfo, wptBlocks){
-      const css = `
-        body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;margin:16px;color:#0f172a;background:#fff}
-        h1{font-size:20px;margin:0 0 8px;font-weight:900}
-        h2{font-size:16px;margin:18px 0 6px;font-weight:800}
-        .muted{color:#475569;font-size:13px}
-        table{border-collapse:collapse;width:100%;margin:8px 0}
-        th,td{border:1px solid #e2e8f0;padding:6px 8px;font-size:13px;text-align:center}
-        th{background:#f8fafc;font-weight:800}
-        .grid{display:grid;gap:16px}
-        .card{border:1px solid #e2e8f0;border-radius:10px;padding:12px}
-        .row{display:flex;flex-wrap:wrap;gap:8px}
-        .badge{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:999px;padding:2px 8px;font-size:12px}
-      `;
-      let H = '';
-      H += `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Meteo percorso</title><style>${css}</style></head><body>`;
-      H += `<h1>Meteo percorso</h1>`;
-      H += `<div class="card"><div class="row">
-              <div class="badge">WPT: ${routeInfo.count}</div>
-              <div class="badge">Distanza: ${routeInfo.total_km} km</div>
-              <div class="badge">Durata: ${routeInfo.total_hm}</div>
-            </div>`;
-      H += `<div class="muted" style="margin-top:6px;">Parziali: ${routeInfo.legs.join(' · ')}</div></div>`;
-    
-      for(const blk of wptBlocks){
-        H += `<h2>${blk.title}</h2>`;
-        H += `<div class="card"><table><thead><tr><th>Data</th>`;
-        for(const dp of DAYPARTS) H += `<th>${dp.key}</th>`;
-        H += `</tr></thead><tbody>`;
-        for(const day of blk.days){
-          H += `<tr><td>${day.date}</td>`;
-          for(const dp of DAYPARTS){
-            const cell = day.parts[dp.key];
-            if(!cell){ H += `<td>-</td>`; continue; }
-            H += `<td>${cell.cat}<br><strong>${cell.tmin}° / ${cell.tmax}°</strong></td>`;
-          }
-          H += `</tr>`;
-        }
-        H += `</tbody></table></div>`;
-      }
-    
-      H += `</body></html>`;
-      return H;
-    }
-    
-    // TXT e CSV (semplici, allineati al contenuto dell'HTML)
-    function buildWeatherTXT(routeInfo, wptBlocks){
-      const L=[];
-      L.push(`Meteo percorso`);
-      L.push(`WPT: ${routeInfo.count} | Distanza: ${routeInfo.total_km} km | Durata: ${routeInfo.total_hm}`);
-      L.push(`Parziali: ${routeInfo.legs.join(' · ')}`);
-      L.push('');
-      for(const blk of wptBlocks){
-        L.push(`== ${blk.title} ==`);
-        L.push(`Data;Fascia;Condizione;Tmin;Tmax`);
-        for(const day of blk.days){
-          for(const dp of DAYPARTS){
-            const cell = day.parts[dp.key];
-            if(!cell) continue;
-            L.push(`${day.date};${dp.key};${cell.cat};${cell.tmin};${cell.tmax}`);
-          }
-        }
-        L.push('');
-      }
-      return joinLF(L)+'\n';
-    }
-    function buildWeatherCSV(routeInfo, wptBlocks){
-      const L=[];
-      L.push(`Waypoint,Data,Fascia,Condizione,Tmin,Tmax`);
-      for(const blk of wptBlocks){
-        for(const day of blk.days){
-          for(const dp of DAYPARTS){
-            const cell = day.parts[dp.key];
-            if(!cell) continue;
-            // CSV semplice, separatore virgola, escape basico con doppi apici
-            const safe = s => `"${String(s).replace(/"/g,'""')}"`;
-            L.push([safe(blk.title), day.date, dp.key, cell.cat, cell.tmin, cell.tmax].join(','));
-          }
-        }
-      }
-      return joinLF(L)+'\n';
-    }
-    
-    // Costruzione info percorso (totale + parziali) da OSRM
-    function formatHM(sec){
-      sec = Math.round(sec);
-      const h = Math.floor(sec/3600), m = Math.round((sec%3600)/60);
-      return (h?`${h}h `:'') + `${m}m`;
-    }
-    
-    async function buildRouteInfo(points){
-      // OSRM sui WPT (lon,lat)
-      const coordsParam = points.map(p=>`${p.lon},${p.lat}`).join(';');
-      const osrmUrl = `${CONFIG.workerBase}/osrm?coords=${encodeURIComponent(coordsParam)}&profile=driving&overview=false&geometries=geojson&steps=true`;
-      let osrm;
-      try{ osrm = await getJSON(osrmUrl); }catch{ osrm=null; }
-      if(!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]){
-        return {
-          count: points.length,
-          total_km: '—',
-          total_hm: '—',
-          legs: []
-        };
-      }
-      const route = osrm.routes[0];
-      const legs = route.legs || [];
-      const legStr = legs.map((lg, i)=>`WP${String(i+1).padStart(2,'0')}→WP${String(i+2).padStart(2,'0')}: ${(lg.distance/1000).toFixed(1)} km / ${formatHM(lg.duration)}`);
-      return {
-        count: points.length,
-        total_km: (route.distance/1000).toFixed(1),
-        total_hm: formatHM(route.duration),
-        legs: legStr
-      };
-    }
-    
-    // UI: render file list (Apri/Scarica)
-    function renderFiles5(files){
-      const box = document.getElementById('files5');
-      box.innerHTML = '';
-      if(!files || !files.length){ box.innerHTML = '<div class="note">Niente ancora.</div>'; return; }
-      for(const f of files){
-        const row = document.createElement('div');
-        row.className = 'out-item';
-        row.innerHTML = `
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-            <div class="mono" style="flex:1 1 auto;">${f.name}</div>
-            <div class="row" style="flex:0 0 auto;">
-              ${f.openable?'<button class="btn small ghost" data-open>Apri</button>':''}
-              <button class="btn small" data-dl>Scarica</button>
+        <div>
+          <div class="out card">
+            <div class="hd">File generati</div>
+            <div class="bd" id="meteoOut">
+              <div class="note">Nessun file generato.</div>
+              <div id="meteoFiles"></div>
             </div>
-          </div>`;
-        const bytes = new TextEncoder().encode(f.content.endsWith('\n')?f.content:(f.content+'\n'));
-        const blob = new Blob([bytes], {type: f.mime});
-        const url  = URL.createObjectURL(blob);
-        row.querySelector('[data-dl]').addEventListener('click', ()=>{ const a=document.createElement('a'); a.href=url; a.download=f.name; document.body.appendChild(a); a.click(); a.remove(); });
-        if(f.openable){
-          row.querySelector('[data-open]').addEventListener('click', ()=>{ window.open(url, '_blank', 'noopener'); });
-        }
-        box.appendChild(row);
-      }
-    }
-    
-    // === Handler principale ===
-    document.getElementById('btnGenMeteo').addEventListener('click', async ()=>{
-      document.getElementById('files5').innerHTML = '<div class="note">Elaborazione in corso…</div>';
-      document.getElementById('stats5').textContent = 'Parsing input…';
-    
-      // 1) Leggi input
-      const raw = document.getElementById('meteoInput').value.split('\n').map(s=>s.trim()).filter(Boolean);
-      if(!raw.length){ toastCenter('Inserisci un link o località/coordinate'); document.getElementById('files5').innerHTML = '<div class="note">Niente ancora.</div>'; return; }
-    
-      // Se c’è un link, deve essercene solo UNO
-      const links = raw.filter(s=>/^https?:\/\//i.test(s));
-      if(links.length>1){ toastCenter('Errore: inserire un solo link Maps'); document.getElementById('files5').innerHTML = '<div class="note">Niente ancora.</div>'; return; }
-    
-      let tokens = [];
-      if(links.length===1){
-        // Risolvi shortlink e “long strani” (daddr → /dir//…)
-        const resolved = await resolveIfShort(links[0]);
-        const seg = extractDirSegmentKeepLeading(resolved);
-        if(!seg){ toastCenter('Link non valido: manca /maps/dir/'); document.getElementById('files5').innerHTML = '<div class="note">Niente ancora.</div>'; return; }
-        let parts = seg.split('/'); parts = parts.filter(x=>x!==''); parts = parts.map(decodeTok).filter(Boolean);
-        tokens.push(...parts);
-      }else{
-        // località/coordinate a mano
-        tokens = raw.slice();
-      }
-    
-      if(tokens.length<2){ toastCenter('Servono almeno due punti'); document.getElementById('files5').innerHTML = '<div class="note">Niente ancora.</div>'; return; }
-    
-      // 2) Geocoding punti (1:1 PS – stesso della Tab 2)
-      const points = [], skipped=[];
-      for(let i=0;i<tokens.length;i++){
-        document.getElementById('stats5').textContent = `Geocoding ${i+1}/${tokens.length}…`;
-        const g = await geocodeFreeform(tokens[i]); // usa funzione già definita nel Tab 2 (PS minimal)
-        if(!g){ skipped.push(tokens[i]); continue; }
-        points.push(g);
-      }
-      if(points.length<2){ document.getElementById('stats5').textContent = 'Errore: troppi pochi punti geocodificati.'; document.getElementById('files5').innerHTML = '<div class="note">Niente ancora.</div>'; return; }
-      if(skipped.length){ toastCenter(`Saltati ${skipped.length} punto/i non geocodificati`); }
-    
-      // 3) Info percorso (OSRM totale + parziali)
-      document.getElementById('stats5').textContent = 'Calcolo percorso (OSRM)…';
-      const routeInfo = await buildRouteInfo(points);
-    
-      // 4) Meteo per ciascun WPT (7d x 4 fasce)
-      document.getElementById('stats5').textContent = 'Download meteo…';
-      const blocks = [];
-      for(let i=0;i<points.length;i++){
-        const p = points[i];
-        const w = await getJSON(`${CONFIG.workerBase}/weather?lat=${encodeURIComponent(p.lat)}&lon=${encodeURIComponent(p.lon)}`);
-        const agg = aggregateMeteoHourly(w && w.hourly ? w.hourly : null);
-        blocks.push({ title: (p.label || `${p.lat},${p.lon}`), days: agg });
-      }
-    
-      // 5) File (HTML, TXT, CSV) — PS-style
-      const ts = nowStamp();
-      const html = buildWeatherHTML(routeInfo, blocks);
-      const txt  = buildWeatherTXT(routeInfo, blocks);
-      const csv  = buildWeatherCSV(routeInfo, blocks);
-    
-      const startName = fileNameSafe(blocks[0]?.title || 'start');
-      const endName   = fileNameSafe(blocks[blocks.length-1]?.title || 'end');
-    
-      const files = [
-        { name: `meteo_${startName}_to_${endName}_${ts}.html`, mime:'text/html; charset=utf-8', content: html, openable:true },
-        { name: `meteo_${startName}_to_${endName}_${ts}.txt`,  mime:'text/plain; charset=utf-8', content: txt,  openable:true },
-        { name: `meteo_${startName}_to_${endName}_${ts}.csv`,  mime:'text/csv; charset=utf-8',   content: csv,  openable:false },
-      ];
-      renderFiles5(files);
-      document.getElementById('stats5').textContent = `Meteo generato per ${points.length} WPT · 7 giorni × 4 fasce`;
-    
-      toastCenter('Meteo pronto (HTML, TXT, CSV)');
-    });
-    
-    document.getElementById('btnClear5').addEventListener('click', ()=>{
-      document.getElementById('meteoInput').value='';
-      document.getElementById('stats5').textContent='Pulito.';
-      document.getElementById('files5').innerHTML='<div class="note">Niente ancora.</div>';
-    });
+          </div>
+        </div>
+      </div>
+    </section>
   </script>
 </body>
 </html>
