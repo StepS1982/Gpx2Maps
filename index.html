@@ -197,27 +197,29 @@
         </div>
       </div>
     </section>
+    <!-- TAB 5 -->
     <section id="tab-meteo" class="card" hidden>
       <div class="hd">5) Meteo + Info percorso</div>
       <div class="bd grid grid-2">
         <div>
-          <label for="meteoInput" style="font-weight:800;">Incolla 1 link Google Maps <em>(/dir/…)</em> oppure località/coordinate (una per riga)</label>
+          <label for="meteoInput" style="font-weight:800;">Incolla un link Google Maps (unico) o una lista di località/coordinate (una per riga)</label>
           <textarea id="meteoInput" placeholder="Esempi:
+    - https://www.google.com/maps/dir/...
     - https://maps.app.goo.gl/...
-    - https://www.google.com/maps/dir/Como/.../Bellagio/...
-    - Località o lat,lon (una per riga)"></textarea>
+    - Località o lat,lon (una per riga)
+    Nota: se il long link fosse /maps/dir//... ti chiederò la prima località."></textarea>
           <div class="row" style="margin-top:12px;">
-            <button id="btnGenMeteo" class="btn">Genera Meteo (HTML, TXT, CSV)</button>
-            <button id="btnClear5" class="btn ghost">Pulisci</button>
+            <button id="btnGenMeteo" class="btn">Genera Meteo + Info percorso</button>
+            <button id="btnClearMeteo" class="btn ghost">Pulisci</button>
           </div>
-          <p id="stats5" class="note" style="margin-top:8px;">Nessun file generato.</p>
         </div>
     
         <div>
           <div class="out card">
             <div class="hd">File generati</div>
-            <div class="bd" id="files5">
-              <div class="note">Niente ancora.</div>
+            <div class="bd" id="meteoOut">
+              <div class="note">Nessun file generato.</div>
+              <div id="meteoFiles"></div>
             </div>
           </div>
         </div>
@@ -1397,34 +1399,7 @@
         toastCenter(`Caricato: ${file.name}`);
       });
     })();
-    <!-- TAB 5 -->
-    <section id="tab-meteo" class="card" hidden>
-      <div class="hd">5) Meteo + Info percorso</div>
-      <div class="bd grid grid-2">
-        <div>
-          <label for="meteoInput" style="font-weight:800;">Incolla un link Google Maps (unico) o una lista di località/coordinate (una per riga)</label>
-          <textarea id="meteoInput" placeholder="Esempi:
-    - https://www.google.com/maps/dir/...
-    - https://maps.app.goo.gl/...
-    - Località o lat,lon (una per riga)
-    Nota: se il long link fosse /maps/dir//... ti chiederò la prima località."></textarea>
-          <div class="row" style="margin-top:12px;">
-            <button id="btnGenMeteo" class="btn">Genera Meteo + Info percorso</button>
-            <button id="btnClearMeteo" class="btn ghost">Pulisci</button>
-          </div>
-        </div>
     
-        <div>
-          <div class="out card">
-            <div class="hd">File generati</div>
-            <div class="bd" id="meteoOut">
-              <div class="note">Nessun file generato.</div>
-              <div id="meteoFiles"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
   </script>
 </body>
 </html>
