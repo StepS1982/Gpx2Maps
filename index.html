@@ -954,6 +954,203 @@
     document.getElementById('btnDownloadRTE').addEventListener('click',async()=>{ if(!gpxRTE){toastCenter('Nessun GPX RTE');return} const ok=await confirmAction('Scaricare il file GPX della rotta (WPT+RTE)?'); if(!ok)return; downloadBlob(nameRTE||`maps2gpx_rotta_${nowStamp()}.gpx`,gpxRTE,'application/gpx+xml'); toast('Download avviato'); });
     document.getElementById('btnDownloadTRK').addEventListener('click',async()=>{ if(!gpxTRK){toastCenter('Nessun GPX TRK');return} const ok=await confirmAction('Scaricare il file GPX della traccia (WPT+TRK)?'); if(!ok)return; downloadBlob(nameTRK||`maps2gpx_traccia_${nowStamp()}.gpx`,gpxTRK,'application/gpx+xml'); toast('Download avviato'); });
     document.getElementById('btnClear2').addEventListener('click',()=>{ document.getElementById('maps2gpxInput').value=''; resetMaps2GPXUI(); document.getElementById('stats2').textContent='Pulito.'; });
+
+    // ===== TAB 3: GPX -> Google Maps =====
+    let gpxParsed = null; // { wpt: [{lat,lon}], rte: [...], trk: [...] }
+    
+    async function readFileText(file){
+      if(!file) return '';
+      return await new Promise((res,rej)=>{
+        const fr=new FileReader();
+        fr.onload=()=>res(String(fr.result||''));
+        fr.onerror=()=>rej(fr.error||new Error('read error'));
+        fr.readAsText(file);
+      });
+    }
+    
+    // selezione robusta indipendente dal namespace
+    function getByLocalName(doc, local){
+      // Prova diretta
+      let arr = Array.from(doc.getElementsByTagName(local));
+      // Fallback namespace wildcard
+      if(!arr.length && doc.getElementsByTagNameNS){
+        try { arr = Array.from(doc.getElementsByTagNameNS('*', local)); } catch {}
+      }
+      // Estremo fallback: scorri tutto e confronta localName
+      if(!arr.length){
+        arr = Array.from(doc.getElementsByTagName('*')).filter(el => (el.localName||'').toLowerCase()===local.toLowerCase());
+      }
+      return arr;
+    }
+    
+    function parseGPXText(xmlText){
+      const out = { wpt: [], rte: [], trk: [] };
+      if(!xmlText || !xmlText.trim()) return out;
+    
+      let doc;
+      try{
+        const p = new DOMParser();
+        doc = p.parseFromString(xmlText, 'application/xml');
+        const pe = doc.getElementsByTagName('parsererror')[0];
+        if(pe) throw new Error('XML non valido');
+      }catch{
+        return out;
+      }
+    
+      // WPT
+      for(const el of getByLocalName(doc,'wpt')){
+        const lat = el.getAttribute('lat'), lon = el.getAttribute('lon');
+        if(lat!=null && lon!=null) out.wpt.push({lat:fmt6s(lat), lon:fmt6s(lon)});
+      }
+    
+      // RTE (tutte le <rtept> in ordine)
+      for(const el of getByLocalName(doc,'rtept')){
+        const lat = el.getAttribute('lat'), lon = el.getAttribute('lon');
+        if(lat!=null && lon!=null) out.rte.push({lat:fmt6s(lat), lon:fmt6s(lon)});
+      }
+    
+      // TRK (tutti i <trkpt> in ordine)
+      for(const el of getByLocalName(doc,'trkpt')){
+        const lat = el.getAttribute('lat'), lon = el.getAttribute('lon');
+        if(lat!=null && lon!=null) out.trk.push({lat:fmt6s(lat), lon:fmt6s(lon)});
+      }
+    
+      return out;
+    }
+    
+    function partsFromPoints(points){
+      // Costruisce array per /maps/dir/ con blank iniziale + "lat,lon"
+      // Dedup adiacente su token stringa.
+      let all = [''];
+      for(const p of points){ all.push(`${p.lat},${p.lon}`); }
+      all = dedupeAdjacent(all);
+      return all;
+    }
+    
+    function renderOutput3(urls){
+      const out = document.getElementById('output3');
+      const stats = document.getElementById('stats3');
+      out.innerHTML = '';
+      if(!urls.length){
+        stats.textContent = 'Nessun risultato.';
+        document.getElementById('btnDownloadAll3').style.display='none';
+        return;
+      }
+      const n=urls.length;
+      stats.textContent = (n===1?'1 link generato':`${n} link generati`) + ` · aggiornato alle ${timeHHMMSS()}`;
+      for(const u of urls){
+        const div=document.createElement('div'); div.className='out-item';
+        div.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
+          <div class="mono" style="flex:1 1 auto;">${u}</div>
+          <div class="row" style="flex:0 0 auto;">
+            <button class="btn small ghost" data-copy>Copia</button>
+            <button class="btn small" data-open>Apri</button>
+          </div>
+        </div>`;
+        div.querySelector('[data-copy]').addEventListener('click', async()=>{
+          await navigator.clipboard.writeText(u); toast('URL copiato');
+        });
+        div.querySelector('[data-open]').addEventListener('click', async()=>{
+          const ok=await confirmAction('Aprire il link in una nuova scheda?'); if(ok) window.open(u,'_blank','noopener');
+        });
+        out.appendChild(div);
+      }
+      document.getElementById('btnDownloadAll3').style.display='';
+      toastCenter(`Risultati aggiornati (${n} link)`);
+    }
+    
+    async function makeLinksFrom(points){
+      if(!points || points.length<1){ toastCenter('Servono almeno 1-2 punti'); return; }
+    
+      let all = partsFromPoints(points); // ['','lat,lon',...]
+      if(all.length<=25){ renderOutput3(['https://www.google.com/maps/dir/'+all.join('/')]); return; }
+    
+      // Troppi punti: usa la stessa modale del Tab 1
+      const dlg=document.getElementById('strategyDialog'); dlg.showModal();
+      const strategy=await new Promise(r=>dlg.addEventListener('close',()=>r(dlg.returnValue==='opt'?'optimize':dlg.returnValue==='split'?'split':null),{once:true}));
+      if(!strategy){ toastCenter('Operazione annullata'); return; }
+    
+      if(strategy==='optimize'){
+        all = optimizeTo25(all);
+        renderOutput3(['https://www.google.com/maps/dir/'+all.join('/')]);
+      }else{
+        const blocks = splitInBlocks(all); // solo il primo mantiene "" all'inizio
+        renderOutput3(blocks.map(b=>'https://www.google.com/maps/dir/'+b.join('/')));
+      }
+    }
+    
+    function refreshButtonsVisibility(){
+      const btns = document.getElementById('whichButtons');
+      if(!gpxParsed){ btns.style.display='none'; return; }
+      const wptN = (gpxParsed.wpt||[]).length;
+      const rteN = (gpxParsed.rte||[]).length;
+      const trkN = (gpxParsed.trk||[]).length;
+      // Mostra contenitore se c'è almeno un set con >=2 punti utili
+      const any = (wptN>=2) || (rteN>=2) || (trkN>=2);
+      btns.style.display = any ? '' : 'none';
+    
+      const bW=document.getElementById('btnMakeWPT');
+      const bR=document.getElementById('btnMakeRTE');
+      const bT=document.getElementById('btnMakeTRK');
+    
+      bW.style.display = wptN?'' : 'none';
+      bR.style.display = rteN?'' : 'none';
+      bT.style.display = trkN?'' : 'none';
+    
+      if(wptN) bW.textContent = `Crea link da WPT (${wptN})`;
+      if(rteN) bR.textContent = `Crea link da RTE (${rteN})`;
+      if(trkN) bT.textContent = `Crea link da TRK (${trkN})`;
+    }
+    
+    document.getElementById('btnParseGPX').addEventListener('click', async ()=>{
+      const file = document.getElementById('gpxFile').files[0]||null;
+      const pasted = document.getElementById('gpxText').value;
+    
+      let text = pasted && pasted.trim() ? pasted : '';
+      if(!text && file){
+        try{ text = await readFileText(file); }catch{ toastCenter('Errore lettura file'); return; }
+      }
+      if(!text){ toastCenter('Seleziona un file GPX o incolla il contenuto.'); return; }
+    
+      gpxParsed = parseGPXText(text);
+      const w=(gpxParsed.wpt||[]).length, r=(gpxParsed.rte||[]).length, t=(gpxParsed.trk||[]).length;
+      document.getElementById('stats3').textContent = `Trovati: WPT ${w} · RTE ${r} · TRK ${t}`;
+      refreshButtonsVisibility();
+      document.getElementById('output3').innerHTML='';
+      document.getElementById('btnDownloadAll3').style.display='none';
+    
+      if(w<2 && r<2 && t<2){
+        toastCenter('Attenzione: meno di 2 punti per tutte le sezioni.');
+      }else{
+        toastCenter('Analisi GPX completata.');
+      }
+    });
+    
+    document.getElementById('btnMakeWPT').addEventListener('click', ()=>{ if(gpxParsed) makeLinksFrom(gpxParsed.wpt); });
+    document.getElementById('btnMakeRTE').addEventListener('click', ()=>{ if(gpxParsed) makeLinksFrom(gpxParsed.rte); });
+    document.getElementById('btnMakeTRK').addEventListener('click', ()=>{ if(gpxParsed) makeLinksFrom(gpxParsed.trk); });
+    
+    document.getElementById('btnDownloadAll3').addEventListener('click', async ()=>{
+      const items=[...document.querySelectorAll('#output3 .out-item .mono')].map(x=>x.textContent);
+      if(!items.length) return;
+      const ok=await confirmAction('Scaricare un file .txt con i link generati?'); if(!ok) return;
+      const name=(items.length===1?`gpx2maps_1_${nowStamp()}.txt`:`gpx2maps_${items.length}_${nowStamp()}.txt`);
+      const sep=items.length>1?'\n\n':'\n';
+      const bytes=new TextEncoder().encode(items.join(sep));
+      const url=URL.createObjectURL(new Blob([bytes],{type:'text/plain'}));
+      const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      toast('File scaricato');
+    });
+    
+    document.getElementById('btnClear3').addEventListener('click', ()=>{
+      document.getElementById('gpxFile').value='';
+      document.getElementById('gpxText').value='';
+      document.getElementById('stats3').textContent='Pulito.';
+      document.getElementById('output3').innerHTML='';
+      document.getElementById('btnDownloadAll3').style.display='none';
+      document.getElementById('whichButtons').style.display='none';
+      gpxParsed=null;
+    });
   </script>
 </body>
 </html>
