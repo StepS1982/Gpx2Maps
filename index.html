@@ -1806,7 +1806,7 @@
         const {ordered, skipped} = await geocodeList(tokens);
         if(ordered.length<2){ toastCenter('Troppi punti non geocodificati'); return; }
         //if(skipped.length){ toastCenter(`Saltati ${skipped.length} punto/i non geocodificati`); }
-        if(skipped.length){ notifyNotLocalized(listaNomi); }
+        if(skipped.length){ notifyNotLocalized(NotLocalized); }
   
         // Label località (no coordinate nei file)
         const labels=[];
