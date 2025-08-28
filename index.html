@@ -1695,7 +1695,7 @@
   H.push('<div class="days" id="days"></div>');
   H.push('<div class="wrap"><div class="tableWrap"><div id="grid" class="grid" role="table" aria-label="Tabella meteo"></div></div></div>');
   H.push('<footer>Colori: nessuno = buono · giallo = incerto · rosso = brutto.</footer>');
-  H.push('<script id="payload" type="application/json">'+payload+'</script>');
+  H.push('<script id="payload" type="application/json">'+payload+'</scr'+'ipt>');
   H.push('<script>(function(){');
   H.push('var elDays=document.getElementById("days");');
   H.push('var elGrid=document.getElementById("grid");');
@@ -1723,7 +1723,7 @@
   H.push('elDays.innerHTML="";');
   H.push('data.dayLabels.forEach(function(d,i){elDays.appendChild(btn(d,i,i===0));});');
   H.push('setActive(0); render(0);');
-  H.push('})();</script>');
+  H.push('})();</scr'+'ipt>');
   H.push('</body></html>');
   return H.join('\n');
 }
