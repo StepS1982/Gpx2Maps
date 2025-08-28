@@ -1846,8 +1846,8 @@
 
         function buildInfoPercorsoCSV(rows){
           const esc = s => `"${String(s).replace(/"/g,'""')}"`;
-          //const km = k => formatKmIT(k).replace(' km',''); // solo numero con virgola
-          const km = k => formatKmIT(k); // solo numero con virgola
+          const km = k => formatKmIT(k).replace(' km',''); // solo numero con virgola
+          //const km = k => formatKmIT(k);
           const tm = (h,m) => `${h} h ${m} m`;
         
           const out = [];
