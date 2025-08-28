@@ -1438,556 +1438,547 @@
      - WPT esclusivamente da /dir/ ... /@ (se link)
      - Geocoding -> OSRM per distanze/tempi (parziali & totali)
      - Weather via Open-Meteo (tramite worker /weather)
-     - Genera 4 file: HTML desktop, HTML mobile, TXT, CSV
-     - Etichette UI: “Meteo (desktop)”, “Meteo (mobile)”, “Info Percorso TXT”, “Info Percorso CSV”
-     - Apri: HTML+TXT; CSV solo scarica
+     - Genera 3 file: HTML (tabella PS), TXT (info percorso) e CSV
+     - Etichette UI: “Meteo”, “Info Percorso TXT”, “Info Percorso CSV”
+     - Apri: solo HTML+TXT; CSV solo scarica
      - Solo LF, UTF-8
-*/
-function escapeHtml(s){
-  return String(s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
-
-(function(){
-  const $in   = document.getElementById('meteoInput');
-  const $out  = document.getElementById('meteoOut');
-  const $list = document.getElementById('meteoFiles');
-
-  function clearUI(){
-    $out.querySelector('.note').textContent = 'Nessun file generato.';
-    $list.innerHTML = '';
-  }
-  document.getElementById('btnClearMeteo').addEventListener('click',()=>{ $in.value=''; clearUI(); });
-
-  // Helpers riuso
-  function decodeTokPlus(s){ try{return decodeURIComponent(String(s).replace(/\+/g,' ')).trim()}catch{return String(s).replace(/\+/g,' ').trim()} }
-  function segmentDirOnly(u){
-    // porzione tra /maps/dir/ e prima di /@ o /data=
-    const m = stripAtTail(u).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i);
-    if(!m) return null;
-    return m[1].replace(/\/+$/,'');
-  }
-
-  // “//” -> prompt prima località (solo per long link con blank head)
-  async function tokensFromInput(lines){
-    let tokens = [];
-    if(lines.length===1 && /^https?:\/\//i.test(lines[0])){
-      const resolved = await resolveIfShort(lines[0]); // << usa il resolver già esistente
-      const seg = segmentDirOnly(resolved);
-      if(!seg){ throw new Error('Link non valido: manca /maps/dir/'); }
-      let parts = seg.split('/');
-      if(parts[0]===''){
-        const first = window.prompt('Il link ha la prima posizione vuota. Inserisci la prima località in formato città e provincia per esteso anche in minuscolo. Esempio: arluno milano:','');
-        if(!first) throw new Error('Operazione annullata: prima località mancante');
-        parts[0] = encodeURIComponent(first).replace(/%20/g,'+');
-      }
-      parts = parts.filter(x=>x!=='').map(decodeTokPlus).filter(Boolean);
-      tokens = parts;
-    }else{
-      for(const ln of lines){ if(ln!=='//') tokens.push(ln); }
+  */
+  (function(){
+    const $in   = document.getElementById('meteoInput');
+    const $out  = document.getElementById('meteoOut');
+    const $list = document.getElementById('meteoFiles');
+  
+    function clearUI(){
+      $out.querySelector('.note').textContent = 'Nessun file generato.';
+      $list.innerHTML = '';
     }
-    if(tokens.length<2) throw new Error('Servono almeno 2 punti');
-    return tokens;
-  }
-
-  function it1(x){ return String(Math.round(+x*10)/10).replace('.',','); } // 1 decimale (virgola)
-  function toHM(sec){ sec=Math.round(sec||0); const h=Math.floor(sec/3600), m=Math.round((sec%3600)/60); return `${h} h ${m} m`; }
-
-  async function geocodeList(ts){
-    const ordered=[], skipped=[];
-    for(let i=0;i<ts.length;i++){
-      $out.querySelector('.note').textContent = `Geocoding ${i+1}/${ts.length}...`;
-      const g = await geocodeFreeform(ts[i]);
-      if(!g) skipped.push(ts[i]); else ordered.push(g);
+    document.getElementById('btnClearMeteo').addEventListener('click',()=>{ $in.value=''; clearUI(); });
+  
+    // Reuse helpers from Tabs 1-2
+    function decodeTokPlus(s){ try{return decodeURIComponent(String(s).replace(/\+/g,' ')).trim()}catch{return String(s).replace(/\+/g,' ').trim()} }
+  
+    function segmentDirOnly(u){
+      // ritorna solo la porzione tra /maps/dir/ e prima di /@ o ?data=
+      const m = stripAtTail(u).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i);
+      if(!m) return null;
+      return m[1].replace(/\/+$/,'');
     }
-    return {ordered, skipped};
-  }
-
-  async function reverseShortLocal(lat,lon){
-    const label = await reverseShortLabel(lat,lon);
-    return label || 'Località';
-  }
-
-  // Weather via worker
-  async function fetchWeather(lat,lon){
-    const u = `${CONFIG.workerBase}/weather?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&days=7`;
-    const j = await getJSON(u);
-    return j||null;
-  }
-
-  // mapping WMO -> classe base
-  function wxKind(code){
-    code=+code;
-    if([0].includes(code)) return 'clear';
-    if([1,2].includes(code)) return 'partly';
-    if([3].includes(code)) return 'cloudy';
-    if([45,48].includes(code)) return 'fog';
-    if([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) return 'rain';
-    if([71,73,75,77,85,86].includes(code)) return 'snow';
-    if([95,96,99].includes(code)) return 'storm';
-    return 'cloudy';
-  }
-
-  // icone SVG (desktop)
-  const ICONS = {
-    clear: `<g stroke="#CC9A06" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="24" cy="24" r="9" fill="#FDB813" stroke="#E0A106"/>
-      <line x1="24" y1="3" x2="24" y2="11" stroke="#FFC107"/>
-      <line x1="24" y1="37" x2="24" y2="45" stroke="#FFC107"/>
-      <line x1="3"  y1="24" x2="11" y2="24" stroke="#FFC107"/>
-      <line x1="37" y1="24" x2="45" y2="24" stroke="#FFC107"/>
-      <line x1="10" y1="10" x2="15" y2="15" stroke="#FFC107"/>
-      <line x1="33" y1="33" x2="38" y2="38" stroke="#FFC107"/>
-      <line x1="10" y1="38" x2="15" y2="33" stroke="#FFC107"/>
-      <line x1="33" y1="15" x2="38" y2="10" stroke="#FFC107"/>
-    </g>`,
-    partly: `<g fill="none" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="18" cy="20" r="7" fill="#FDB813" stroke="#E0A106" stroke-width="2"/>
-      <path d="M28 32h8a8 8 0 0 0 0-16a9 9 0 0 0-7.5 4.2" fill="#E6E9EF" stroke="#8A97A6" stroke-width="2"/>
-    </g>`,
-    cloudy: `<path d="M12 32h22a8 8 0 0 0 0-16a10 10 0 0 0-19 3" fill="#E6E9EF" stroke="#8A97A6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`,
-    rain: `<path d="M12 28h22a8 8 0 0 0 0-16a10 10 0 0 0-19 3" fill="#E6E9EF" stroke="#8A97A6" stroke-width="2"/>
-      <g stroke="#2196F3" stroke-width="2" stroke-linecap="round">
-        <line x1="16" y1="34" x2="16" y2="42"/><line x1="24" y1="34" x2="24" y2="42"/><line x1="32" y1="34" x2="32" y2="42"/>
-      </g>`,
-    showers:`<path d="M12 28h22a8 8 0 0 0 0-16a10 10 0 0 0-19 3" fill="#E6E9EF" stroke="#8A97A6" stroke-width="2"/>
-      <circle cx="16" cy="38" r="2" fill="#4FC3F7"/><circle cx="24" cy="38" r="2" fill="#4FC3F7"/><circle cx="32" cy="38" r="2" fill="#4FC3F7"/>`,
-    storm: `<path d="M12 28h22a8 8 0 0 0 0-16a10 10 0 0 0-19 3" fill="#E6E9EF" stroke="#8A97A6" stroke-width="2"/>
-      <path d="M22 30l-4 8h6l-2 8l8-12h-6l2-4z" fill="#FFEB3B" stroke="#CC9A06" stroke-width="1"/>`,
-    fog: `<path d="M10 20h28M8 26h32M12 32h24" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>`,
-    snow:`<path d="M12 28h22a8 8 0 0 0 0-16a10 10 0 0 0-19 3" fill="#E6E9EF" stroke="#8A97A6" stroke-width="2"/>
-      <g stroke="#90CAF9" stroke-width="2" stroke-linecap="round">
-        <line x1="16" y1="34" x2="16" y2="40"/><line x1="14" y1="36" x2="18" y2="38"/><line x1="18" y1="36" x2="14" y2="38"/>
-        <line x1="24" y1="34" x2="24" y2="40"/><line x1="22" y1="36" x2="26" y2="38"/><line x1="26" y1="36" x2="22" y2="38"/>
-        <line x1="32" y1="34" x2="32" y2="40"/><line x1="30" y1="36" x2="34" y2="38"/><line x1="34" y1="36" x2="30" y2="38"/>
-      </g>`
-  };
-  const kindEmoji = k => (k==='clear'?'☀':k==='partly'?'⛅':k==='cloudy'?'☁':k==='rain'?'🌧':k==='snow'?'❄':k==='storm'?'⛈':'🌫');
-  const svg = kind => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' width='24' height='24' role='img'>${ICONS[kind]||ICONS.cloudy}</svg>`;
-
-  function cellClass(kind, maxProb){
-    if(kind==='storm') return 'wx-bad';
-    if(['rain','snow'].includes(kind) && maxProb>=40) return 'wx-bad';
-    if(kind==='cloudy' || kind==='fog' || (['rain','snow'].includes(kind) && maxProb>0)) return 'wx-mid';
-    return '';
-  }
-
-  // Aggrega 7 giorni x 4 fasce da hourly
-  function build7x4(weather){
-    const times = weather.hourly.time;
-    const T     = weather.hourly.temperature_2m;
-    const P     = weather.hourly.precipitation_probability || T.map(()=>0);
-    const W     = weather.hourly.weathercode;
-
-    const days  = weather.daily.time.slice(0,7);
-    const dMin  = weather.daily.temperature_2m_min.slice(0,7);
-    const dMax  = weather.daily.temperature_2m_max.slice(0,7);
-
-    const byDaySlot = days.map(()=>[[],[],[],[]]);
-    for(let i=0;i<times.length;i++){
-      const t = new Date(times[i]);
-      const dayStr = times[i].slice(0,10);
-      const dIdx = days.indexOf(dayStr);
-      if(dIdx<0 || dIdx>6) continue;
-      const h = t.getHours();
-      const sIdx = (h<6)?0:(h<12)?1:(h<18)?2:3;
-      byDaySlot[dIdx][sIdx].push({t:T[i], p:P[i], w:W[i]});
-    }
-
-    const grid = days.map((_d,di)=>{
-      return [0,1,2,3].map(si=>{
-        const arr = byDaySlot[di][si];
-        if(!arr.length) return {kind:'cloudy', temp:NaN, p:0};
-        const freq={}; let maxKind='cloudy',maxN=0,pmax=0, tsum=0;
-        for(const x of arr){ const k = wxKind(x.w); freq[k]=(freq[k]||0)+1; if(freq[k]>maxN){maxN=freq[k];maxKind=k} pmax=Math.max(pmax, +x.p||0); tsum+=+x.t; }
-        const tavg = tsum/arr.length;
-        return {kind:maxKind, temp:tavg, p:pmax};
-      });
-    });
-
-    const itDays = ['dom','lun','mar','mer','gio','ven','sab'];
-    const cols = days.map(ds=>{
-      const d = new Date(ds+'T00:00:00'); const dd = String(d.getDate()).padStart(2,'0'); const mm = String(d.getMonth()+1).padStart(2,'0');
-      return `${itDays[d.getDay()]} ${dd}/${mm}`;
-    });
-
-    return {grid, dayLabels:cols, dMin, dMax};
-  }
-
-  function htmlMeteoDoc(title, rows, dayLabels){
-    const style = `<style>
-html, body { height:100% }
-body{font-family:Segoe UI,Arial,sans-serif;margin:16px}
-h1{font-size:20px;margin:0 0 8px 0}
-.wrap{border:1px solid #ddd}
-table.wxgrid{width:100%;table-layout:fixed;min-width:760px;border-collapse:separate;border-spacing:0}
-table.wxgrid th,table.wxgrid td{border:1px solid #ddd;padding:6px 8px;text-align:center;font-size:12px;vertical-align:middle}
-table.wxgrid thead th{background:#f5f5f5;font-weight:700;white-space:nowrap}
-table.wxgrid thead tr:nth-child(1) th{position:sticky;top:0;z-index:10;background:#f5f5f5}
-table.wxgrid thead tr:nth-child(2) th{position:sticky;top:34px;z-index:9;background:#f5f5f5;border-bottom:2px solid #999}
-.loccol{min-width:180px;max-width:260px;background:#fafafa;position:sticky;left:0;z-index:11;text-align:left;box-shadow:inset -2px 0 0 #999}
-tbody .loccol{background:#fafafa}
-th.col-day-end,td.col-day-end{box-shadow:inset -2px 0 0 #999}
-th.dayh.day-end{box-shadow:inset -2px 0 0 #999}
-.dayh{min-width:360px}.fasciah{min-width:90px}
-tbody tr:nth-child(odd){background:#fcfcfc}
-tbody tr.loc-start td{border-top:2px solid #999}
-td.wx-bad{background:#ffe5e5}
-td.wx-mid{background:#fff4cc}
-.wx{display:flex;flex-direction:column;align-items:center;gap:2px}
-.wx svg{width:24px;height:24px}
-.wx .t{font-size:11px}
-</style>`;
-
-    const fasce = ['Notte','Mattino','Pomeriggio','Sera'];
-
-    let H = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Meteo percorso</title>${style}</head><body>\n`;
-    H += `<h1>${xmlEscape(title)} (7 giorni, 4 fasce)</h1>\n`;
-    H += `<div class='wrap'><table id='wx-table' class='wxgrid'>\n<thead><tr><th class='loccol' rowspan='2'>Localita'</th>`;
-    for(let i=0;i<7;i++){
-      H += `<th class='dayh${i===6?' day-end':''}' colspan='4'>${xmlEscape(dayLabels[i])}</th>`;
-    }
-    H += `</tr>\n<tr>`;
-    for(let i=0;i<7;i++){
-      for(let s=0;s<4;s++) H += `<th class='fasciah${(s===3)?' col-day-end':''}'>${fasce[s]}</th>`;
-    }
-    H += `</tr></thead>\n<tbody>\n`;
-
-    rows.forEach((row)=>{
-      H += `<tr class='loc-start'><td class='loccol'>${xmlEscape(row.name)}</td>`;
-      for(let d=0;d<7;d++){
-        for(let s=0;s<4;s++){
-          const cell = row.parts[d][s];
-          const mm   = row.minmax[d];
-          const title = `min ${it1(mm.min)} / max ${it1(mm.max)}`;
-          const cls = cellClass(cell.kind, cell.p);
-          H += `<td class='${cls}${(s===3?' col-day-end':'')}' title='${xmlEscape(title)}'><div class='part wx'>${svg(cell.kind)}<div class='t'>${isFinite(cell.temp)?it1(cell.temp):''}</div></div></td>`;
+  
+    // “//” -> prompt prima località (solo per long link con blank head)
+    async function tokensFromInput(lines){
+      let tokens = [];
+      if(lines.length===1 && /^https?:\/\//i.test(lines[0])){
+        const resolved = await resolveForMeteo(lines[0]);
+        const seg = segmentDirOnly(resolved);
+        if(!seg){ throw new Error('Link non valido: manca /maps/dir/'); }
+        let parts = seg.split('/');
+        // se il primo è vuoto => chiedi località
+        if(parts[0]===''){
+          const first = window.prompt('Il link ha la prima posizione vuota. Inserisci la prima località in formato città e provincia per esteso anche in minuscolo. Esempio: arluno milano:','');
+          if(!first) throw new Error('Operazione annullata: prima località mancante');
+          parts[0] = encodeURIComponent(first).replace(/%20/g,'+');
         }
+        parts = parts.filter(x=>x!=='').map(decodeTokPlus).filter(Boolean);
+        tokens = parts;
+      }else{
+        // lista manuale
+        for(const ln of lines){ if(ln!=='//') tokens.push(ln); }
       }
-      H += `</tr>\n`;
+      if(tokens.length<2) throw new Error('Servono almeno 2 punti');
+      return tokens;
+    }
+  
+    function itKm(x){ return fmt6s(+x/1000).replace('.',','); } // metri->km con virgola (string)
+    function it1(x){ return String(Math.round(+x*10)/10).replace('.',','); } // 1 decimale con virgola
+    function toHM(sec){
+      sec = Math.round(sec||0);
+      const h = Math.floor(sec/3600), m = Math.round((sec%3600)/60);
+      return `${h} h ${m} m`;
+    }
+  
+    // Geocoding (riuso Tab2)
+    async function geocodeList(ts){
+      const ordered=[], skipped=[];
+      for(let i=0;i<ts.length;i++){
+        $out.querySelector('.note').textContent = `Geocoding ${i+1}/${ts.length}...`;
+        const g = await geocodeFreeform(ts[i]);
+        if(!g) skipped.push(ts[i]); else ordered.push(g);
+      }
+      return {ordered, skipped};
+    }
+  
+    async function reverseShortLocal(lat,lon){
+      const label = await reverseShortLabel(lat,lon);
+      // niente coordinate nei file: solo label “Città (Prov)”
+      return label || 'Località';
+    }
+  
+    // === Open-Meteo tramite worker ===
+    async function fetchWeather(lat,lon){
+      const u = `${CONFIG.workerBase}/weather?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&days=7`;
+      const j = await getJSON(u);
+      return j||null;
+    }
+  
+    // Mappa weathercode -> tipo base (per icone & severità)
+    function wxKind(code){
+      code = +code;
+      if([0].includes(code)) return 'clear';
+      if([1,2].includes(code)) return 'partly';
+      if([3].includes(code)) return 'cloudy';
+      if([45,48].includes(code)) return 'fog';
+      if([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) return 'rain';
+      if([71,73,75,77,85,86].includes(code)) return 'snow';
+      if([95,96,99].includes(code)) return 'storm';
+      return 'cloudy';
+    }
+  
+    // icone inline – stesse del sample PS (semplificate)
+    const ICONS = {
+      clear: `<g stroke="#CC9A06" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="24" cy="24" r="9" fill="#FDB813" stroke="#E0A106"/>
+        <line x1="24" y1="3" x2="24" y2="11" stroke="#FFC107"/>
+        <line x1="24" y1="37" x2="24" y2="45" stroke="#FFC107"/>
+        <line x1="3"  y1="24" x2="11" y2="24" stroke="#FFC107"/>
+        <line x1="37" y1="24" x2="45" y2="24" stroke="#FFC107"/>
+        <line x1="10" y1="10" x2="15" y2="15" stroke="#FFC107"/>
+        <line x1="33" y1="33" x2="38" y2="38" stroke="#FFC107"/>
+        <line x1="10" y1="38" x2="15" y2="33" stroke="#FFC107"/>
+        <line x1="33" y1="15" x2="38" y2="10" stroke="#FFC107"/>
+      </g>`,
+      partly: `<g fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="18" cy="20" r="7" fill="#FDB813" stroke="#E0A106" stroke-width="2"/>
+        <path d="M28 32h8a8 8 0 0 0 0-16a9 9 0 0 0-7.5 4.2" fill="#E6E9EF" stroke="#8A97A6" stroke-width="2"/>
+      </g>`,
+      cloudy: `<path d="M12 32h22a8 8 0 0 0 0-16a10 10 0 0 0-19 3" fill="#E6E9EF" stroke="#8A97A6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`,
+      rain: `<path d="M12 28h22a8 8 0 0 0 0-16a10 10 0 0 0-19 3" fill="#E6E9EF" stroke="#8A97A6" stroke-width="2"/>
+        <g stroke="#2196F3" stroke-width="2" stroke-linecap="round">
+          <line x1="16" y1="34" x2="16" y2="42"/><line x1="24" y1="34" x2="24" y2="42"/><line x1="32" y1="34" x2="32" y2="42"/>
+        </g>`,
+      showers:`<path d="M12 28h22a8 8 0 0 0 0-16a10 10 0 0 0-19 3" fill="#E6E9EF" stroke="#8A97A6" stroke-width="2"/>
+        <circle cx="16" cy="38" r="2" fill="#4FC3F7"/><circle cx="24" cy="38" r="2" fill="#4FC3F7"/><circle cx="32" cy="38" r="2" fill="#4FC3F7"/>`,
+      storm: `<path d="M12 28h22a8 8 0 0 0 0-16a10 10 0 0 0-19 3" fill="#E6E9EF" stroke="#8A97A6" stroke-width="2"/>
+        <path d="M22 30l-4 8h6l-2 8l8-12h-6l2-4z" fill="#FFEB3B" stroke="#CC9A06" stroke-width="1"/>`,
+      fog: `<path d="M10 20h28M8 26h32M12 32h24" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>`,
+      snow:`<path d="M12 28h22a8 8 0 0 0 0-16a10 10 0 0 0-19 3" fill="#E6E9EF" stroke="#8A97A6" stroke-width="2"/>
+        <g stroke="#90CAF9" stroke-width="2" stroke-linecap="round">
+          <line x1="16" y1="34" x2="16" y2="40"/><line x1="14" y1="36" x2="18" y2="38"/><line x1="18" y1="36" x2="14" y2="38"/>
+          <line x1="24" y1="34" x2="24" y2="40"/><line x1="22" y1="36" x2="26" y2="38"/><line x1="26" y1="36" x2="22" y2="38"/>
+          <line x1="32" y1="34" x2="32" y2="40"/><line x1="30" y1="36" x2="34" y2="38"/><line x1="34" y1="36" x2="30" y2="38"/>
+        </g>`
+    };
+  
+    function svg(kind){ return `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' width='24' height='24' role='img'>${ICONS[kind]||ICONS.cloudy}</svg>`; }
+  
+    // Classe cella: rosso (wx-bad) se prob precip alta o tempesta; giallo (wx-mid) se coperto/variabile
+    function cellClass(kind, maxProb){
+      if(kind==='storm') return 'wx-bad';
+      if(['rain','snow'].includes(kind) && maxProb>=40) return 'wx-bad';
+      if(kind==='cloudy' || kind==='fog' || (['rain','snow'].includes(kind) && maxProb>0)) return 'wx-mid';
+      return '';
+    }
+  
+    // Aggrega 7 giorni x 4 fasce da hourly
+    function build7x4(weather){
+      // fasce: 0-6 (Notte), 6-12 (Mattino), 12-18 (Pomeriggio), 18-24 (Sera)
+      const times = weather.hourly.time; // ISO in timezone localizzato
+      const T     = weather.hourly.temperature_2m;
+      const P     = weather.hourly.precipitation_probability || T.map(()=>0);
+      const W     = weather.hourly.weathercode;
+      // giorni (etichette dall'array daily.time)
+      const days  = weather.daily.time.slice(0,7);
+      const dMin  = weather.daily.temperature_2m_min.slice(0,7);
+      const dMax  = weather.daily.temperature_2m_max.slice(0,7);
+  
+      // indice orario -> dayIdx + slotIdx
+      const byDaySlot = days.map(()=>[[],[],[],[]]); // 7 x 4 array
+      for(let i=0;i<times.length;i++){
+        const t = new Date(times[i]);
+        const dayStr = times[i].slice(0,10);
+        const dIdx = days.indexOf(dayStr);
+        if(dIdx<0 || dIdx>6) continue;
+        const h = t.getHours();
+        const sIdx = (h<6)?0:(h<12)?1:(h<18)?2:3;
+        byDaySlot[dIdx][sIdx].push({t:T[i], p:P[i], w:W[i]});
+      }
+  
+      // compact per ogni giorno/slot -> {kind, tempMid, pMax}
+      const grid = days.map((d,di)=>{
+        return [0,1,2,3].map(si=>{
+          const arr = byDaySlot[di][si];
+          if(!arr.length) return {kind:'cloudy', temp:NaN, p:0};
+          // dominante: il “kind” più frequente
+          const freq={}; let maxKind='cloudy',maxN=0,pmax=0, tsum=0;
+          for(const x of arr){ const k = wxKind(x.w); freq[k]=(freq[k]||0)+1; if(freq[k]>maxN){maxN=freq[k];maxKind=k} pmax=Math.max(pmax, +x.p||0); tsum+=+x.t; }
+          const tavg = tsum/arr.length;
+          return {kind:maxKind, temp:tavg, p:pmax};
+        });
+      });
+  
+      // etichette colonne (italiano corto) + min/max per title
+      const itDays = ['dom','lun','mar','mer','gio','ven','sab'];
+      const cols = days.map(ds=>{
+        const d = new Date(ds+'T00:00:00'); const dd = String(d.getDate()).padStart(2,'0'); const mm = String(d.getMonth()+1).padStart(2,'0');
+        return `${itDays[d.getDay()]} ${dd}/${mm}`;
+      });
+  
+      return {grid, dayLabels:cols, dMin, dMax};
+    }
+  
+    function htmlMeteoDoc(title, rows, dayLabels){
+      // rows: [{name, parts:[{day:[{kind,temp,p}], ...7], minmax:[{min,max}...] }...]
+      const style = `<style>
+  html, body { height:100% }
+  body{font-family:Segoe UI,Arial,sans-serif;margin:16px}
+  h1{font-size:20px;margin:0 0 8px 0}
+  .wrap{border:1px solid #ddd}
+  table.wxgrid{width:100%;table-layout:fixed;min-width:760px;border-collapse:separate;border-spacing:0}
+  table.wxgrid th,table.wxgrid td{border:1px solid #ddd;padding:6px 8px;text-align:center;font-size:12px;vertical-align:middle}
+  table.wxgrid thead th{background:#f5f5f5;font-weight:700;white-space:nowrap}
+  table.wxgrid thead tr:nth-child(1) th{position:sticky;top:0;z-index:10;background:#f5f5f5}
+  table.wxgrid thead tr:nth-child(2) th{position:sticky;top:34px;z-index:9;background:#f5f5f5;border-bottom:2px solid #999}
+  .loccol{min-width:180px;max-width:260px;background:#fafafa;position:sticky;left:0;z-index:11;text-align:left;box-shadow:inset -2px 0 0 #999}
+  tbody .loccol{background:#fafafa}
+  th.col-day-end,td.col-day-end{box-shadow:inset -2px 0 0 #999}
+  th.dayh.day-end{box-shadow:inset -2px 0 0 #999}
+  .dayh{min-width:360px}.fasciah{min-width:90px}
+  tbody tr:nth-child(odd){background:#fcfcfc}
+  tbody tr.loc-start td{border-top:2px solid #999}
+  td.wx-bad{background:#ffe5e5}
+  td.wx-mid{background:#fff4cc}
+  .wx{display:flex;flex-direction:column;align-items:center;gap:2px}
+  .wx svg{width:24px;height:24px}
+  .wx .t{font-size:11px}
+  </style>`;
+  
+      const fasce = ['Notte','Mattino','Pomeriggio','Sera'];
+  
+      // head
+      let H = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Meteo percorso</title>${style}</head><body>\n`;
+      H += `<h1>${xmlEscape(title)} (7 giorni, 4 fasce)</h1>\n`;
+      H += `<div class='wrap'><table id='wx-table' class='wxgrid'>\n<thead><tr><th class='loccol' rowspan='2'>Localita'</th>`;
+      for(let i=0;i<7;i++){
+        H += `<th class='dayh${i===6?' day-end':''}' colspan='4'>${xmlEscape(dayLabels[i])}</th>`;
+      }
+      H += `</tr>\n<tr>`;
+      for(let i=0;i<7;i++){
+        for(let s=0;s<4;s++) H += `<th class='fasciah${(s===3)?' col-day-end':''}'>${fasce[s]}</th>`;
+      }
+      H += `</tr></thead>\n<tbody>\n`;
+  
+      // body
+      rows.forEach((row,ri)=>{
+        H += `<tr class='loc-start'><td class='loccol'>${xmlEscape(row.name)}</td>`;
+        for(let d=0;d<7;d++){
+          for(let s=0;s<4;s++){
+            const cell = row.parts[d][s];
+            const mm   = row.minmax[d];
+            const title = `min ${it1(mm.min)} / max ${it1(mm.max)}`;
+            const cls = cellClass(cell.kind, cell.p);
+            H += `<td class='${cls}${(s===3?' col-day-end':'')}' title='${xmlEscape(title)}'><div class='part wx'>${svg(cell.kind)}<div class='t'>${isFinite(cell.temp)?it1(cell.temp):''}</div></div></td>`;
+          }
+        }
+        H += `</tr>\n`;
+      });
+  
+      H += `</tbody></table></div>\n</body></html>`;
+      return H;
+    }
+  
+    function formatKmIT(km){
+      // 1 decimale, ma niente ",0"
+      const v = Math.round(km*10)/10;
+      const s = Number.isInteger(v) ? String(v) : v.toFixed(1);
+      return s.replace('.', ',') + ' km';
+    }
+    function formatDur(h, m){
+      return `${h} h ${m} m`;
+    }
+    
+    // rows: [{idx,name,totKm,totH,totM,parzKm,parzH,parzM}]
+    function buildInfoPercorsoTXT(rows, titolo){
+      // Calcolo larghezze colonne
+      const col1H = 'Punto';
+      const col2H = 'Localita';
+      const col3H = 'Totale Km';
+      const col4H = 'Totale Tempo';
+      const col5H = 'Parziale Km';
+      const col6H = 'Parziale Tempo';
+    
+      const col1W = Math.max(col1H.length, ...rows.map(r=>String(r.idx).length));
+      const col2W = Math.max(col2H.length, ...rows.map(r=>r.name.length));
+      const col3W = Math.max(col3H.length, ...rows.map(r=>formatKmIT(r.totKm).length));
+      const col4W = Math.max(col4H.length, ...rows.map(r=>formatDur(r.totH,r.totM).length));
+      const col5W = Math.max(col5H.length, ...rows.map(r=>formatKmIT(r.parzKm).length));
+      const col6W = Math.max(col6H.length, ...rows.map(r=>formatDur(r.parzH,r.parzM).length));
+    
+      const sep = ' | ';
+      const line = (c1,c2,c3,c4,c5,c6) =>
+        c1.padStart(col1W) + sep +
+        c2.padEnd(col2W) + sep +
+        c3.padStart(col3W) + sep +
+        c4.padStart(col4W) + sep +
+        c5.padStart(col5W) + sep +
+        c6.padStart(col6W);
+    
+      const dash = (n)=>'-'.repeat(n);
+      const header = line(col1H,col2H,col3H,col4H,col5H,col6H);
+      const underline = [
+        dash(col1W), dash(col2W), dash(col3W), dash(col4W), dash(col5W), dash(col6W)
+      ].join(sep);
+    
+      const lines = [];
+      lines.push(`Percorso da: ${titolo.da} a: ${titolo.a}`);
+      lines.push(`Punti totali: ${rows.length} | Distanza totale: ${formatKmIT(rows.at(-1).totKm)} | Tempo totale: ${formatDur(rows.at(-1).totH, rows.at(-1).totM)}`);
+      lines.push('');
+      lines.push(header);
+      lines.push(underline);
+      for(const r of rows){
+        lines.push(line(
+          String(r.idx),
+          r.name,
+          formatKmIT(r.totKm),
+          formatDur(r.totH,r.totM),
+          formatKmIT(r.parzKm),
+          formatDur(r.parzH,r.parzM)
+        ));
+      }
+      return lines.join('\n');
+    }
+
+  
+    async function buildRouteLegs(points){
+      // OSRM full route con legs (driving)
+      const coords = points.map(p=>`${p.lon},${p.lat}`).join(';');
+      const url = `${CONFIG.workerBase}/osrm?coords=${encodeURIComponent(coords)}&profile=driving&overview=false&geometries=geojson&steps=false`;
+      const j = await getJSON(url);
+      if(!j || j.code!=='Ok' || !j.routes || !j.routes[0]) throw new Error('OSRM route error');
+      const route = j.routes[0];
+      const legs = (route.legs||[]).map(L=>({dist:+L.distance||0, dur:+L.duration||0}));
+      const totals = {dist:+route.distance||legs.reduce((a,b)=>a+b.dist,0), dur:+route.duration||legs.reduce((a,b)=>a+b.dur,0)};
+      return {legs, totals};
+    }
+  
+    function addFileRow(label, blob, fname, canOpen){
+      const url = URL.createObjectURL(blob);
+      const row = document.createElement('div');
+      row.className='row'; row.style.marginTop='8px';
+      row.innerHTML = `<div style="flex:1 1 auto;font-weight:700;">${label}</div>
+        <div class="row" style="flex:0 0 auto;">
+          ${canOpen?'<button class="btn small ghost" data-open>Apri</button>':''}
+          <button class="btn small" data-dl>Scarica</button>
+        </div>`;
+      row.querySelector('[data-dl]').addEventListener('click',()=>{
+        const a=document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click(); a.remove();
+        toast('Download avviato');
+      });
+      if(canOpen){
+        row.querySelector('[data-open]').addEventListener('click',()=>{
+          window.open(url,'_blank','noopener');
+        });
+      }
+      $list.appendChild(row);
+      return url; // per eventuale revoke in futuro
+    }
+
+    function toastQueued(msg, ms=5000){
+      // tua funzione di coda già esistente; se non ce l’hai, riusa toastCenter con setTimeout a 5s
+      toastCenter(msg); // e mantieni durata 5000ms globalmente
+    }
+
+    
+    
+    function notifyNotLocalized(notFound){
+      if(!notFound || !notFound.length) return;
+      const shown = notFound.slice(0,6).join(' · ');
+      const suffix = notFound.length>6 ? `… (tot: ${notFound.length})` : '';
+      toastQueued(`Non localizzati: ${shown}${suffix}`, 5000);
+    }
+  
+    document.getElementById('btnGenMeteo').addEventListener('click', async()=>{
+      try{
+        clearUI();
+        const lines = $in.value.split('\n').map(s=>s.trim()).filter(Boolean);
+        if(!lines.length){ toastCenter('Inserisci un link o una lista'); return; }
+  
+        // Parsing tokens
+        const tokens = await tokensFromInput(lines);
+  
+        // Geocode -> punti (fmt6s)
+        const {ordered, skipped} = await geocodeList(tokens);
+        if(ordered.length<2){ toastCenter('Troppi punti non geocodificati'); return; }
+        //if(skipped.length){ toastCenter(`Saltati ${skipped.length} punto/i non geocodificati`); }
+        if(skipped.length){ notifyNotLocalized(skipped); }
+  
+        // Label località (no coordinate nei file)
+        const labels=[];
+        for(let i=0;i<ordered.length;i++){
+          $out.querySelector('.note').textContent = `Reverse ${i+1}/${ordered.length}...`;
+          labels.push(await reverseShortLocal(ordered[i].lat, ordered[i].lon));
+        }
+  
+        // Distanze/tempi via OSRM
+        $out.querySelector('.note').textContent = 'Calcolo distanze e tempi...';
+        const {legs, totals} = await buildRouteLegs(ordered);
+  
+        // Weather per ogni località
+        const wxRows = [];
+        const wxDayLabelsRef = null;
+        let dayLabels = null;
+        for(let i=0;i<ordered.length;i++){
+          $out.querySelector('.note').textContent = `Meteo ${i+1}/${ordered.length}...`;
+          const w = await fetchWeather(ordered[i].lat, ordered[i].lon);
+          if(!w || !w.hourly || !w.daily){ throw new Error('Meteo non disponibile'); }
+          const g = build7x4(w);
+          if(!dayLabels) dayLabels = g.dayLabels;
+          wxRows.push({name: labels[i], parts: g.grid.map((x)=>x), minmax: g.dMin.map((mn,di)=>({min:g.dMin[di], max:g.dMax[di]}))});
+        }
+  
+        // Titoli
+        const startName = fileNameSafe(labels[0]);
+        const endName   = fileNameSafe(labels[labels.length-1]);
+        const title = `Meteo da: ${labels[0]} a: ${labels[labels.length-1]}`;
+        const stamp = nowStamp();
+  
+        // HTML METEO
+        const html = htmlMeteoDoc(title, wxRows, dayLabels);
+        const htmlBlob = new Blob([html], {type:'text/html;charset=utf-8'});
+
+        function buildInfoPercorsoCSV(rows){
+          const esc = s => `"${String(s).replace(/"/g,'""')}"`;
+          const km = k => formatKmIT(k).replace(' km',''); // solo numero con virgola
+          //const km = k => formatKmIT(k);
+          const tm = (h,m) => `${h} h ${m} m`;
+        
+          const out = [];
+          out.push('Punto;Localita;Totale Km;Totale Tempo;Parziale Km;Parziale Tempo');
+          for(const r of rows){
+            out.push([
+              r.idx,
+              esc(r.name),
+              km(r.totKm),
+              tm(r.totH,r.totM),
+              km(r.parzKm),
+              tm(r.parzH,r.parzM)
+            ].join(';'));
+          }
+          return out.join('\n');
+        }
+
+        function buildInfoTXTCSV(titleFrom, titleTo, labels, legs, totals){
+          // labels: array di nomi località
+          // legs: [{dist, dur}] per ogni salto i->i+1
+          // totals: {dist, dur}
+          // TXT
+          const L=[];
+          L.push(`Percorso da: ${titleFrom} a: ${titleTo}`);
+          L.push(`Punti totali: ${labels.length} | Distanza totale: ${it1(totals.dist/1000)} km | Tempo totale: ${toHM(totals.dur)}`);
+          L.push('');
+          L.push('Punto | Localita                                 | Totale Km | Totale Tempo | Parziale Km | Parziale Tempo');
+          L.push('----- | ---------------------------------------- | --------- | ------------ | ----------- | --------------');
+          let cumD=0, cumT=0;
+          for(let i=0;i<labels.length;i++){
+            let dPar=0, tPar=0;
+            if(i>0 && legs[i-1]){ dPar=legs[i-1].dist; tPar=legs[i-1].dur; }
+            cumD += dPar; cumT += tPar;
+            const cKm = (it1(cumD/1000)+'').padStart(6,' ');
+            const pKm = (it1(dPar/1000)+'').padStart(6,' ');
+            const cTm = toHM(cumT).replace(' h ',' h ');
+            const pTm = toHM(tPar).replace(' h ',' h ');
+            const idx = String(i+1).padStart(4,' ');
+            const loc = (labels[i]||'').padEnd(40,' ').slice(0,40);
+            L.push(`${idx} | ${loc} | ${cKm} km | ${cTm.padStart(10,' ')} | ${pKm} km | ${pTm.padStart(12,' ')}`);
+          }
+          const txt = L.join('\n')+'\n';
+      
+          // CSV (separatore “,” con decimale “.”, ma header italiano)
+          const C=[];
+          C.push('Punto,Localita,Totale_km,Totale_tempo,Parziale_km,Parziale_tempo');
+          cumD=0; cumT=0;
+          for(let i=0;i<labels.length;i++){
+            let dPar=0, tPar=0;
+            if(i>0 && legs[i-1]){ dPar=legs[i-1].dist; tPar=legs[i-1].dur; }
+            cumD += dPar; cumT += tPar;
+            C.push([
+              i+1,
+              `"${labels[i].replace(/"/g,'""')}"`,
+              (Math.round(cumD/100)/10).toFixed(1),
+              toHM(cumT),
+              (Math.round(dPar/100)/10).toFixed(1),
+              toHM(tPar),
+            ].join(','));
+          }
+          const csv = C.join('\n')+'\n';
+      
+          return {txt,csv};
+        }
+        
+        // === helpers per durata (se non già presenti) ===
+        function secToHM(sec){
+          sec = Math.round(sec||0);
+          const h = Math.floor(sec/3600);
+          const m = Math.floor((sec%3600)/60);
+          return {h,m};
+        }
+        
+        // === costruzione righe per TXT/CSV con lo stile PS ===
+        // labels: nomi località (senza coordinate)
+        // legs: [{dist, dur}] dist in metri, dur in secondi, per i salti i->i+1
+        // totals: {dist, dur} dist in metri, dur in secondi (totali)
+        const rows = [];
+        let cumD = 0; // metri
+        let cumT = 0; // secondi
+        
+        for (let i=0; i<labels.length; i++){
+          let dPar = 0, tPar = 0;
+          if (i>0 && legs[i-1]) {
+            dPar = +legs[i-1].dist || 0;
+            tPar = +legs[i-1].dur  || 0;
+          }
+          cumD += dPar;
+          cumT += tPar;
+        
+          const {h: totH,  m: totM}  = secToHM(cumT);
+          const {h: parzH, m: parzM} = secToHM(tPar);
+        
+          rows.push({
+            idx: i+1,
+            name: labels[i],
+            totKm: cumD/1000,   // in km (numero)
+            totH, totM,         // ore/min
+            parzKm: dPar/1000,  // in km (numero)
+            parzH, parzM
+          });
+        }
+        
+        const titolo = { da: labels[0], a: labels[labels.length-1] };
+        
+        // Usa i builder “PS-style”
+        const txtStr = buildInfoPercorsoTXT(rows, titolo) + '\n';
+        const csvStr = buildInfoPercorsoCSV(rows) + '\n';
+        
+        // Blob con LF (Unix) e UTF-8
+        const txtBlob = new Blob([txtStr.replace(/\r?\n/g,'\n')], { type:'text/plain;charset=utf-8' });
+        const csvBlob = new Blob([csvStr.replace(/\r?\n/g,'\n')], { type:'text/csv;charset=utf-8' });
+
+  
+        // File names (PS-style)
+        const base = `${startName.toLowerCase().replace(/\s+/g,'_')}_${endName.toLowerCase().replace(/\s+/g,'_')}_${stamp}`;
+        const fHTML = `meteo_percorso_${base}.html`;
+        const fTXT  = `info_percorso_${base}.txt`;
+        const fCSV  = `info_percorso_${base}.csv`;
+  
+        $out.querySelector('.note').textContent = `Creati 3 file · aggiornato alle ${timeHHMMSS()}`;
+        addFileRow('Meteo', htmlBlob, fHTML, true);
+        addFileRow('Info Percorso TXT', txtBlob, fTXT, true);
+        addFileRow('Info Percorso CSV', csvBlob, fCSV, false);
+        toastCenter('Meteo + Info percorso pronti');
+      }catch(e){
+        console.error(e);
+        toastCenter('Errore: '+(e&&e.message?e.message:String(e)));
+      }
     });
-
-    H += `</tbody></table></div>\n</body></html>`;
-    return H;
-  }
-
-  // === HTML Meteo (mobile): 7 bottoni (giorni) ===
-  function buildMeteoMobileHTML(titleFrom, titleTo, dayLabels, placeNames, fx, generatedAtISO){
-  const PHASES = ["Notte","Mattino","Pomeriggio","Sera"];
-  const data = { titleFrom, titleTo, dayLabels, placeNames, phases: PHASES, fx, generatedAtISO };
-
-  return `<!doctype html>
-<html lang="it">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Meteo (mobile) – da ${escapeHtml(titleFrom)} a ${escapeHtml(titleTo)}</title>
-<style>
-  :root{--fg:#111827;--muted:#6b7280;--bg:#fff;--border:#e5e7eb;--warn:#fef3c7;--bad:#fee2e2;--btn:#0ea5e9;--btnText:#fff}
-  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
-  header{padding:12px 14px;border-bottom:1px solid var(--border)}
-  h1{margin:0 0 4px;font-size:16px;font-weight:800}
-  .muted{color:var(--muted);font-size:12px}
-  .days{display:flex;gap:8px;padding:10px;overflow:auto;border-bottom:1px solid var(--border)}
-  .day-btn{flex:0 0 auto;appearance:none;border:1px solid var(--border);background:#fff;border-radius:999px;padding:6px 10px;font-weight:700;cursor:pointer}
-  .day-btn.active{background:var(--btn);color:var(--btnText);border-color:transparent}
-  .wrap{padding:10px}
-  .tableWrap{border:1px solid var(--border);border-radius:12px;overflow:auto;-webkit-overflow-scrolling:touch;max-height:75vh}
-  .grid{display:grid;grid-template-columns:minmax(160px,0.8fr) repeat(4,1fr);min-width:560px}
-  .cell{padding:10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);background:#fff}
-  .cell:last-child{border-right:none}
-  .row:last-child .cell{border-bottom:none}
-  .th{font-weight:800;background:#fff}
-  .sticky-top{position:sticky;top:0;z-index:3}
-  .sticky-left{position:sticky;left:0;z-index:2}
-  .corner{z-index:4}
-  .warn{background:var(--warn)}
-  .bad{background:var(--bad)}
-  .loc{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .cond{display:flex;align-items:center;gap:6px;justify-content:center}
-  .cond .t{font-variant-numeric:tabular-nums}
-  footer{padding:10px 14px;color:var(--muted);font-size:12px}
-</style>
-</head>
-<body>
-<header>
-  <h1>Meteo (mobile)</h1>
-  <div class="muted">Percorso: da <b>${escapeHtml(titleFrom)}</b> a <b>${escapeHtml(titleTo)}</b> · Generato: ${escapeHtml((generatedAtISO||new Date().toISOString()).replace('T',' ').slice(0,16))}</div>
-</header>
-
-<div class="days" id="days"></div>
-
-<div class="wrap">
-  <div class="tableWrap">
-    <div id="grid" class="grid" role="table" aria-label="Tabella meteo"></div>
-  </div>
-</div>
-
-<footer>Colori: nessuno = buono · giallo = incerto · rosso = brutto.</footer>
-
-<script id="payload" type="application/json">${escapeHtml(JSON.stringify(data))}</script>
-<script>
-(function(){
-  var PHASES = ["Notte","Mattino","Pomeriggio","Sera"];
-  var elDays = document.getElementById('days');
-  var elGrid = document.getElementById('grid');
-  var data = JSON.parse(document.getElementById('payload').textContent);
-
-  function severity(icon){
-    return /[🌧⛈❄🌨🌫]/.test(icon||'') ? 'bad' : (/[☁⛅🌦🌥]/.test(icon||'') ? 'warn' : 'good');
-  }
-  function btn(label, idx, active){
-    var b=document.createElement('button');
-    b.className='day-btn'+(active?' active':'');
-    b.textContent=label;
-    b.addEventListener('click',function(){ setActive(idx); render(idx); });
-    return b;
-  }
-  function setActive(i){
-    Array.prototype.forEach.call(elDays.children, function(n,k){ n.classList.toggle('active', k===i); });
-  }
-  function cell(cls, html){
-    var d=document.createElement('div');
-    d.className='cell '+cls;
-    d.innerHTML=html;
-    return d;
-  }
-  function render(dayIdx){
-    elGrid.innerHTML='';
-    // header
-    elGrid.appendChild(cell('th sticky-top sticky-left corner','&nbsp;'));
-    for(var p=0;p<PHASES.length;p++){ elGrid.appendChild(cell('th sticky-top', PHASES[p])); }
-    // righe località
-    for(var r=0;r<data.placeNames.length;r++){
-      elGrid.appendChild(cell('sticky-left loc', data.placeNames[r]));
-      for(var p=0;p<PHASES.length;p++){
-        var c=(data.fx[dayIdx]&&data.fx[dayIdx][p]&&data.fx[dayIdx][p][r])||{icon:'',tmin:null,tmax:null};
-        var sev=severity(c.icon);
-        var klass=(sev==='bad'?' bad':(sev==='warn'?' warn':''));
-        var temp=(c.tmax!=null&&c.tmin!=null)?(c.tmax+'° / '+c.tmin+'°'):'';
-        var html = '<div class="cond"><span>'+(c.icon||'')+'</span><span class="t">'+temp+'</span></div>';
-        elGrid.appendChild(cell(klass, html));
-      }
-    }
-  }
-  // days btns
-  elDays.innerHTML='';
-  data.dayLabels.forEach(function(d,i){ elDays.appendChild(btn(d,i,i===0)); });
-  setActive(0); render(0);
-})();
-</script>
-</body>
-</html>`;
-}
-
-
-  function addFileRow(label, blob, fname, canOpen){
-    const url = URL.createObjectURL(blob);
-    const row = document.createElement('div');
-    row.className='row'; row.style.marginTop='8px';
-    row.innerHTML = `<div style="flex:1 1 auto;font-weight:700;">${label}</div>
-      <div class="row" style="flex:0 0 auto;">
-        ${canOpen?'<button class="btn small ghost" data-open>Apri</button>':''}
-        <button class="btn small" data-dl>Scarica</button>
-      </div>`;
-    row.querySelector('[data-dl]').addEventListener('click',()=>{
-      const a=document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click(); a.remove();
-      toast('Download avviato');
-    });
-    if(canOpen){
-      row.querySelector('[data-open]').addEventListener('click',()=>{ window.open(url,'_blank','noopener'); });
-    }
-    $list.appendChild(row);
-    return url;
-  }
-
-  function notifyNotLocalized(notFound){
-    if(!notFound || !notFound.length) return;
-    const shown = notFound.slice(0,6).join(' · ');
-    const suffix = notFound.length>6 ? `… (tot: ${notFound.length})` : '';
-    toastCenter(`Non localizzati: ${shown}${suffix}`);
-  }
-
-  function formatKmIT(km){
-    const v = Math.round(km*10)/10;
-    const s = Number.isInteger(v) ? String(v) : v.toFixed(1);
-    return s.replace('.', ',') + ' km';
-  }
-  function formatDur(h, m){ return `${h} h ${m} m`; }
-
-  function buildInfoPercorsoTXT(rows, titolo){
-    const col1H='Punto', col2H='Localita', col3H='Totale Km', col4H='Totale Tempo', col5H='Parziale Km', col6H='Parziale Tempo';
-    const col1W=Math.max(col1H.length, ...rows.map(r=>String(r.idx).length));
-    const col2W=Math.max(col2H.length, ...rows.map(r=>r.name.length));
-    const col3W=Math.max(col3H.length, ...rows.map(r=>formatKmIT(r.totKm).length));
-    const col4W=Math.max(col4H.length, ...rows.map(r=>formatDur(r.totH,r.totM).length));
-    const col5W=Math.max(col5H.length, ...rows.map(r=>formatKmIT(r.parzKm).length));
-    const col6W=Math.max(col6H.length, ...rows.map(r=>formatDur(r.parzH,r.parzM).length));
-    const sep=' | ';
-    const line=(c1,c2,c3,c4,c5,c6)=>c1.padStart(col1W)+sep+c2.padEnd(col2W)+sep+c3.padStart(col3W)+sep+c4.padStart(col4W)+sep+c5.padStart(col5W)+sep+c6.padStart(col6W);
-    const dash=n=>'-'.repeat(n);
-    const header=line(col1H,col2H,col3H,col4H,col5H,col6H);
-    const underline=[dash(col1W),dash(col2W),dash(col3W),dash(col4W),dash(col5W),dash(col6W)].join(sep);
-    const L=[];
-    L.push(`Percorso da: ${titolo.da} a: ${titolo.a}`);
-    L.push(`Punti totali: ${rows.length} | Distanza totale: ${formatKmIT(rows.at(-1).totKm)} | Tempo totale: ${formatDur(rows.at(-1).totH, rows.at(-1).totM)}`);
-    L.push(''); L.push(header); L.push(underline);
-    for(const r of rows){
-      L.push(line(String(r.idx), r.name, formatKmIT(r.totKm), formatDur(r.totH,r.totM), formatKmIT(r.parzKm), formatDur(r.parzH,r.parzM)));
-    }
-    return L.join('\n');
-  }
-  function buildInfoPercorsoCSV(rows){
-    const esc = s => `"${String(s).replace(/"/g,'""')}"`;
-    const km = k => formatKmIT(k).replace(' km','');
-    const tm = (h,m) => `${h} h ${m} m`;
-    const out = [];
-    out.push('Punto;Localita;Totale Km;Totale Tempo;Parziale Km;Parziale Tempo');
-    for(const r of rows){
-      out.push([r.idx, esc(r.name), km(r.totKm), tm(r.totH,r.totM), km(r.parzKm), tm(r.parzH,r.parzM)].join(';'));
-    }
-    return out.join('\n');
-  }
-
-  async function buildRouteLegs(points){
-    const coords = points.map(p=>`${p.lon},${p.lat}`).join(';');
-    const url = `${CONFIG.workerBase}/osrm?coords=${encodeURIComponent(coords)}&profile=driving&overview=false&geometries=geojson&steps=false`;
-    const j = await getJSON(url);
-    if(!j || j.code!=='Ok' || !j.routes || !j.routes[0]) throw new Error('OSRM route error');
-    const route = j.routes[0];
-    const legs = (route.legs||[]).map(L=>({dist:+L.distance||0, dur:+L.duration||0}));
-    const totals = {dist:+route.distance||legs.reduce((a,b)=>a+b.dist,0), dur:+route.duration||legs.reduce((a,b)=>a+b.dur,0)};
-    return {legs, totals};
-  }
-
-  document.getElementById('btnGenMeteo').addEventListener('click', async()=>{
-    try{
-      clearUI();
-      const lines = $in.value.split('\n').map(s=>s.trim()).filter(Boolean);
-      if(!lines.length){ toastCenter('Inserisci un link o una lista'); return; }
-
-      // tokens
-      const tokens = await tokensFromInput(lines);
-
-      // geocode
-      const {ordered, skipped} = await geocodeList(tokens);
-      if(ordered.length<2){ toastCenter('Troppi punti non geocodificati'); return; }
-      if(skipped.length){ notifyNotLocalized(skipped); }
-
-      // labels no coord
-      const labels=[];
-      for(let i=0;i<ordered.length;i++){
-        $out.querySelector('.note').textContent = `Reverse ${i+1}/${ordered.length}...`;
-        labels.push(await reverseShortLocal(ordered[i].lat, ordered[i].lon));
-      }
-
-      // legs/total
-      $out.querySelector('.note').textContent = 'Calcolo distanze e tempi...';
-      const {legs, totals} = await buildRouteLegs(ordered);
-
-      // weather 7x4 per località
-      const wxRows = [];
-      let dayLabels = null;
-      for(let i=0;i<ordered.length;i++){
-        $out.querySelector('.note').textContent = `Meteo ${i+1}/${ordered.length}...`;
-        const w = await fetchWeather(ordered[i].lat, ordered[i].lon);
-        if(!w || !w.hourly || !w.daily){ throw new Error('Meteo non disponibile'); }
-        const g = build7x4(w);
-        if(!dayLabels) dayLabels = g.dayLabels;
-        wxRows.push({name: labels[i], parts: g.grid.map(x=>x), minmax: g.dMin.map((mn,di)=>({min:g.dMin[di], max:g.dMax[di]}))});
-      }
-
-      // HTML desktop
-      const titleDesktop = `Meteo da: ${labels[0]} a: ${labels[labels.length-1]}`;
-      const html = htmlMeteoDoc(titleDesktop, wxRows, dayLabels);
-      const htmlBlob = new Blob([html.replace(/\r?\n/g,'\n')], {type:'text/html;charset=utf-8'});
-
-      // HTML mobile (costruisci fxMatrix & placeNames)
-      const placeNames = labels.slice();
-      const fxMatrix = Array.from({length:7},(_,d)=>Array.from({length:4},(_,s)=>placeNames.map((_,i)=>{
-        const cell = wxRows[i].parts[d][s];
-        const mm   = wxRows[i].minmax[d];
-        return { icon: kindEmoji(cell.kind), tmin: Math.round(mm.min), tmax: Math.round(mm.max) };
-      })));
-      const htmlMobile = buildMeteoMobileHTML(labels[0], labels.at(-1), dayLabels, placeNames, fxMatrix, new Date().toISOString());
-      const blobMobile = new Blob([htmlMobile.replace(/\r?\n/g,'\n')], {type:'text/html;charset=utf-8'});
-
-        // ====== MOBILE ======
-const titleFrom = labels[0];
-const titleTo   = labels[labels.length-1];
-const placeNames = labels.slice();
-
-// emoji per il mobile
-function emojiFor(kind){
-  switch(kind){
-    case 'clear':   return '☀️';
-    case 'partly':  return '⛅';
-    case 'cloudy':  return '☁️';
-    case 'rain':    return '🌧';
-    case 'storm':   return '⛈';
-    case 'fog':     return '🌫';
-    case 'snow':    return '❄';
-    default:        return '☁️';
-  }
-}
-
-// matrice 7 x 4 x N
-const fxMatrix = dayLabels.map((_, di) =>
-  [0,1,2,3].map(si =>
-    wxRows.map(row => {
-      const c = (row.parts[di] && row.parts[di][si]) || {kind:'cloudy'};
-      const mm = row.minmax[di] || {min:null,max:null};
-      return {
-        icon: emojiFor(c.kind),
-        tmin: (mm.min!=null ? it1(mm.min) : null),
-        tmax: (mm.max!=null ? it1(mm.max) : null),
-      };
-    })
-  )
-);
-
-const htmlMobile = buildMeteoMobileHTML(titleFrom, titleTo, dayLabels, placeNames, fxMatrix, new Date().toISOString());
-const blobMobile = new Blob([htmlMobile.replace(/\r?\n/g,'\n')], {type:'text/html;charset=utf-8'});
-const fMobile   = `meteo_mobile_${fileNameSafe(startName)}_${fileNameSafe(endName)}_${stamp}.html`;
-addFileRow('Meteo (mobile)', blobMobile, fMobile, true);
-// ====== /MOBILE ======
-
-
-      // TXT/CSV (PS-style)
-      const rows=[]; let cumD=0,cumT=0;
-      function secToHM(s){ s=Math.round(s||0); return {h:Math.floor(s/3600), m:Math.floor((s%3600)/60)}; }
-      for(let i=0;i<labels.length;i++){
-        let dPar=0,tPar=0; if(i>0 && legs[i-1]){ dPar=+legs[i-1].dist||0; tPar=+legs[i-1].dur||0; }
-        cumD+=dPar; cumT+=tPar;
-        const {h:totH,m:totM}=secToHM(cumT), {h:parzH,m:parzM}=secToHM(tPar);
-        rows.push({ idx:i+1, name:labels[i], totKm:cumD/1000, totH, totM, parzKm:dPar/1000, parzH, parzM });
-      }
-      const titolo = { da: labels[0], a: labels.at(-1) };
-      const txtStr = buildInfoPercorsoTXT(rows, titolo) + '\n';
-      const csvStr = buildInfoPercorsoCSV(rows) + '\n';
-      const txtBlob = new Blob([txtStr.replace(/\r?\n/g,'\n')], { type:'text/plain;charset=utf-8' });
-      const csvBlob = new Blob([csvStr.replace(/\r?\n/g,'\n')], { type:'text/csv;charset=utf-8' });
-
-      // filenames
-      const startName=fileNameSafe(labels[0]), endName=fileNameSafe(labels.at(-1)), stamp=nowStamp();
-      const base = `${startName.toLowerCase().replace(/\s+/g,'_')}_${endName.toLowerCase().replace(/\s+/g,'_')}_${stamp}`;
-      const fHTML = `meteo_percorso_${base}.html`;
-      const fHTMLm= `meteo_mobile_${base}.html`;
-      const fTXT  = `info_percorso_${base}.txt`;
-      const fCSV  = `info_percorso_${base}.csv`;
-
-      $out.querySelector('.note').textContent = `Creati 4 file · aggiornato alle ${timeHHMMSS()}`;
-      addFileRow('Meteo (desktop)', htmlBlob, fHTML, true);
-      addFileRow('Meteo (mobile)',  blobMobile, fHTMLm, true);
-      addFileRow('Info Percorso TXT', txtBlob, fTXT, true);
-      addFileRow('Info Percorso CSV', csvBlob, fCSV, false);
-      toastCenter('Meteo + Info percorso pronti');
-    }catch(e){
-      console.error(e);
-      toastCenter('Errore: '+(e&&e.message?e.message:String(e)));
-    }
-  });
-})();
-</script>
+  })();
+  </script>
 </body>
 </html>
