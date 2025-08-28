@@ -1785,6 +1785,8 @@
       // tua funzione di coda già esistente; se non ce l’hai, riusa toastCenter con setTimeout a 5s
       toastCenter(msg); // e mantieni durata 5000ms globalmente
     }
+
+    
     
     function notifyNotLocalized(notFound){
       if(!notFound || !notFound.length) return;
@@ -1806,7 +1808,7 @@
         const {ordered, skipped} = await geocodeList(tokens);
         if(ordered.length<2){ toastCenter('Troppi punti non geocodificati'); return; }
         //if(skipped.length){ toastCenter(`Saltati ${skipped.length} punto/i non geocodificati`); }
-        if(skipped.length){ notifyNotLocalized(NotLocalized); }
+        if(skipped.length){ notifyNotLocalized(skipped); }
   
         // Label località (no coordinate nei file)
         const labels=[];
