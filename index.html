@@ -1674,10 +1674,10 @@ td.wx-mid{background:#fff4cc}
 
   // === HTML Meteo (mobile): 7 bottoni (giorni) ===
   function buildMeteoMobileHTML(titleFrom, titleTo, dayLabels, placeNames, fx, generatedAtISO){
-    const PHASES = ["Notte","Mattino","Pomeriggio","Sera"];
-    const data = { titleFrom, titleTo, dayLabels, placeNames, phases: PHASES, fx, generatedAtISO };
+  const PHASES = ["Notte","Mattino","Pomeriggio","Sera"];
+  const data = { titleFrom, titleTo, dayLabels, placeNames, phases: PHASES, fx, generatedAtISO };
 
-    return `<!doctype html>
+  return `<!doctype html>
 <html lang="it">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1728,52 +1728,58 @@ td.wx-mid{background:#fff4cc}
 <script id="payload" type="application/json">${escapeHtml(JSON.stringify(data))}</script>
 <script>
 (function(){
-  const PHASES = ["Notte","Mattino","Pomeriggio","Sera"];
-  const elDays = document.getElementById('days');
-  const elGrid = document.getElementById('grid');
-  const data = JSON.parse(document.getElementById('payload').textContent);
+  var PHASES = ["Notte","Mattino","Pomeriggio","Sera"];
+  var elDays = document.getElementById('days');
+  var elGrid = document.getElementById('grid');
+  var data = JSON.parse(document.getElementById('payload').textContent);
 
   function severity(icon){
     return /[🌧⛈❄🌨🌫]/.test(icon||'') ? 'bad' : (/[☁⛅🌦🌥]/.test(icon||'') ? 'warn' : 'good');
   }
   function btn(label, idx, active){
-    const b=document.createElement('button');
+    var b=document.createElement('button');
     b.className='day-btn'+(active?' active':'');
     b.textContent=label;
-    b.addEventListener('click',()=>{ setActive(idx); render(idx); });
+    b.addEventListener('click',function(){ setActive(idx); render(idx); });
     return b;
   }
   function setActive(i){
-    [...elDays.children].forEach((n,k)=>{ n.classList.toggle('active', k===i); });
+    Array.prototype.forEach.call(elDays.children, function(n,k){ n.classList.toggle('active', k===i); });
   }
   function cell(cls, html){
-    const d=document.createElement('div');
+    var d=document.createElement('div');
     d.className='cell '+cls;
     d.innerHTML=html;
     return d;
   }
   function render(dayIdx){
     elGrid.innerHTML='';
+    // header
     elGrid.appendChild(cell('th sticky-top sticky-left corner','&nbsp;'));
-    for(let p=0;p<PHASES.length;p++){ elGrid.appendChild(cell('th sticky-top', PHASES[p])); }
-    for(let r=0;r<data.placeNames.length;r++){
+    for(var p=0;p<PHASES.length;p++){ elGrid.appendChild(cell('th sticky-top', PHASES[p])); }
+    // righe località
+    for(var r=0;r<data.placeNames.length;r++){
       elGrid.appendChild(cell('sticky-left loc', data.placeNames[r]));
-      for(let p=0;p<PHASES.length;p++){
-        const c=(data.fx[dayIdx]&&data.fx[dayIdx][p]&&data.fx[dayIdx][p][r])||{icon:'',tmin:null,tmax:null};
-        const sev=severity(c.icon);
-        const klass=(sev==='bad'?' bad':(sev==='warn'?' warn':''));
-        const temp = (c.tmax!=null && c.tmin!=null) ? (c.tmax + '° / ' + c.tmin + '°') : '';
-        elGrid.appendChild(cell(klass,\`<div class="cond"><span>\${c.icon||''}</span><span class="t">\${temp}</span></div>\`));
+      for(var p=0;p<PHASES.length;p++){
+        var c=(data.fx[dayIdx]&&data.fx[dayIdx][p]&&data.fx[dayIdx][p][r])||{icon:'',tmin:null,tmax:null};
+        var sev=severity(c.icon);
+        var klass=(sev==='bad'?' bad':(sev==='warn'?' warn':''));
+        var temp=(c.tmax!=null&&c.tmin!=null)?(c.tmax+'° / '+c.tmin+'°'):'';
+        var html = '<div class="cond"><span>'+(c.icon||'')+'</span><span class="t">'+temp+'</span></div>';
+        elGrid.appendChild(cell(klass, html));
       }
     }
   }
-  elDays.innerHTML=''; data.dayLabels.forEach((d,i)=> elDays.appendChild(btn(d,i,i===0)));
+  // days btns
+  elDays.innerHTML='';
+  data.dayLabels.forEach(function(d,i){ elDays.appendChild(btn(d,i,i===0)); });
   setActive(0); render(0);
 })();
 </script>
 </body>
 </html>`;
-  }
+}
+
 
   function addFileRow(label, blob, fname, canOpen){
     const url = URL.createObjectURL(blob);
@@ -1905,6 +1911,47 @@ td.wx-mid{background:#fff4cc}
       })));
       const htmlMobile = buildMeteoMobileHTML(labels[0], labels.at(-1), dayLabels, placeNames, fxMatrix, new Date().toISOString());
       const blobMobile = new Blob([htmlMobile.replace(/\r?\n/g,'\n')], {type:'text/html;charset=utf-8'});
+
+        // ====== MOBILE ======
+const titleFrom = labels[0];
+const titleTo   = labels[labels.length-1];
+const placeNames = labels.slice();
+
+// emoji per il mobile
+function emojiFor(kind){
+  switch(kind){
+    case 'clear':   return '☀️';
+    case 'partly':  return '⛅';
+    case 'cloudy':  return '☁️';
+    case 'rain':    return '🌧';
+    case 'storm':   return '⛈';
+    case 'fog':     return '🌫';
+    case 'snow':    return '❄';
+    default:        return '☁️';
+  }
+}
+
+// matrice 7 x 4 x N
+const fxMatrix = dayLabels.map((_, di) =>
+  [0,1,2,3].map(si =>
+    wxRows.map(row => {
+      const c = (row.parts[di] && row.parts[di][si]) || {kind:'cloudy'};
+      const mm = row.minmax[di] || {min:null,max:null};
+      return {
+        icon: emojiFor(c.kind),
+        tmin: (mm.min!=null ? it1(mm.min) : null),
+        tmax: (mm.max!=null ? it1(mm.max) : null),
+      };
+    })
+  )
+);
+
+const htmlMobile = buildMeteoMobileHTML(titleFrom, titleTo, dayLabels, placeNames, fxMatrix, new Date().toISOString());
+const blobMobile = new Blob([htmlMobile.replace(/\r?\n/g,'\n')], {type:'text/html;charset=utf-8'});
+const fMobile   = `meteo_mobile_${fileNameSafe(startName)}_${fileNameSafe(endName)}_${stamp}.html`;
+addFileRow('Meteo (mobile)', blobMobile, fMobile, true);
+// ====== /MOBILE ======
+
 
       // TXT/CSV (PS-style)
       const rows=[]; let cumD=0,cumT=0;
