@@ -1862,6 +1862,53 @@
           return out.join('\n');
         }
 
+        function buildInfoTXTCSV(titleFrom, titleTo, labels, legs, totals){
+          // labels: array di nomi località
+          // legs: [{dist, dur}] per ogni salto i->i+1
+          // totals: {dist, dur}
+          // TXT
+          const L=[];
+          L.push(`Percorso da: ${titleFrom} a: ${titleTo}`);
+          L.push(`Punti totali: ${labels.length} | Distanza totale: ${it1(totals.dist/1000)} km | Tempo totale: ${toHM(totals.dur)}`);
+          L.push('');
+          L.push('Punto | Localita                                 | Totale Km | Totale Tempo | Parziale Km | Parziale Tempo');
+          L.push('----- | ---------------------------------------- | --------- | ------------ | ----------- | --------------');
+          let cumD=0, cumT=0;
+          for(let i=0;i<labels.length;i++){
+            let dPar=0, tPar=0;
+            if(i>0 && legs[i-1]){ dPar=legs[i-1].dist; tPar=legs[i-1].dur; }
+            cumD += dPar; cumT += tPar;
+            const cKm = (it1(cumD/1000)+'').padStart(6,' ');
+            const pKm = (it1(dPar/1000)+'').padStart(6,' ');
+            const cTm = toHM(cumT).replace(' h ',' h ');
+            const pTm = toHM(tPar).replace(' h ',' h ');
+            const idx = String(i+1).padStart(4,' ');
+            const loc = (labels[i]||'').padEnd(40,' ').slice(0,40);
+            L.push(`${idx} | ${loc} | ${cKm} km | ${cTm.padStart(10,' ')} | ${pKm} km | ${pTm.padStart(12,' ')}`);
+          }
+          const txt = L.join('\n')+'\n';
+      
+          // CSV (separatore “,” con decimale “.”, ma header italiano)
+          const C=[];
+          C.push('Punto,Localita,Totale_km,Totale_tempo,Parziale_km,Parziale_tempo');
+          cumD=0; cumT=0;
+          for(let i=0;i<labels.length;i++){
+            let dPar=0, tPar=0;
+            if(i>0 && legs[i-1]){ dPar=legs[i-1].dist; tPar=legs[i-1].dur; }
+            cumD += dPar; cumT += tPar;
+            C.push([
+              i+1,
+              `"${labels[i].replace(/"/g,'""')}"`,
+              (Math.round(cumD/100)/10).toFixed(1),
+              toHM(cumT),
+              (Math.round(dPar/100)/10).toFixed(1),
+              toHM(tPar),
+            ].join(','));
+          }
+          const csv = C.join('\n')+'\n';
+      
+          return {txt,csv};
+        }
         
         // TXT & CSV Info Percorso
         const info = buildInfoTXTCSV(labels[0], labels[labels.length-1], labels, legs, totals);
