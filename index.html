@@ -642,6 +642,40 @@
       if(!m) return null;
       return m[1].replace(/^\/+/, '').replace(/\/+$/,''); // rimuovi slash iniziali per evitare /dir///
     }
+
+    async function resolveForMeteo(url){
+      let u = url;
+    
+      // segue shortlink (maps.app.goo.gl / goo.gl / g.co)
+      try{
+        const h=(new URL(url)).host;
+        if (/(^|\.)maps\.app\.goo\.gl$/i.test(h) || /(^|\.)goo\.gl$/i.test(h) || /(^|\.)g\.co$/i.test(h)) {
+          const {finalUrl} = await getJSON(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`);
+          if (finalUrl) u = finalUrl;
+        }
+      }catch{}
+    
+      // se è un long google "strano" con daddr/saddr, per METEO usiamo saddr come primo punto (niente //)
+      try{
+        const U = new URL(u);
+        const isGoogle = /(^|\.)google\./i.test(U.host);
+        if (isGoogle && (U.pathname === '/' || U.pathname === '/maps')) {
+          const decodePlus = s => decodeURIComponent(String(s).replace(/\+/g,' ')).trim();
+          const daddr = U.searchParams.get('daddr');
+          const saddr = U.searchParams.get('saddr');
+          if (daddr){
+            const dests = decodePlus(daddr).split(/\s+to:/i).map(s=>s.trim()).filter(Boolean);
+            const segs = [];
+            if (saddr) segs.push(encodeURIComponent(decodePlus(saddr)).replace(/%20/g,'+'));
+            segs.push(...dests.map(s => encodeURIComponent(s).replace(/%20/g,'+')));
+            return 'https://www.google.com/maps/dir/' + segs.join('/');
+          }
+        }
+      }catch{}
+    
+      return u;
+    }
+    
     async function resolveIfShort(url){
       let u = url;
   
@@ -1434,7 +1468,7 @@
     async function tokensFromInput(lines){
       let tokens = [];
       if(lines.length===1 && /^https?:\/\//i.test(lines[0])){
-        const resolved = await resolveIfShort(lines[0]);
+        const resolved = await resolveForMeteo(lines[0]);
         const seg = segmentDirOnly(resolved);
         if(!seg){ throw new Error('Link non valido: manca /maps/dir/'); }
         let parts = seg.split('/');
@@ -1746,6 +1780,18 @@
       $list.appendChild(row);
       return url; // per eventuale revoke in futuro
     }
+
+    function toastQueued(msg, ms=5000){
+      // tua funzione di coda già esistente; se non ce l’hai, riusa toastCenter con setTimeout a 5s
+      toastCenter(msg); // e mantieni durata 5000ms globalmente
+    }
+    
+    function notifyNotLocalized(notFound){
+      if(!notFound || !notFound.length) return;
+      const shown = notFound.slice(0,6).join(' · ');
+      const suffix = notFound.length>6 ? `… (tot: ${notFound.length})` : '';
+      toastQueued(`Non localizzati: ${shown}${suffix}`, 5000);
+    }
   
     document.getElementById('btnGenMeteo').addEventListener('click', async()=>{
       try{
@@ -1759,7 +1805,8 @@
         // Geocode -> punti (fmt6s)
         const {ordered, skipped} = await geocodeList(tokens);
         if(ordered.length<2){ toastCenter('Troppi punti non geocodificati'); return; }
-        if(skipped.length){ toastCenter(`Saltati ${skipped.length} punto/i non geocodificati`); }
+        //if(skipped.length){ toastCenter(`Saltati ${skipped.length} punto/i non geocodificati`); }
+        if(skipped.length){ notifyNotLocalized(listaNomi); }
   
         // Label località (no coordinate nei file)
         const labels=[];
