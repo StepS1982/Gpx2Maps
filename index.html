@@ -1728,7 +1728,7 @@ td.wx-mid{background:#fff4cc}
 <script id="payload" type="application/json">${escapeHtml(JSON.stringify(data))}</script>
 <script>
 (function(){
-  const PHASES = ${JSON.stringify(["Notte","Mattino","Pomeriggio","Sera"])};
+  const PHASES = ["Notte","Mattino","Pomeriggio","Sera"];
   const elDays = document.getElementById('days');
   const elGrid = document.getElementById('grid');
   const data = JSON.parse(document.getElementById('payload').textContent);
@@ -1762,7 +1762,7 @@ td.wx-mid{background:#fff4cc}
         const c=(data.fx[dayIdx]&&data.fx[dayIdx][p]&&data.fx[dayIdx][p][r])||{icon:'',tmin:null,tmax:null};
         const sev=severity(c.icon);
         const klass=(sev==='bad'?' bad':(sev==='warn'?' warn':''));
-        const temp=(c.tmax!=null&&c.tmin!=null)?\`\${c.tmax}° / \${c.tmin}°\`:'';
+        const temp = (c.tmax!=null && c.tmin!=null) ? (c.tmax + '° / ' + c.tmin + '°') : '';
         elGrid.appendChild(cell(klass,\`<div class="cond"><span>\${c.icon||''}</span><span class="t">\${temp}</span></div>\`));
       }
     }
