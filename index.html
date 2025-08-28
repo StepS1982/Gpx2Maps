@@ -1912,10 +1912,54 @@
           return {txt,csv};
         }
         
-        // TXT & CSV Info Percorso
-        const info = buildInfoTXTCSV(labels[0], labels[labels.length-1], labels, legs, totals);
-        const txtBlob = new Blob([info.txt.replace(/\r?\n/g,'\n')], {type:'text/plain;charset=utf-8'});
-        const csvBlob = new Blob([info.csv.replace(/\r?\n/g,'\n')], {type:'text/csv;charset=utf-8'});
+        // === helpers per durata (se non già presenti) ===
+        function secToHM(sec){
+          sec = Math.round(sec||0);
+          const h = Math.floor(sec/3600);
+          const m = Math.floor((sec%3600)/60);
+          return {h,m};
+        }
+        
+        // === costruzione righe per TXT/CSV con lo stile PS ===
+        // labels: nomi località (senza coordinate)
+        // legs: [{dist, dur}] dist in metri, dur in secondi, per i salti i->i+1
+        // totals: {dist, dur} dist in metri, dur in secondi (totali)
+        const rows = [];
+        let cumD = 0; // metri
+        let cumT = 0; // secondi
+        
+        for (let i=0; i<labels.length; i++){
+          let dPar = 0, tPar = 0;
+          if (i>0 && legs[i-1]) {
+            dPar = +legs[i-1].dist || 0;
+            tPar = +legs[i-1].dur  || 0;
+          }
+          cumD += dPar;
+          cumT += tPar;
+        
+          const {h: totH,  m: totM}  = secToHM(cumT);
+          const {h: parzH, m: parzM} = secToHM(tPar);
+        
+          rows.push({
+            idx: i+1,
+            name: labels[i],
+            totKm: cumD/1000,   // in km (numero)
+            totH, totM,         // ore/min
+            parzKm: dPar/1000,  // in km (numero)
+            parzH, parzM
+          });
+        }
+        
+        const titolo = { da: labels[0], a: labels[labels.length-1] };
+        
+        // Usa i builder “PS-style”
+        const txtStr = buildInfoPercorsoTXT(rows, titolo) + '\n';
+        const csvStr = buildInfoPercorsoCSV(rows) + '\n';
+        
+        // Blob con LF (Unix) e UTF-8
+        const txtBlob = new Blob([txtStr.replace(/\r?\n/g,'\n')], { type:'text/plain;charset=utf-8' });
+        const csvBlob = new Blob([csvStr.replace(/\r?\n/g,'\n')], { type:'text/csv;charset=utf-8' });
+
   
         // File names (PS-style)
         const base = `${startName.toLowerCase().replace(/\s+/g,'_')}_${endName.toLowerCase().replace(/\s+/g,'_')}_${stamp}`;
