@@ -1679,10 +1679,13 @@
   H.push('  .sticky-top{position:sticky;top:0;z-index:3}');
   H.push('  .sticky-left{position:sticky;left:0;z-index:2;background:#fff}');
   H.push('  .corner{z-index:4}');
-  H.push('  .warn{background:var(--warn)}');
-  H.push('  .bad{background:var(--bad)}');
   H.push('  .loc{white-space:normal;word-break:break-word;hyphens:auto;overflow:visible;text-overflow:clip}');
   H.push('  .cell{padding:8px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);background:#fff}');
+  H.push('  .warn{background:var(--warn)}');
+  H.push('  .bad{background:var(--bad)}');
+  /* forza il colore di stato sulle celle, costi quel che costi */
+  H.push('  .cell.warn{ background: var(--warn) !important;}');
+  H.push('  .cell.bad { background: var(--bad)  !important;}');
   H.push('  .cond{display:flex;align-items:center;gap:6px;justify-content:center}');
   H.push('  .cond .t{font-variant-numeric:tabular-nums}');
   H.push('  footer{padding:10px 14px;color:var(--muted);font-size:12px}');
