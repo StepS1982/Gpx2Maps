@@ -140,13 +140,18 @@
       <div class="hd">3) GPX → Google Maps</div>
       <div class="bd grid grid-2">
         <div>
-          <label style="font-weight:800;">Carica un file GPX (o incolla il testo)</label>
-          <div class="row" style="margin-top:8px;">
+          <label for="gpxText" style="font-weight:800;">Carica un file GPX (o incolla il testo)</label>
+        
+          <!-- textarea PRIMA, come nel tab Sanitizza -->
+          <textarea id="gpxText" placeholder="(Opzionale) Incolla qui il contenuto GPX se non usi il file"></textarea>
+        
+          <!-- pulsanti SOTTO la textarea, come nel tab Sanitizza -->
+          <div class="row" style="margin-top:12px;">
             <input id="gpxFile" type="file" accept=".gpx,application/gpx+xml,text/xml" />
             <button id="btnParseGPX" class="btn">Analizza GPX</button>
             <button id="btnClear3" class="btn ghost">Pulisci</button>
           </div>
-          <textarea id="gpxText" placeholder="(Opzionale) Incolla qui il contenuto GPX se non usi il file"></textarea>
+        
           <div id="whichButtons" class="row" style="margin-top:10px; display:none;">
             <button id="btnMakeWPT" class="btn small">Crea link da WPT</button>
             <button id="btnMakeRTE" class="btn small">Crea link da RTE</button>
