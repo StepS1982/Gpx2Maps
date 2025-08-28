@@ -1626,11 +1626,9 @@
     }
   
     function htmlMeteoDoc(title, rows, dayLabels){
-  // Prepara i dati per il renderer mobile-first: 7 x 4 x N
+  // Prepara dati 7×4×N
   const PHASES = ['Notte','Mattino','Pomeriggio','Sera'];
   const placeNames = rows.map(r=>r.name);
-
-  // fx[dayIdx][slotIdx][placeIdx] = { kind, prob, tmin, tmax }
   const fx = dayLabels.map((_, di) =>
     PHASES.map((__, si) =>
       rows.map(r => {
@@ -1645,138 +1643,93 @@
       })
     )
   );
-
   const data = {
-    title: title,
-    dayLabels: dayLabels,
-    placeNames: placeNames,
-    phases: PHASES,
-    fx: fx,
+    title, dayLabels, placeNames, phases: PHASES, fx,
     generatedAt: new Date().toISOString()
   };
 
-  // Evita </script> nel payload
-  const payload = JSON.stringify(data).replace(/<\/script/gi,'<\\/script');
+  // JSON sicuro dentro <script type="application/json">
+  let payload = JSON.stringify(data);
+  payload = payload.replace(/</g,'\\u003C').replace(/<\/script/gi,'<\\/script');
+  const gen = data.generatedAt.replace('T',' ').slice(0,16);
 
-  return `<!doctype html>
-<html lang="it">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${xmlEscape(title)} (7 giorni, 4 fasce)</title>
-<style>
-  :root{--fg:#111827;--muted:#6b7280;--bg:#fff;--border:#e5e7eb;--warn:#fff4cc;--bad:#ffe5e5;--btn:#0ea5e9;--btnText:#fff}
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
-  header{padding:12px 14px;border-bottom:1px solid var(--border)}
-  h1{margin:0 0 4px;font-size:16px;font-weight:800}
-  .muted{color:var(--muted);font-size:12px}
-  .days{display:flex;gap:8px;padding:10px;overflow:auto;border-bottom:1px solid var(--border)}
-  .day-btn{flex:0 0 auto;appearance:none;border:1px solid var(--border);background:#fff;border-radius:999px;padding:6px 10px;font-weight:700;cursor:pointer}
-  .day-btn.active{background:var(--btn);color:var(--btnText);border-color:transparent}
-  .wrap{padding:10px}
-  .tableWrap{border:1px solid var(--border);border-radius:12px;overflow:auto;-webkit-overflow-scrolling:touch;max-height:80vh;background:#fff}
-  .grid{display:grid;grid-template-columns:minmax(180px,0.9fr) repeat(4,1fr);min-width:600px}
-  .cell{padding:10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);background:#fff}
-  .cell:last-child{border-right:none}
-  .row:last-child .cell{border-bottom:none}
-  .th{font-weight:800;background:#fff}
-  .sticky-top{position:sticky;top:0;z-index:3}
-  .sticky-left{position:sticky;left:0;z-index:2;background:#fff}
-  .corner{z-index:4}
-  .warn{background:var(--warn)}
-  .bad{background:var(--bad)}
-  .loc{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .cond{display:flex;align-items:center;gap:6px;justify-content:center}
-  .cond .t{font-variant-numeric:tabular-nums}
-  footer{padding:10px 14px;color:var(--muted);font-size:12px}
-</style>
-</head>
-<body>
-<header>
-  <h1>Meteo</h1>
-  <div class="muted">Percorso · Generato: ${xmlEscape(data.generatedAt.replace('T',' ').slice(0,16))}</div>
-</header>
+  const H = [];
+  H.push('<!doctype html>');
+  H.push('<html lang="it">');
+  H.push('<head>');
+  H.push('<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">');
+  H.push('<title>'+xmlEscape(title)+' (7 giorni, 4 fasce)</title>');
+  H.push('<style>');
+  H.push('  :root{--fg:#111827;--muted:#6b7280;--bg:#fff;--border:#e5e7eb;--warn:#fff4cc;--bad:#ffe5e5;--btn:#0ea5e9;--btnText:#fff}');
+  H.push('  *{box-sizing:border-box}');
+  H.push('  body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}');
+  H.push('  header{padding:12px 14px;border-bottom:1px solid var(--border)}');
+  H.push('  h1{margin:0 0 4px;font-size:16px;font-weight:800}');
+  H.push('  .muted{color:var(--muted);font-size:12px}');
+  H.push('  .days{display:flex;gap:8px;padding:10px;overflow:auto;border-bottom:1px solid var(--border)}');
+  H.push('  .day-btn{flex:0 0 auto;appearance:none;border:1px solid var(--border);background:#fff;border-radius:999px;padding:6px 10px;font-weight:700;cursor:pointer}');
+  H.push('  .day-btn.active{background:var(--btn);color:var(--btnText);border-color:transparent}');
+  H.push('  .wrap{padding:10px}');
+  H.push('  .tableWrap{border:1px solid var(--border);border-radius:12px;overflow:auto;-webkit-overflow-scrolling:touch;max-height:80vh;background:#fff}');
+  H.push('  .grid{display:grid;grid-template-columns:minmax(180px,0.9fr) repeat(4,1fr);min-width:600px}');
+  H.push('  .cell{padding:10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);background:#fff}');
+  H.push('  .cell:last-child{border-right:none}');
+  H.push('  .row:last-child .cell{border-bottom:none}');
+  H.push('  .th{font-weight:800;background:#fff}');
+  H.push('  .sticky-top{position:sticky;top:0;z-index:3}');
+  H.push('  .sticky-left{position:sticky;left:0;z-index:2;background:#fff}');
+  H.push('  .corner{z-index:4}');
+  H.push('  .warn{background:var(--warn)}');
+  H.push('  .bad{background:var(--bad)}');
+  H.push('  .loc{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}');
+  H.push('  .cond{display:flex;align-items:center;gap:6px;justify-content:center}');
+  H.push('  .cond .t{font-variant-numeric:tabular-nums}');
+  H.push('  footer{padding:10px 14px;color:var(--muted);font-size:12px}');
+  H.push('</style>');
+  H.push('</head>');
+  H.push('<body>');
+  H.push('<header>');
+  H.push('<h1>Meteo</h1>');
+  H.push('<div class="muted">'+xmlEscape(title)+' · Generato: '+xmlEscape(gen)+'</div>');
+  H.push('</header>');
+  H.push('<div class="days" id="days"></div>');
+  H.push('<div class="wrap"><div class="tableWrap"><div id="grid" class="grid" role="table" aria-label="Tabella meteo"></div></div></div>');
+  H.push('<footer>Colori: nessuno = buono · giallo = incerto · rosso = brutto.</footer>');
+  H.push('<script id="payload" type="application/json">'+payload+'</script>');
+  H.push('<script>(function(){');
+  H.push('var elDays=document.getElementById("days");');
+  H.push('var elGrid=document.getElementById("grid");');
+  H.push('var data=JSON.parse(document.getElementById("payload").textContent);');
+  H.push('var PHASES=data.phases||["Notte","Mattino","Pomeriggio","Sera"];');
+  H.push('function emojiFor(k){switch(k){case "clear":return "☀️";case "partly":return "⛅";case "cloudy":return "☁️";case "rain":return "🌧";case "storm":return "⛈";case "fog":return "🌫";case "snow":return "❄";default:return "☁️";}}');
+  H.push('function sev(k,p){if(k==="storm")return "bad";if((k==="rain"||k==="snow")&&p>=40)return "bad";if(k==="cloudy"||k==="fog"||((k==="rain"||k==="snow")&&p>0))return "warn";return "";}');
+  H.push('function btn(l,i,a){var b=document.createElement("button");b.className="day-btn"+(a?" active":"");b.textContent=l;b.addEventListener("click",function(){setActive(i);render(i);});return b;}');
+  H.push('function setActive(i){Array.prototype.forEach.call(elDays.children,function(n,k){n.classList.toggle("active",k===i);});}');
+  H.push('function cell(cls,html){var d=document.createElement("div");d.className="cell "+cls;d.innerHTML=html;return d;}');
+  H.push('function render(dayIdx){');
+  H.push('  elGrid.innerHTML="";');
+  H.push('  elGrid.appendChild(cell("th sticky-top sticky-left corner","&nbsp;"));');
+  H.push('  for(var p=0;p<PHASES.length;p++){elGrid.appendChild(cell("th sticky-top",PHASES[p]));}');
+  H.push('  for(var r=0;r<data.placeNames.length;r++){');
+  H.push('    elGrid.appendChild(cell("sticky-left loc",data.placeNames[r]));');
+  H.push('    for(var p=0;p<PHASES.length;p++){');
+  H.push('      var cur=(data.fx[dayIdx]&&data.fx[dayIdx][p]&&data.fx[dayIdx][p][r])||{kind:"cloudy",prob:0,tmin:null,tmax:null};');
+  H.push('      var klass=sev(cur.kind,cur.prob);');
+  H.push('      var icon=(function(k){return k==="clear"?"☀️":k==="partly"?"⛅":k==="cloudy"?"☁️":k==="rain"?"🌧":k==="storm"?"⛈":k==="fog"?"🌫":k==="snow"?"❄":"☁️";})(cur.kind);');
+  H.push('      var temp=(cur.tmax!=null&&cur.tmin!=null)?(cur.tmax+"° / "+cur.tmin+"°"):"";');
+  H.push('      var html = \'<div class="cond"><span>\'+icon+\'</span><span class="t">\'+temp+\'</span></div>\';');
+  H.push('      elGrid.appendChild(cell(klass, html));');
+  H.push('    }');
+  H.push('  }');
+  H.push('}');
+  H.push('elDays.innerHTML="";');
+  H.push('data.dayLabels.forEach(function(d,i){elDays.appendChild(btn(d,i,i===0));});');
+  H.push('setActive(0); render(0);');
+  H.push('})();</script>');
+  H.push('</body></html>');
 
-<div class="days" id="days"></div>
-
-<div class="wrap">
-  <div class="tableWrap">
-    <div id="grid" class="grid" role="table" aria-label="Tabella meteo"></div>
-  </div>
-</div>
-
-<footer>Colori: nessuno = buono · giallo = incerto · rosso = brutto.</footer>
-
-<script id="payload" type="application/json">${payload}</script>
-<script>
-(function(){
-  var elDays = document.getElementById('days');
-  var elGrid = document.getElementById('grid');
-  var data = JSON.parse(document.getElementById('payload').textContent);
-  var PHASES = data.phases || ["Notte","Mattino","Pomeriggio","Sera"];
-
-  function emojiFor(kind){
-    switch(kind){
-      case 'clear':  return '☀️';
-      case 'partly': return '⛅';
-      case 'cloudy': return '☁️';
-      case 'rain':   return '🌧';
-      case 'storm':  return '⛈';
-      case 'fog':    return '🌫';
-      case 'snow':   return '❄';
-      default:       return '☁️';
-    }
-  }
-  function sev(kind, prob){
-    if (kind==='storm') return 'bad';
-    if ((kind==='rain' || kind==='snow') && (prob>=40)) return 'bad';
-    if (kind==='cloudy' || kind==='fog' || ((kind==='rain'||kind==='snow') && prob>0)) return 'warn';
-    return '';
-  }
-  function btn(label, idx, active){
-    var b=document.createElement('button');
-    b.className='day-btn'+(active?' active':'');
-    b.textContent=label;
-    b.addEventListener('click', function(){ setActive(idx); render(idx); });
-    return b;
-  }
-  function setActive(i){
-    Array.prototype.forEach.call(elDays.children, function(n,k){ n.classList.toggle('active', k===i); });
-  }
-  function cell(cls, html){
-    var d=document.createElement('div');
-    d.className='cell '+cls;
-    d.innerHTML=html;
-    return d;
-  }
-  function render(dayIdx){
-    elGrid.innerHTML='';
-    // header
-    elGrid.appendChild(cell('th sticky-top sticky-left corner','&nbsp;'));
-    for(var p=0;p<PHASES.length;p++){ elGrid.appendChild(cell('th sticky-top', PHASES[p])); }
-    // righe località
-    for(var r=0;r<data.placeNames.length;r++){
-      elGrid.appendChild(cell('sticky-left loc', data.placeNames[r]));
-      for(var p=0;p<PHASES.length;p++){
-        var cur = (data.fx[dayIdx] && data.fx[dayIdx][p] && data.fx[dayIdx][p][r]) || {kind:'cloudy',prob:0,tmin:null,tmax:null};
-        var klass = sev(cur.kind, cur.prob);
-        var icon  = emojiFor(cur.kind);
-        var temp  = (cur.tmax!=null && cur.tmin!=null) ? (cur.tmax + '° / ' + cur.tmin + '°') : '';
-        var html  = '<div class="cond"><span>'+icon+'</span><span class="t">'+temp+'</span></div>';
-        elGrid.appendChild(cell(klass, html));
-      }
-    }
-  }
-  // days btns
-  elDays.innerHTML='';
-  data.dayLabels.forEach(function(d,i){ elDays.appendChild(btn(d,i,i===0)); });
-  setActive(0); render(0);
-})();
-</script>
-</body>
-</html>`;
+  return H.join('\n');
 }
-
   
     function formatKmIT(km){
       // 1 decimale, ma niente ",0"
