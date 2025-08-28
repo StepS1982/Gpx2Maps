@@ -1443,7 +1443,22 @@
      - Apri: solo HTML+TXT; CSV solo scarica
      - Solo LF, UTF-8
   */
-  (function(){
+   // --- helper per HTML escaping (serve al builder mobile) ---
+    function escapeHtml(s){
+      return String(s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+    
+    // --- severità cella dal simbolo/condizione (stessa logica PS) ---
+    function meteoSeverityFromIcon(icon){
+      const s = String(icon||'');
+      if (/[🌧⛈❄🌨🌫]/.test(s)) return 'bad';   // brutto => rosso
+      if (/[☁⛅🌦🌥]/.test(s)) return 'warn';    // incerto => giallo
+      return 'good';                             // buono => nessun colore
+    }
+  
+    (function(){
     const $in   = document.getElementById('meteoInput');
     const $out  = document.getElementById('meteoOut');
     const $list = document.getElementById('meteoFiles');
@@ -1684,7 +1699,118 @@
       H += `</tbody></table></div>\n</body></html>`;
       return H;
     }
-  
+
+    // === HTML Meteo (mobile): 7 bottoni (giorni) + tabella con riga/colonna sticky ===
+    // dayLabels: ["Lun 26","Mar 27",...7]
+    // placeNames: array nomi località (nessuna coordinata)
+    // fx: matrice 7 x 4 x N  -> fx[dayIdx][slotIdx][placeIdx] = { icon, tmin, tmax }
+    // generatedAtISO: ISO string per timestamp
+    function buildMeteoMobileHTML(titleFrom, titleTo, dayLabels, placeNames, fx, generatedAtISO){
+      const PHASES = ["Notte","Mattino","Pomeriggio","Sera"];
+      const data = { titleFrom, titleTo, dayLabels, placeNames, phases: PHASES, fx, generatedAtISO };
+    
+      return `<!doctype html>
+    <html lang="it">
+    <head>
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Meteo (mobile) – da ${escapeHtml(titleFrom)} a ${escapeHtml(titleTo)}</title>
+    <style>
+      :root{--fg:#111827;--muted:#6b7280;--bg:#fff;--border:#e5e7eb;--warn:#fef3c7;--bad:#fee2e2;--btn:#0ea5e9;--btnText:#fff}
+      *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
+      header{padding:12px 14px;border-bottom:1px solid var(--border)}
+      h1{margin:0 0 4px;font-size:16px;font-weight:800}
+      .muted{color:var(--muted);font-size:12px}
+      .days{display:flex;gap:8px;padding:10px;overflow:auto;border-bottom:1px solid var(--border)}
+      .day-btn{flex:0 0 auto;appearance:none;border:1px solid var(--border);background:#fff;border-radius:999px;padding:6px 10px;font-weight:700;cursor:pointer}
+      .day-btn.active{background:var(--btn);color:var(--btnText);border-color:transparent}
+      .wrap{padding:10px}
+      .tableWrap{border:1px solid var(--border);border-radius:12px;overflow:auto;-webkit-overflow-scrolling:touch;max-height:75vh}
+      .grid{display:grid;grid-template-columns:minmax(160px,0.8fr) repeat(4,1fr);min-width:560px}
+      .cell{padding:10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);background:#fff}
+      .cell:last-child{border-right:none}
+      .row:last-child .cell{border-bottom:none}
+      .th{font-weight:800;background:#fff}
+      .sticky-top{position:sticky;top:0;z-index:3}
+      .sticky-left{position:sticky;left:0;z-index:2}
+      .corner{z-index:4}
+      .warn{background:var(--warn)}
+      .bad{background:var(--bad)}
+      .loc{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .cond{display:flex;align-items:center;gap:6px;justify-content:center}
+      .cond .t{font-variant-numeric:tabular-nums}
+      footer{padding:10px 14px;color:var(--muted);font-size:12px}
+    </style>
+    </head>
+    <body>
+    <header>
+      <h1>Meteo (mobile)</h1>
+      <div class="muted">Percorso: da <b>${escapeHtml(titleFrom)}</b> a <b>${escapeHtml(titleTo)}</b> · Generato: ${escapeHtml((generatedAtISO||new Date().toISOString()).replace('T',' ').slice(0,16))}</div>
+    </header>
+    
+    <div class="days" id="days"></div>
+    
+    <div class="wrap">
+      <div class="tableWrap">
+        <div id="grid" class="grid" role="table" aria-label="Tabella meteo"></div>
+      </div>
+    </div>
+    
+    <footer>Colori: nessuno = buono · giallo = incerto · rosso = brutto.</footer>
+    
+    <script id="payload" type="application/json">${escapeHtml(JSON.stringify(data))}</script>
+    <script>
+    (function(){
+      const PHASES = ${JSON.stringify(["Notte","Mattino","Pomeriggio","Sera"])};
+      const elDays = document.getElementById('days');
+      const elGrid = document.getElementById('grid');
+      const data = JSON.parse(document.getElementById('payload').textContent);
+    
+      function severity(icon){
+        return /[🌧⛈❄🌨🌫]/.test(icon||'') ? 'bad' : (/[☁⛅🌦🌥]/.test(icon||'') ? 'warn' : 'good');
+      }
+      function btn(label, idx, active){
+        const b=document.createElement('button');
+        b.className='day-btn'+(active?' active':'');
+        b.textContent=label;
+        b.addEventListener('click',()=>{ setActive(idx); render(idx); });
+        return b;
+      }
+      function setActive(i){
+        [...elDays.children].forEach((n,k)=>{ n.classList.toggle('active', k===i); });
+      }
+      function cell(cls, html){
+        const d=document.createElement('div');
+        d.className='cell '+cls;
+        d.innerHTML=html;
+        return d;
+      }
+      function render(dayIdx){
+        elGrid.innerHTML='';
+        // header
+        elGrid.appendChild(cell('th sticky-top sticky-left corner','&nbsp;'));
+        for(let p=0;p<PHASES.length;p++){ elGrid.appendChild(cell('th sticky-top', PHASES[p])); }
+        // righe località
+        for(let r=0;r<data.placeNames.length;r++){
+          elGrid.appendChild(cell('sticky-left loc', data.placeNames[r]));
+          for(let p=0;p<PHASES.length;p++){
+            const c=(data.fx[dayIdx]&&data.fx[dayIdx][p]&&data.fx[dayIdx][p][r])||{icon:'',tmin:null,tmax:null};
+            const sev=severity(c.icon);
+            const klass=(sev==='bad'?' bad':(sev==='warn'?' warn':''));
+            const temp=(c.tmax!=null&&c.tmin!=null)?\`\${c.tmax}° / \${c.tmin}°\`:'';
+            elGrid.appendChild(cell(klass,\`<div class="cond"><span>\${c.icon||''}</span><span class="t">\${temp}</span></div>\`));
+          }
+        }
+      }
+      // days btns
+      elDays.innerHTML='';
+      data.dayLabels.forEach((d,i)=> elDays.appendChild(btn(d,i,i===0)));
+      setActive(0); render(0);
+    })();
+    </script>
+    </body>
+    </html>`;
+    }
+
     function formatKmIT(km){
       // 1 decimale, ma niente ",0"
       const v = Math.round(km*10)/10;
@@ -1843,6 +1969,16 @@
         // HTML METEO
         const html = htmlMeteoDoc(title, wxRows, dayLabels);
         const htmlBlob = new Blob([html], {type:'text/html;charset=utf-8'});
+        // qui riusa le STESSE variabili che passi al builder desktop
+        // dayLabels: array 7 etichette giorni
+        // placeNames: array nomi località (in ordine riga)
+        // fxMatrix: matrice 7 x 4 x N con {icon,tmin,tmax}
+        
+        const htmlMobile = buildMeteoMobileHTML(titleFrom, titleTo, dayLabels, placeNames, fxMatrix, new Date().toISOString());
+        const blobMobile = new Blob([htmlMobile.replace(/\r?\n/g,'\n')], {type:'text/html;charset=utf-8'});
+        const nameMobile = `meteo_mobile_${fileNameSafe(titleFrom)}_${fileNameSafe(titleTo)}_${nowStamp()}.html`;
+        addGeneratedFile({ label:'Meteo (mobile)', filename:nameMobile, blob:blobMobile, canOpen:true });
+
 
         function buildInfoPercorsoCSV(rows){
           const esc = s => `"${String(s).replace(/"/g,'""')}"`;
@@ -1970,6 +2106,7 @@
   
         $out.querySelector('.note').textContent = `Creati 3 file · aggiornato alle ${timeHHMMSS()}`;
         addFileRow('Meteo', htmlBlob, fHTML, true);
+        
         addFileRow('Info Percorso TXT', txtBlob, fTXT, true);
         addFileRow('Info Percorso CSV', csvBlob, fCSV, false);
         toastCenter('Meteo + Info percorso pronti');
