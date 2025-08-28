@@ -1626,7 +1626,7 @@
     }
   
     function htmlMeteoDoc(title, rows, dayLabels){
-  // Prepara dati 7×4×N
+  // Prepara dati 7×4×N partendo da rows (come già calcolate)
   const PHASES = ['Notte','Mattino','Pomeriggio','Sera'];
   const placeNames = rows.map(r=>r.name);
   const fx = dayLabels.map((_, di) =>
@@ -1701,11 +1701,11 @@
   H.push('var elGrid=document.getElementById("grid");');
   H.push('var data=JSON.parse(document.getElementById("payload").textContent);');
   H.push('var PHASES=data.phases||["Notte","Mattino","Pomeriggio","Sera"];');
-  H.push('function emojiFor(k){switch(k){case "clear":return "☀️";case "partly":return "⛅";case "cloudy":return "☁️";case "rain":return "🌧";case "storm":return "⛈";case "fog":return "🌫";case "snow":return "❄";default:return "☁️";}}');
   H.push('function sev(k,p){if(k==="storm")return "bad";if((k==="rain"||k==="snow")&&p>=40)return "bad";if(k==="cloudy"||k==="fog"||((k==="rain"||k==="snow")&&p>0))return "warn";return "";}');
   H.push('function btn(l,i,a){var b=document.createElement("button");b.className="day-btn"+(a?" active":"");b.textContent=l;b.addEventListener("click",function(){setActive(i);render(i);});return b;}');
   H.push('function setActive(i){Array.prototype.forEach.call(elDays.children,function(n,k){n.classList.toggle("active",k===i);});}');
   H.push('function cell(cls,html){var d=document.createElement("div");d.className="cell "+cls;d.innerHTML=html;return d;}');
+  H.push('function iconOf(k){return k==="clear"?"☀️":k==="partly"?"⛅":k==="cloudy"?"☁️":k==="rain"?"🌧":k==="storm"?"⛈":k==="fog"?"🌫":k==="snow"?"❄":"☁️";}');
   H.push('function render(dayIdx){');
   H.push('  elGrid.innerHTML="";');
   H.push('  elGrid.appendChild(cell("th sticky-top sticky-left corner","&nbsp;"));');
@@ -1715,10 +1715,8 @@
   H.push('    for(var p=0;p<PHASES.length;p++){');
   H.push('      var cur=(data.fx[dayIdx]&&data.fx[dayIdx][p]&&data.fx[dayIdx][p][r])||{kind:"cloudy",prob:0,tmin:null,tmax:null};');
   H.push('      var klass=sev(cur.kind,cur.prob);');
-  H.push('      var icon=(function(k){return k==="clear"?"☀️":k==="partly"?"⛅":k==="cloudy"?"☁️":k==="rain"?"🌧":k==="storm"?"⛈":k==="fog"?"🌫":k==="snow"?"❄":"☁️";})(cur.kind);');
   H.push('      var temp=(cur.tmax!=null&&cur.tmin!=null)?(cur.tmax+"° / "+cur.tmin+"°"):"";');
-  H.push('      var html = \'<div class="cond"><span>\'+icon+\'</span><span class="t">\'+temp+\'</span></div>\';');
-  H.push('      elGrid.appendChild(cell(klass, html));');
+  H.push('      elGrid.appendChild(cell(klass, \'<div class="cond"><span>\'+iconOf(cur.kind)+\'</span><span class="t">\'+temp+\'</span></div>\'));');
   H.push('    }');
   H.push('  }');
   H.push('}');
@@ -1727,7 +1725,6 @@
   H.push('setActive(0); render(0);');
   H.push('})();</script>');
   H.push('</body></html>');
-
   return H.join('\n');
 }
   
