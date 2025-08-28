@@ -1841,7 +1841,28 @@
         // HTML METEO
         const html = htmlMeteoDoc(title, wxRows, dayLabels);
         const htmlBlob = new Blob([html], {type:'text/html;charset=utf-8'});
-  
+
+        function buildInfoPercorsoCSV(rows){
+          const esc = s => `"${String(s).replace(/"/g,'""')}"`;
+          const km = k => formatKmIT(k).replace(' km',''); // solo numero con virgola
+          const tm = (h,m) => `${h} h ${m} m`;
+        
+          const out = [];
+          out.push('Punto;Localita;Totale Km;Totale Tempo;Parziale Km;Parziale Tempo');
+          for(const r of rows){
+            out.push([
+              r.idx,
+              esc(r.name),
+              km(r.totKm),
+              tm(r.totH,r.totM),
+              km(r.parzKm),
+              tm(r.parzH,r.parzM)
+            ].join(';'));
+          }
+          return out.join('\n');
+        }
+
+        
         // TXT & CSV Info Percorso
         const info = buildInfoTXTCSV(labels[0], labels[labels.length-1], labels, legs, totals);
         const txtBlob = new Blob([info.txt.replace(/\r?\n/g,'\n')], {type:'text/plain;charset=utf-8'});
