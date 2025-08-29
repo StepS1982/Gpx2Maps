@@ -741,6 +741,28 @@
       return false;
     }
 
+    // Inserisce il punto iniziale “La tua posizione” (/dir//) senza toccare la query (?data=...).
+    function ensureBlankHeadGoogleDir(urlStr){
+      try{
+        const U = new URL(urlStr);
+        if(!/(^|\.)google\./i.test(U.host)) return urlStr;
+    
+        const path = U.pathname;
+        const marker = '/maps/dir/';
+        const idx = path.toLowerCase().indexOf(marker);
+        if(idx === -1) return urlStr;
+    
+        const tail = path.slice(idx + marker.length); // ciò che segue "/maps/dir/"
+        if(tail.startsWith('/')) return U.toString(); // già ha "//" → ok
+    
+        // aggiungi una slash extra subito dopo "/maps/dir/"
+        U.pathname = path.slice(0, idx + marker.length) + '/' + tail;
+        return U.toString();
+      }catch{
+        return urlStr;
+      }
+    }
+    
     function buildGoogleDirURL(parts){ return 'https://www.google.com/maps/dir/'+parts.join('/'); }
     function dedupeAdjacent(a){ const out=[]; let prev=null; for(const x of a){ if(x!==prev) out.push(x); prev=x; } return out; }
     function evenSample(inner,need){ if(need<=0)return[]; if(inner.length<=need)return inner.slice(); const out=[]; for(let i=0;i<need;i++){ const idx=Math.round(i*(inner.length-1)/(need-1)); out.push(inner[idx]); } const res=[]; for(const v of out){ if(res[res.length-1]!==v) res.push(v); } while(res.length>need) res.pop(); return res; }
@@ -785,11 +807,14 @@
     
       // === PATCH: 1 solo link → preserva il link così com'è (niente rebuild) ===
       if (lines.length === 1){
-        const u = await resolveIfShort(lines[0]); // segue shortlink e normalizza i casi "daddr/to:"
+        let u = await resolveIfShort(lines[0]);      // segue shortlink (se serve)
+        u = ensureBlankHeadGoogleDir(u);             // << aggiunge /dir// mantenendo ?data=
         if (/[?&]data=/.test(u)){
-          toastCenter('Link con POI Google preservato così com’è (niente ricostruzione).');
+          toastCenter('Link con POI Google preservato; aggiunto il punto iniziale “La tua posizione”.');
+        } else {
+          toastCenter('Aggiunto il punto iniziale “La tua posizione”.');
         }
-        renderOutput([u]); // apri direttamente quel link
+        renderOutput([u]);
         return;
       }
     
