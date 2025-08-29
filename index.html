@@ -855,11 +855,16 @@
       })();
     
       // Costruisci punti con blank iniziale
+      // Costruisci punti con blank iniziale garantito
       let all = [''];
-      for(const seg of clean){ all.push(...seg.split('/')); }
-    
-      // Dedup PRIMA del check 25
+      for (const seg of clean){
+        // evito empty interni e tengo il mio blank di testa
+        all.push(...seg.split('/').filter(Boolean));
+      }
       all = dedupeAdjacent(all);
+      
+      // safety: se per qualunque motivo abbiamo perso il blank, rimettilo
+      if (all[0] !== '') all.unshift('');
     
       if(all.length<=25){
         renderOutput(['https://www.google.com/maps/dir/'+all.join('/')]);
