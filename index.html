@@ -47,6 +47,8 @@
     .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;word-break:break-all}
     dialog{border:none;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.2);width:min(560px,92vw)} dialog::backdrop{background:rgba(0,0,0,.35)}
     #toastsCenter{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:60}
+    /* i toast dentro il center devono poter ricevere i click */
+    #toastsCenter .toast { pointer-events: auto; }
     .toast.center{padding:12px 16px;font-size:15px;background:rgba(17,24,39,.95);color:#fff;border-radius:10px;box-shadow:0 6px 16px rgba(0,0,0,.28);animation:fadePop .28s ease-out}
     @keyframes fadePop{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
     .out-item+.out-item{margin-top:8px}
@@ -63,6 +65,11 @@
       display:flex; flex-direction:column; gap:8px; min-width:280px; max-width:92vw;
     }
     .toast.center.action .row{ justify-content:flex-end }
+    .toast.center.action .closex{
+      position:absolute; top:6px; right:8px; appearance:none; border:none; background:transparent;
+      color:#cbd5e1; cursor:pointer; font-weight:900; font-size:16px;
+    }
+    .toast.center.action { position: relative; }
     .toast.center.action .closex{
       position:absolute; top:6px; right:8px; appearance:none; border:none; background:transparent;
       color:#cbd5e1; cursor:pointer; font-weight:900; font-size:16px;
@@ -352,24 +359,62 @@
     const _toastQ = [];
     let _toastShowing = false;
     
+    function _makeBaseToast(className='toast center'){
+      const t = document.createElement('div');
+      t.className = className;
+      return t;
+    }
+    
     function _toastShowNext(){
       if(_toastShowing || !_toastQ.length) return;
       _toastShowing = true;
-      const msg = _toastQ.shift();
-      const box = document.getElementById('toastsCenter');
-      const t = document.createElement('div');
-      t.className = 'toast center';
-      t.textContent = msg;
+    
+      const item = _toastQ.shift();
+      const box  = document.getElementById('toastsCenter');
+      let t, duration = 5000, onClose = null;
+    
+      if (typeof item === 'string'){
+        t = _makeBaseToast('toast center');
+        t.textContent = item;
+      } else if (item && item.type === 'action'){ // {type:'action', html, duration, onClose}
+        t = _makeBaseToast('toast center action');
+        t.innerHTML = item.html || '';
+        duration = item.duration || 8000;
+        onClose  = item.onClose || null;
+    
+        // chiudi con [data-close] o [data-cta]
+        const closeBtn = t.querySelector('[data-close]');
+        if (closeBtn) closeBtn.addEventListener('click', ()=>{ _hide(); });
+    
+        const cta = t.querySelector('[data-cta]');
+        if (cta) cta.addEventListener('click', ()=>{ _hide(); });
+      } else {
+        t = _makeBaseToast('toast center');
+        t.textContent = String(item);
+      }
+    
       box.appendChild(t);
-      setTimeout(()=>{
-        if(t.parentNode) t.parentNode.removeChild(t);
+    
+      const timer = setTimeout(()=>{ _hide(); }, duration);
+    
+      function _hide(){
+        clearTimeout(timer);
+        if(t && t.parentNode) t.parentNode.removeChild(t);
+        if(typeof onClose === 'function'){ try{ onClose(); }catch{} }
         _toastShowing = false;
         _toastShowNext();
-      }, 5000);
+      }
     }
+    
     function toastCenter(msg){ _toastQ.push(msg); _toastShowNext(); }
     function toast(msg){ toastCenter(msg); }
-
+    
+    /* API per action-toast in coda */
+    function toastAction(html, duration=8000, onClose=null){
+      _toastQ.push({type:'action', html, duration, onClose});
+      _toastShowNext();
+    }
+    
     /* === UI helpers globali === */
 function throttle(fn, wait){ let t=0; return (...a)=>{ const n=Date.now(); if(n-t>wait){ t=n; fn(...a);} }; }
 function focusResultsSection(sel){
@@ -408,11 +453,11 @@ function focusResultsSection(sel){
       window.showSmartFooter = ()=> show();
     })();
     
-    /* Toast "Dona" (azione) con snooze via ✕ */
+    /* Toast "Dona" in coda con snooze */
     (function(){
-      const SNOOZE_MS = 24*60*60*1000;          // 24h
-      const MIN_INTERVAL = 5*60*1000;           // 5 minuti
-      const LS_LAST = 'donate_last_shown';
+      const SNOOZE_MS   = 24*60*60*1000;   // 24h
+      const MIN_INTERVAL= 5*60*1000;       // 5 min
+      const LS_LAST   = 'donate_last_shown';
       const LS_SNOOZE = 'donate_snooze_until';
       let visible = false;
     
@@ -430,24 +475,17 @@ function focusResultsSection(sel){
         if(visible || !canShow()) return;
         visible = true; markShown();
     
-        const box = document.getElementById('toastsCenter');
-        const t = document.createElement('div');
-        t.className = 'toast center action';
-        t.innerHTML = `
-          <button class="closex" aria-label="Chiudi">×</button>
+        const html = `
+          <button class="closex" data-close aria-label="Chiudi">×</button>
           <div class="msg" style="max-width:64ch; text-transform:uppercase;">
             SE TI PIACE IL SOFTWARE E LO USI, VALUTA DI DONARE QUALCOSA ALLO SVILUPPATORE ❤️
           </div>
-          <div class="row">
-            <a class="btn small" href="${CONFIG.paypalDonateUrl}" target="_blank" rel="noopener">Dona</a>
+          <div class="row" style="justify-content:flex-end;">
+            <a class="btn small" data-cta href="${CONFIG.paypalDonateUrl}" target="_blank" rel="noopener">Dona</a>
           </div>
         `;
-        box.appendChild(t);
     
-        const close = ()=>{ if(t.parentNode) t.parentNode.removeChild(t); visible=false; };
-        t.querySelector('.closex').addEventListener('click', ()=>{ snooze(); close(); });
-    
-        setTimeout(close, 8000); // autohide
+        toastAction(html, 8000, ()=>{ snooze(); visible=false; });
       };
     })();
     
