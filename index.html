@@ -1650,7 +1650,67 @@
       return {grid, dayLabels:cols, dMin, dMax};
     }
   
-    function htmlMeteoDoc(title, rows, dayLabels){
+    function htmlMeteoWeek(title, rows, dayLabels){
+      // rows: [{name, parts:[{day:[{kind,temp,p}], ...7], minmax:[{min,max}...] }...]
+      const style = `<style>
+      html, body { height:100% }
+      body{font-family:Segoe UI,Arial,sans-serif;margin:16px}
+      h1{font-size:20px;margin:0 0 8px 0}
+      .wrap{border:1px solid #ddd}
+      table.wxgrid{width:100%;table-layout:fixed;min-width:760px;border-collapse:separate;border-spacing:0}
+      table.wxgrid th,table.wxgrid td{border:1px solid #ddd;padding:6px 8px;text-align:center;font-size:12px;vertical-align:middle}
+      table.wxgrid thead th{background:#f5f5f5;font-weight:700;white-space:nowrap}
+      table.wxgrid thead tr:nth-child(1) th{position:sticky;top:0;z-index:10;background:#f5f5f5}
+      table.wxgrid thead tr:nth-child(2) th{position:sticky;top:34px;z-index:9;background:#f5f5f5;border-bottom:2px solid #999}
+      .loccol{min-width:180px;max-width:260px;background:#fafafa;position:sticky;left:0;z-index:11;text-align:left;box-shadow:inset -2px 0 0 #999}
+      tbody .loccol{background:#fafafa}
+      th.col-day-end,td.col-day-end{box-shadow:inset -2px 0 0 #999}
+      th.dayh.day-end{box-shadow:inset -2px 0 0 #999}
+      .dayh{min-width:360px}.fasciah{min-width:90px}
+      tbody tr:nth-child(odd){background:#fcfcfc}
+      tbody tr.loc-start td{border-top:2px solid #999}
+      td.wx-bad{background:#ffe5e5}
+      td.wx-mid{background:#fff4cc}
+      .wx{display:flex;flex-direction:column;align-items:center;gap:2px}
+      .wx svg{width:24px;height:24px}
+      .wx .t{font-size:11px}
+      </style>`;
+      
+          const fasce = ['Notte','Mattino','Pomeriggio','Sera'];
+      
+          // head
+          let H = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Meteo percorso</title>${style}</head><body>\n`;
+          H += `<h1>${xmlEscape(title)} (7 giorni, 4 fasce)</h1>\n`;
+          H += `<div class='wrap'><table id='wx-table' class='wxgrid'>\n<thead><tr><th class='loccol' rowspan='2'>Localita'</th>`;
+          for(let i=0;i<7;i++){
+            H += `<th class='dayh${i===6?' day-end':''}' colspan='4'>${xmlEscape(dayLabels[i])}</th>`;
+          }
+          H += `</tr>\n<tr>`;
+          for(let i=0;i<7;i++){
+            for(let s=0;s<4;s++) H += `<th class='fasciah${(s===3)?' col-day-end':''}'>${fasce[s]}</th>`;
+          }
+          H += `</tr></thead>\n<tbody>\n`;
+      
+          // body
+          rows.forEach((row,ri)=>{
+            H += `<tr class='loc-start'><td class='loccol'>${xmlEscape(row.name)}</td>`;
+            for(let d=0;d<7;d++){
+              for(let s=0;s<4;s++){
+                const cell = row.parts[d][s];
+                const mm   = row.minmax[d];
+                const title = `min ${it1(mm.min)} / max ${it1(mm.max)}`;
+                const cls = cellClass(cell.kind, cell.p);
+                H += `<td class='${cls}${(s===3?' col-day-end':'')}' title='${xmlEscape(title)}'><div class='part wx'>${svg(cell.kind)}<div class='t'>${isFinite(cell.temp)?it1(cell.temp):''}</div></div></td>`;
+              }
+            }
+            H += `</tr>\n`;
+          });
+      
+          H += `</tbody></table></div>\n</body></html>`;
+          return H;
+        }
+    
+    function htmlMeteoDay(title, rows, dayLabels){
   // Prepara dati 7×4×N partendo da rows (come già calcolate)
   const PHASES = ['Notte','Mattino','Pomeriggio','Sera'];
   const placeNames = rows.map(r=>r.name);
@@ -1913,8 +1973,10 @@
         const stamp = nowStamp();
   
         // HTML METEO
-        const html = htmlMeteoDoc(title, wxRows, dayLabels);
-        const htmlBlob = new Blob([html], {type:'text/html;charset=utf-8'});
+        const html = htmlMeteoDay(title, wxRows, dayLabels);
+        const htmlBlobDay = new Blob([html], {type:'text/html;charset=utf-8'});
+        const html = htmlMeteoWeek(title, wxRows, dayLabels);
+        const htmlBlobWeek = new Blob([html], {type:'text/html;charset=utf-8'});
 
         function buildInfoPercorsoCSV(rows){
           const esc = s => `"${String(s).replace(/"/g,'""')}"`;
@@ -2036,12 +2098,14 @@
   
         // File names (PS-style)
         const base = `${startName.toLowerCase().replace(/\s+/g,'_')}_${endName.toLowerCase().replace(/\s+/g,'_')}_${stamp}`;
-        const fHTML = `meteo_percorso_${base}.html`;
+        const fHTMLWeek = `meteo_percorso_week_${base}.html`;
+        const fHTMLDay = `meteo_percorso_day_${base}.html`;
         const fTXT  = `info_percorso_${base}.txt`;
         const fCSV  = `info_percorso_${base}.csv`;
   
         $out.querySelector('.note').textContent = `Creati 3 file · aggiornato alle ${timeHHMMSS()}`;
-        addFileRow('Meteo', htmlBlob, fHTML, true);
+        addFileRow('Meteo (visione settimana intera)', htmlBlobWeek, fHTMLWeek, true);
+        addFileRow('Meteo (visione giorno singolo di 7 giorni)', htmlBlobDay, fHTMLDay, true);
         addFileRow('Info Percorso TXT', txtBlob, fTXT, true);
         addFileRow('Info Percorso CSV', csvBlob, fCSV, false);
         toastCenter('Meteo + Info percorso pronti');
