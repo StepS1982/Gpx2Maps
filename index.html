@@ -1583,11 +1583,9 @@
       // indice orario -> dayIdx + slotIdx
       const byDaySlot = days.map(()=>[[],[],[],[]]); // 7 x 4 array
       for(let i=0;i<times.length;i++){
-        const t = new Date(times[i]);
-        const dayStr = times[i].slice(0,10);
         const dIdx = days.indexOf(dayStr);
         if(dIdx<0 || dIdx>6) continue;
-        const h = t.getHours();
+        const h = parseInt(times[i].slice(11,13), 10); // ora locale della località
         const sIdx = (h<6)?0:(h<12)?1:(h<18)?2:3;
         byDaySlot[dIdx][sIdx].push({t:T[i], p:P[i], w:W[i]});
       }
