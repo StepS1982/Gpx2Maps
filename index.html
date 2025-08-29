@@ -799,30 +799,15 @@
 
     /* ===== TAB 2: Maps -> GPX (RTE & TRK + WPT) ===== */
     function extractDirSegmentKeepLeading(s){
-    try{
-      const u = new URL(s.trim());
-      // prendi esattamente la porzione dopo /maps/dir/ e prima di /@ oppure di ? (se presente)
-      const m = u.pathname.match(/\/maps\/dir\/(.+)/i);
-      if(!m) return null;
-      let seg = m[1];
-      // tronca a /@ ... oppure a ?...
-      seg = seg.split('/@')[0];
-      // se è rimasto un "?" nel path (raro ma succede), tronca anche quello
-      seg = seg.split('?')[0];
-      // rimuovi eventuali slash finali
-      seg = seg.replace(/\/+$/,'');
-      return seg;
-    }catch{
-      // fallback: usa la stringa pura (per sicurezza) con le stesse regole
-      const m = s.trim().match(/\/maps\/dir\/(.+)/i);
-      if(!m) return null;
-      let seg = m[1];
-      seg = seg.split('/@')[0];
-      seg = seg.split('?')[0];
-      seg = seg.replace(/\/+$/,'');
-      return seg;
+      const norm = seg => seg.split('/@')[0].split('?')[0].replace(/\/+$/,'');
+      try{
+        const m = new URL(s.trim()).pathname.match(/\/maps\/dir\/(.+)/i);
+        return m ? norm(m[1]) : null;
+      }catch{
+        const m = s.trim().match(/\/maps\/dir\/(.+)/i);
+        return m ? norm(m[1]) : null;
+      }
     }
-  }
 
     function isLatLonStr(s){ const m=s.trim().match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/); return m?{lat:m[1],lon:m[2]}:null; }
     async function geocodeTry(q){ try{ const r=await getJSON(`${CONFIG.workerBase}/geocode?q=${encodeURIComponent(q)}`); if(Array.isArray(r)&&r.length) return r[0]; }catch{} return null; }
