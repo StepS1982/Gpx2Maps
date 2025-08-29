@@ -605,10 +605,6 @@
     function stripAtTail(s){
       return s.replace(/\/@.*$/,'').replace(/\/data=.*$/,'').replace(/\?.*$/,'');
     }
-    // Garantisce che ci sia sempre /maps/dir// (non // in mezzo)
-    function ensureDirHead(url){
-      return url.replace(/(\/maps\/dir\/)(?!\/)/, '$1/'); // -> .../dir//...
-    }
     function decodeTok(p){ try{return decodeURIComponent(p).replace(/\+/g,' ').trim()}catch{return p.replace(/\+/g,' ').trim()} }
     function xmlEscape(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
     function fileNameSafe(s){ return (s||'').replace(/[\\\/:*?"<>|]/g,'').replace(/\s+/g,' ').trim(); }
@@ -724,65 +720,7 @@
       return u;
     }
 
-    /* === Avviso POI ambigui per fusioni === */
-    function looksAmbiguousPOI(token){
-      const t = decodeTok(token).toLowerCase().trim();
-      if (!t) return false;
-    
-      // coordinate
-      if (/^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$/.test(t)) return false;
-    
-      // brand/termini molto generici
-      const brands = /^(eni|eni station|bp|q8|esso|ip|tamoil|erg|shell|total|repsol)$/i;
-      const generic = /^(bar|hotel|ristorante|pizzeria|autogrill|area di servizio|stazione di servizio|benzinaio)$/i;
-    
-      if (brands.test(t))  return true;
-      if (generic.test(t)) return true;
-    
-      // token troppo corto (es. "BP")
-      if (t.length <= 3)   return true;
-    
-      return false;
-    }
-
-    // true se è un link Google /maps/dir/ con parametri "ricchi" (POI) tipo ?data=...
-    // rileva i link Google /maps/dir/ “ricchi” (POI) che è meglio NON toccare
-    function isGooglePOILink(urlStr){
-      try{
-        const U = new URL(urlStr);
-        if(!/(^|\.)google\./i.test(U.host)) return false;
-        if(!/\/maps\/dir\//i.test(U.pathname)) return false;
-    
-        // 1) caso più comune: /.../data=!4m... è nel PATH
-        if (U.pathname.includes('/data=')) return true;
-    
-        // 2) alcuni hanno i marker “!” (place id ecc.) dopo /@...
-        if (U.pathname.includes('/@') && /!1m\d/i.test(urlStr)) return true;
-    
-        // 3) place-id esadecimali nel link
-        if (/0x[0-9a-f]+:0x[0-9a-f]+/i.test(urlStr)) return true;
-    
-        // 4) (raro) data come query param
-        if (U.searchParams.has('data')) return true;
-    
-        return false;
-      }catch{
-        return false;
-      }
-    }
-    function buildGoogleDirURL(parts){
-      const arr = parts.slice();
-    
-      // pulizia: niente stringhe vuote interne
-      for (let i = arr.length - 1; i > 0; i--) {
-        if (arr[i] === '') arr.splice(i, 1);
-      }
-      // safety: testa vuota garantita
-      if (arr[0] !== '') arr.unshift('');
-    
-      // costruisci e forza /dir//
-      return ensureDirHead('https://www.google.com/maps/dir/' + arr.join('/'));
-    }
+    function buildGoogleDirURL(parts){ return 'https://www.google.com/maps/dir/'+parts.join('/'); }
     function dedupeAdjacent(a){ const out=[]; let prev=null; for(const x of a){ if(x!==prev) out.push(x); prev=x; } return out; }
     function evenSample(inner,need){ if(need<=0)return[]; if(inner.length<=need)return inner.slice(); const out=[]; for(let i=0;i<need;i++){ const idx=Math.round(i*(inner.length-1)/(need-1)); out.push(inner[idx]); } const res=[]; for(const v of out){ if(res[res.length-1]!==v) res.push(v); } while(res.length>need) res.pop(); return res; }
     function optimizeTo25(all){ if(all.length<=25) return all; const first=all[0], last=all[all.length-1]; const mid=all.slice(1,all.length-1); const sampled=evenSample(mid,23); return [first,...sampled,last].slice(0,25); }
@@ -810,101 +748,38 @@
     }
 
     document.getElementById('btnMerge').addEventListener('click', async ()=>{
-      const lines = document.getElementById('linksInput').value
-        .split('\n').map(s=>s.trim()).filter(Boolean);
-    
-      if(!lines.length){
-        toastCenter('Inserisci almeno un link');
-        return;
-      }
-    
+      const lines=document.getElementById('linksInput').value.split('\n').map(s=>s.trim()).filter(Boolean);
+      if(!lines.length){toastCenter('Inserisci almeno un link');return}
+
       // Caso 1 link con // => errore (coerente con PS)
       if(lines.length===1 && /https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/\//i.test(lines[0])){
         toastCenter('Errore: almeno due link sono necessari per la fusione.');
         return;
       }
-    
-      // === PATCH: 1 solo link → preserva il link così com'è (niente rebuild) ===
-      // --- 1 solo link: apriamo così com'è (niente ricostruzione), con avviso se è un link POI ---
-      if (lines.length === 1){
-        const u = await resolveIfShort(lines[0]); // segue eventuale shortlink
-        if (isGooglePOILink(u)) {
-          toastCenter('Link Google con POI/parametri speciali rilevato: lo apro così com’è. Consiglio: usa coordinate/indirizzi se vuoi massima stabilità o aggiungere "La tua posizione".');
-        }
-        renderOutput([u]);
-        return;
-      }
-    
-      // === Da qui in poi: FUSIONE VERA (2+ link) ===
-      // Risolvi shortlink su ogni riga (maps.app.goo.gl / goo.gl / g.co)
-      // Risolvi shortlink
-      const resolved = [];
-      for (const ln of lines){ resolved.push(await resolveIfShort(ln)); }
-      
-      // Avviso se fra gli input ci sono link POI (potrebbero fondersi male)
-      if (resolved.some(isGooglePOILink)) {
-        toastCenter('Attenzione: tra i link ci sono POI Google (?data=…). La fusione può produrre risultati inattesi. Meglio usare coordinate o indirizzi puliti.');
-      }
-      
-      // Estrai segmenti /maps/dir/
-      const clean = [];
-      for (const link of resolved){
-        const seg = extractDirSegment(link);
-        if (seg) clean.push(seg);
-      }
 
-      if(!clean.length){
-        toastCenter('Nessun link valido "/maps/dir/..." rilevato');
-        return;
-      }
-    
-      // Avviso se compaiono POI ambigui tra i token
-      (function(){
-        const toks = [];
-        for(const seg of clean){
-          for(const p of seg.split('/')) if(p!=='') toks.push(p);
-        }
-        if (toks.some(looksAmbiguousPOI)){
-          toastCenter('Attenzione: rilevati POI generici (es. ENI/BP). La fusione può spostare i punti: meglio usare coordinate o indirizzi completi.');
-        }
-      })();
-    
+      // Risolvi shortlink
+      const resolved=[]; for(const ln of lines){ resolved.push(await resolveIfShort(ln)); }
+
+      // Estrai segmenti /maps/dir/
+      const clean=[]; for(const link of resolved){ const seg=extractDirSegment(link); if(seg) clean.push(seg); }
+      if(!clean.length){ toastCenter('Nessun link valido "/maps/dir/..." rilevato'); return; }
+
       // Costruisci punti con blank iniziale
-      // Costruisci punti con blank iniziale garantito
-      let all = [''];
-      for (const seg of clean){
-        // evito empty interni e tengo il mio blank di testa
-        all.push(...seg.split('/').filter(Boolean));
-      }
-      all = dedupeAdjacent(all);
-      
-      // safety: se per qualunque motivo abbiamo perso il blank, rimettilo
-      if (all[0] !== '') all.unshift('');
-    
-      if(all.length<=25){
-        renderOutput(['https://www.google.com/maps/dir/'+all.join('/')]);
-        return;
-      }
-    
-      // Strategia >25 punti
-      const dlg = document.getElementById('strategyDialog');
-      dlg.showModal();
-      const strategy = await new Promise(r => dlg.addEventListener(
-        'close', ()=>r(dlg.returnValue==='opt'?'optimize':dlg.returnValue==='split'?'split':null),
-        {once:true}
-      ));
-      if(!strategy){
-        toastCenter('Operazione annullata');
-        return;
-      }
-      if(strategy==='optimize'){
-        renderOutput(['https://www.google.com/maps/dir/'+optimizeTo25(all).join('/')]);
-      }else{
-        const blocks = splitInBlocks(all);
-        renderOutput(blocks.map(b=>'https://www.google.com/maps/dir/'+b.join('/')));
-      }
+      let all=[""]; for(const seg of clean){ all.push(...seg.split('/')); }
+
+      // Dedup PRIMA del check 25
+      all=dedupeAdjacent(all);
+
+      if(all.length<=25){ renderOutput([buildGoogleDirURL(all)]); return; }
+
+      // Strategia
+      const dlg=document.getElementById('strategyDialog'); dlg.showModal();
+      const strategy=await new Promise(r=>dlg.addEventListener('close',()=>r(dlg.returnValue==='opt'?'optimize':dlg.returnValue==='split'?'split':null),{once:true}));
+      if(!strategy){ toastCenter('Operazione annullata'); return; }
+      if(strategy==='optimize'){ renderOutput([buildGoogleDirURL(optimizeTo25(all))]); }
+      else { const blocks=splitInBlocks(all); renderOutput(blocks.map(b=>buildGoogleDirURL(b))); }
     });
-    
+
     document.getElementById('btnClear').addEventListener('click',()=>{
       document.getElementById('linksInput').value='';
       document.getElementById('output').innerHTML='';
@@ -1268,7 +1143,7 @@
       if(!points || points.length<1){ toastCenter('Servono almeno 1-2 punti'); return; }
     
       let all = partsFromPoints(points); // ['','lat,lon',...]
-      if(all.length<=25){ renderOutput3([ ensureDirHead('https://www.google.com/maps/dir/'+all.join('/')) ]); return; }
+      if(all.length<=25){ renderOutput3(['https://www.google.com/maps/dir/'+all.join('/')]); return; }
     
       // Troppi punti: usa la stessa modale del Tab 1
       const dlg=document.getElementById('strategyDialog'); dlg.showModal();
@@ -1277,10 +1152,10 @@
     
       if(strategy==='optimize'){
         all = optimizeTo25(all);
-        renderOutput3([ ensureDirHead('https://www.google.com/maps/dir/'+all.join('/')) ]);
+        renderOutput3(['https://www.google.com/maps/dir/'+all.join('/')]);
       }else{
         const blocks = splitInBlocks(all); // solo il primo mantiene "" all'inizio
-        renderOutput3(blocks.map(b => ensureDirHead('https://www.google.com/maps/dir/'+b.join('/'))));
+        renderOutput3(blocks.map(b=>'https://www.google.com/maps/dir/'+b.join('/')));
       }
     }
     
