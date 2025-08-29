@@ -1973,11 +1973,11 @@
         const stamp = nowStamp();
   
         // HTML METEO
-        const html = htmlMeteoDay(title, wxRows, dayLabels);
-        const htmlBlobDay = new Blob([html], {type:'text/html;charset=utf-8'});
-        const html = htmlMeteoWeek(title, wxRows, dayLabels);
-        const htmlBlobWeek = new Blob([html], {type:'text/html;charset=utf-8'});
-
+        const htmlWeek = htmlMeteoWeek(title, wxRows, dayLabels);
+        const htmlBlobWeek = new Blob([htmlWeek], {type:'text/html;charset=utf-8'});
+        const htmlDay = htmlMeteoDay(title, wxRows, dayLabels);
+        const htmlBlobDay = new Blob([htmlDay], {type:'text/html;charset=utf-8'});
+        
         function buildInfoPercorsoCSV(rows){
           const esc = s => `"${String(s).replace(/"/g,'""')}"`;
           const km = k => formatKmIT(k).replace(' km',''); // solo numero con virgola
