@@ -51,6 +51,39 @@
     @keyframes fadePop{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
     .out-item+.out-item{margin-top:8px}
     footer{margin:36px auto 24px;max-width:1100px;color:var(--muted);font-size:13px;padding:0 16px}
+    /* flash evidenziazione card risultati */
+    @keyframes flashHighlight {
+      0% { box-shadow: 0 0 0 0 rgba(14,165,233,.55) }
+      100%{ box-shadow: 0 0 0 14px rgba(14,165,233,0) }
+    }
+    .flash-highlight { animation: flashHighlight .9s ease-out 2 }
+    
+    /* toast con azioni */
+    .toast.center.action{
+      display:flex; flex-direction:column; gap:8px; min-width:280px; max-width:92vw;
+    }
+    .toast.center.action .row{ justify-content:flex-end }
+    .toast.center.action .closex{
+      position:absolute; top:6px; right:8px; appearance:none; border:none; background:transparent;
+      color:#cbd5e1; cursor:pointer; font-weight:900; font-size:16px;
+    }
+    
+    /* footer smart (bar flottante) */
+    .smart-footer{
+      position:fixed; left:12px; right:12px; bottom:12px; z-index:70;
+      display:flex; align-items:center; gap:10px; padding:10px 12px;
+      background:#fff; border:1px solid var(--border); border-radius:12px;
+      box-shadow:0 10px 26px rgba(0,0,0,.18);
+    }
+    .smart-footer .msg{ font-weight:700 }
+    .smart-footer .sp{ flex:1 1 auto }
+    .smart-footer .ghostx{
+      appearance:none; border:1px solid var(--border); background:#fff; color:var(--muted);
+      padding:6px 10px; border-radius:999px; cursor:pointer; font-weight:700;
+    }
+    @media (min-width:900px){
+      .smart-footer{ left:calc(50% - 540px + 12px); right:calc(50% - 540px + 12px) }
+    }
   </style>
 </head>
 <body>
@@ -284,6 +317,15 @@
 
   <div id="toastsCenter" aria-live="polite" aria-atomic="true"></div>
 
+  <!-- Footer "smart" flottante (compare on-demand) -->
+  <div id="smartFooter" class="smart-footer" hidden>
+    <div class="msg">Supporta il progetto</div>
+    <div class="sp"></div>
+    <a id="smartDonate" class="btn small" href="#" target="_blank" rel="noopener">Dona</a>
+    <a id="smartAmazon" class="btn small secondary" href="#" target="_blank" rel="noopener">Coupon Amazon</a>
+    <button id="smartClose" class="ghostx" aria-label="Nascondi">Nascondi</button>
+  </div>
+
   <script>
     /* === CONFIG senza object literal (no caratteri invisibili) === */
     const CONFIG = {};
@@ -327,6 +369,87 @@
     }
     function toastCenter(msg){ _toastQ.push(msg); _toastShowNext(); }
     function toast(msg){ toastCenter(msg); }
+
+    /* === UI helpers globali === */
+function throttle(fn, wait){ let t=0; return (...a)=>{ const n=Date.now(); if(n-t>wait){ t=n; fn(...a);} }; }
+function focusResultsSection(sel){
+  const el = document.querySelector(sel);
+  if(!el) return;
+  const y = el.getBoundingClientRect().top + window.scrollY - 12;
+  try{ window.scrollTo({top:y, behavior:'smooth'}); }catch{ window.scrollTo(0,y); }
+  el.classList.add('flash-highlight');
+  setTimeout(()=>el.classList.remove('flash-highlight'), 1800);
+}
+
+    /* Footer smart: mostra su eventi felici / metà scroll, con dismiss persistente */
+    (function(){
+      const el = document.getElementById('smartFooter');
+      if(!el) return;
+      const dismissKey = 'smartFooterHidden';
+      const show = ()=>{ if(localStorage.getItem(dismissKey)==='1') return; el.hidden=false; };
+      const hide = ()=>{ el.hidden=true; };
+    
+      // Aggancia URL ai bottoni (riusa le config già settate in alto)
+      document.getElementById('smartDonate').href = CONFIG.paypalDonateUrl;
+      document.getElementById('smartAmazon').href = CONFIG.amazonAffiliateUrl;
+    
+      document.getElementById('smartClose').addEventListener('click', ()=>{
+        localStorage.setItem(dismissKey,'1'); hide();
+      });
+    
+      // trigger su metà scroll
+      const onScrollHalf = throttle(()=>{
+        const ratio = (window.scrollY + window.innerHeight) / Math.max(1, document.body.scrollHeight);
+        if(ratio >= 0.5){ show(); window.removeEventListener('scroll', onScrollHalf); }
+      }, 300);
+      window.addEventListener('scroll', onScrollHalf);
+    
+      // esponi una funzione globale per mostrarlo nei “momenti felici”
+      window.showSmartFooter = ()=> show();
+    })();
+    
+    /* Toast "Dona" (azione) con snooze via ✕ */
+    (function(){
+      const SNOOZE_MS = 24*60*60*1000;          // 24h
+      const MIN_INTERVAL = 5*60*1000;           // 5 minuti
+      const LS_LAST = 'donate_last_shown';
+      const LS_SNOOZE = 'donate_snooze_until';
+      let visible = false;
+    
+      function now(){ return Date.now(); }
+      function canShow(){
+        const snooze = +localStorage.getItem(LS_SNOOZE) || 0;
+        const last   = +localStorage.getItem(LS_LAST)   || 0;
+        const t = now();
+        return t > snooze && (t - last) > MIN_INTERVAL;
+      }
+      function markShown(){ localStorage.setItem(LS_LAST, String(now())); }
+      function snooze(){ localStorage.setItem(LS_SNOOZE, String(now()+SNOOZE_MS)); }
+    
+      window.maybeNudgeDonate = function(){
+        if(visible || !canShow()) return;
+        visible = true; markShown();
+    
+        const box = document.getElementById('toastsCenter');
+        const t = document.createElement('div');
+        t.className = 'toast center action';
+        t.innerHTML = `
+          <button class="closex" aria-label="Chiudi">×</button>
+          <div class="msg" style="max-width:64ch; text-transform:uppercase;">
+            SE TI PIACE IL SOFTWARE E LO USI, VALUTA DI DONARE QUALCOSA ALLO SVILUPPATORE ❤️
+          </div>
+          <div class="row">
+            <a class="btn small" href="${CONFIG.paypalDonateUrl}" target="_blank" rel="noopener">Dona</a>
+          </div>
+        `;
+        box.appendChild(t);
+    
+        const close = ()=>{ if(t.parentNode) t.parentNode.removeChild(t); visible=false; };
+        t.querySelector('.closex').addEventListener('click', ()=>{ snooze(); close(); });
+    
+        setTimeout(close, 8000); // autohide
+      };
+    })();
     
     async function confirmAction(text){
       const dlg=document.getElementById('confirmDialog');
@@ -623,6 +746,9 @@
       });
       document.getElementById('btnDownloadAll').style.display='';
       toastCenter(`Risultati aggiornati (${n} link)`);
+      focusResultsSection('#tab-merge .out');
+      maybeNudgeDonate();
+      showSmartFooter();
     }
     // Rileva se un segmento /maps/dir/ contiene POI/indirizzi "commerciali"
     function segHasPOI(seg){
@@ -1027,6 +1153,9 @@
       }
       document.getElementById('btnDownloadAll3').style.display='';
       toastCenter(`Risultati aggiornati (${n} link)`);
+      focusResultsSection('#tab-gpx2maps .out');
+      maybeNudgeDonate();
+      showSmartFooter();
     }
     
     async function makeLinksFrom(points){
@@ -1915,6 +2044,9 @@
         addFileRow('Info Percorso TXT', txtBlob, fTXT, true);
         addFileRow('Info Percorso CSV', csvBlob, fCSV, false);
         toastCenter('Meteo + Info percorso pronti');
+        focusResultsSection('#tab-meteo .out');
+        maybeNudgeDonate();
+        showSmartFooter();
       }catch(e){
         console.error(e);
         toastCenter('Errore: '+(e&&e.message?e.message:String(e)));
