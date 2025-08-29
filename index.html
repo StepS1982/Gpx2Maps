@@ -430,6 +430,10 @@
     }
     
     /* === UI helpers globali === */
+// === Donate nudge: sempre, testuale, in coda toast ===
+const DONATE_TOAST_MSG =
+  "SE TI PIACE IL SOFTWARE, FAI UNA DONAZIONE ALLO SVILUPPATORE. RICORDATI CHE PUOI ANCHE USUFRUIRE DEL LINK AMAZON SEGRETO PER ACCEDERE DIRETTAMENTE A SCONTI CON COUPON";
+function nudgeDonate(){ toastCenter(DONATE_TOAST_MSG); }
 function throttle(fn, wait){ let t=0; return (...a)=>{ const n=Date.now(); if(n-t>wait){ t=n; fn(...a);} }; }
 function focusResultsSection(sel){
   const el = document.querySelector(sel);
@@ -803,6 +807,7 @@ function focusResultsSection(sel){
       focusResultsSection('#tab-merge .out');
       maybeNudgeDonate();
       showSmartFooter();
+      nudgeDonate();
     }
     // Rileva se un segmento /maps/dir/ contiene POI/indirizzi "commerciali"
     function segHasPOI(seg){
@@ -1092,6 +1097,7 @@ function focusResultsSection(sel){
       const prevT=gpxTRK.split('\n').slice(0,200).join('\n'); document.getElementById('gpxPreviewTrk').textContent=prevT+(gpxTRK.length>prevT.length?'\n...':''); document.getElementById('previewWrapTrk').hidden=false;
       document.getElementById('dlRow').style.display='';
       toastCenter('GPX RTE & TRK pronti');
+      nudgeDonate();
     });
 
     function downloadBlob(name, content, mime){
@@ -1210,6 +1216,7 @@ function focusResultsSection(sel){
       focusResultsSection('#tab-gpx2maps .out');
       maybeNudgeDonate();
       showSmartFooter();
+      nudgeDonate();
     }
     
     async function makeLinksFrom(points){
@@ -2101,6 +2108,7 @@ function focusResultsSection(sel){
         focusResultsSection('#tab-meteo .out');
         maybeNudgeDonate();
         showSmartFooter();
+        nudgeDonate();
       }catch(e){
         console.error(e);
         toastCenter('Errore: '+(e&&e.message?e.message:String(e)));
