@@ -416,16 +416,6 @@
       'italia','svizzera','switzerland','italy','provincia','province',
       'mi','co','va','lc','bg','ge','no','vb','vs'
     ]);
-    function keywordsFromToken(s){
-      const arr = applySynonyms(s).split(' ');
-      return arr.filter(w => {
-        if(!w) return false;
-        if(IT_STOP.has(w)) return false;
-        if(/^[0-9]+$/.test(w)) return false;     // ZIP/civici
-        if(w.length <= 3) return false;          // sigle molto corte
-        return true;
-      });
-    }
     // match "severo ma giusto", con soglia morbida per passi/colle
     function nameMatchesToken(token, display){
       const hayNorm = ' ' + applySynonyms(display) + ' ';
@@ -449,26 +439,7 @@
       const threshold = isPass ? 0.45 : 0.60;
       return (hit/kw.length) >= threshold;
     }
-    // pulizia *prima* del geocoding (togli CAP/codici, “Provincia di …”)
-    function cleanForGeocode(t){
-      let s = decodeTok(t);
-      s = s.replace(/\bch[-\s]?\d{4,5}\b/gi,''); // CH-3999
-      s = s.replace(/\b\d{4,5}\b/g,'');         // 3999, 3907, 20100...
-      s = s.replace(/,\s*(?:MI|CO|VA|LC|BG|GE|NO|VB|VS|TI|GR|UR|BE|ZH|ZG|SG|VD|JU|FR|BS|BL|AG|SO|AR|AI|GE|LU|NE|OW|NW|SH|SZ|TG)\b/gi,'');
-      s = s.replace(/\bprovincia\s+di\s+[a-zà-ù]+/gi,'');
-      s = s.replace(/\s*,\s*,+/g,',');          // comprime virgole doppie
-      s = s.replace(/^[,\s]+|[,\s]+$/g,'');     // toglie virgole/spazi ai bordi
-      s = s.replace(/\s{2,}/g,' ').trim();
-      if(s.endsWith(',')) s = s.slice(0,-1).trim();
-      return s;
-    }
-    function looksLocalityClass(g){
-      const c = String(g && g.class || '');
-      return /^(place|boundary|highway|natural|mountain_pass|waterway|aeroway|railway|man_made)$/.test(c);
-    }
-    function tokenMentionsCountry(t){
-      return /\b(italia|svizzera|francia|france|germania|austria|slovenia)\b/i.test(String(t));
-    }
+    
     // === Riconoscimento "località" vs "POI/commerciale" + match stretto per POI ===
     const POI_KEYWORDS = [
       'autogrill','hotel','ristorante','pizzeria','birroteca','trattoria','osteria','bar',
@@ -487,13 +458,6 @@
       const s=_norm(token);
       return POI_KEYWORDS.some(k=>s.includes(k));
     }
-    function coreWordsForPOI(token){
-      const s=_norm(token).replace(/[^\p{L}\p{N}\s]/gu,' ');
-      const stop = new Set(['italia','italy','svizzera','switzerland','provincia','comune','citta','city','town','village','hamlet','localita',
-        'di','del','della','delle','degli','dei','da','dal','dallo','dalla','allo','alla','al','ai','agli','alle','lo','la','le','il','in','su'
-      ]);
-      return s.split(/\s+/).filter(w => w && w.length>=3 && !stop.has(w) && !/^\d{5}$/.test(w));
-    }
     function isLocalityToken(token){
       const s=_norm(token);
       if (STREET_WORDS_RE.test(s)) return false;
@@ -503,27 +467,6 @@
       if (/, *\d+\b/.test(token) && /\b(via|viale|piazza|corso|largo|piazzale)\b/i.test(token)) return false;
       return true;
     }
-    function poiAccept(token, geocoded){
-      if(!geocoded) return false;
-      const disp=_norm(geocoded.display_name||'');
-      const cls=(geocoded.class||geocoded.category||'').toLowerCase();
-      const type=(geocoded.type||'').toLowerCase();
-    
-      const words = coreWordsForPOI(token);
-      let hits=0; for(const w of words){ if(disp.includes(w)) hits++; }
-    
-      // se il token ha un brand esplicito, deve comparire nel risultato
-      const tokenHasBrand = hasPOIKeyword(token);
-      const brandOk = !tokenHasBrand || POI_KEYWORDS.some(k=>disp.includes(k));
-    
-      // classi accettabili per POI; per highway accettiamo solo aree/servizi autostradali
-      const classOk = /^(amenity|tourism|shop|leisure|man_made|highway|place)$/.test(cls);
-      const highwayOk = (cls!=='highway') || /^(services|rest_area|motorway_junction|service|fuel)$/.test(type);
-    
-      // Match stretto: almeno 2 parole significative, e se c'è brand dev'essere presente
-      return classOk && highwayOk && brandOk && (hits>=2);
-    }
-    
     // === Indizi per validare i fallback Nominatim ===
     function hasCountryWord(s){
       return /\b(italia|italy|svizzera|switzerland)\b/i.test(s);
@@ -535,73 +478,8 @@
       const tailKw = _norm(tail).split(/\s+/).filter(w=>w.length>=4 && /^[a-z]/.test(w));
       return { cap, tailKw };
     }
-    function acceptByHints(originalToken, geocoded){
-      if(!geocoded) return false;
-      const disp = _norm(geocoded.display_name||'');
-      const {cap, tailKw} = hintsFromToken(originalToken);
-    
-      // 1) CAP presente nel display_name => forte indicazione
-      if(cap && disp.includes(cap)) return true;
-    
-      // 2) almeno 2 keyword significative dalle ultime parti compaiono nel display_name
-      let hits = 0;
-      for(const kw of tailKw){ if(disp.includes(kw)) hits++; }
-      return hits >= 2;
-    }
-    function buildFallbackQueries(token){
-      const out = [];
-      const needCountry = !hasCountryWord(token);
-      const add = q => { if(q && q!==token && !out.includes(q)) out.push(q); };
-    
-      const stripProvincia = s => s.replace(/\bprovincia di\b\s*/i,'').replace(/\bprov\.\s*/i,'');
-    
-      const parts = token.split(',').map(s=>s.trim()).filter(Boolean);
-      if(parts.length>=2) add(stripProvincia(parts.slice(-2).join(', ')) + (needCountry? ', Italia' : ''));
-      if(parts.length>=1) add(stripProvincia(parts.slice(-1)[0])          + (needCountry? ', Italia' : ''));
-      add(stripProvincia(token) + (needCountry? ', Italia' : ''));
-    
-      return out;
-    }
-    
     // --- helper: pulizia minima indirizzi IT quando il primo tentativo fallisce ---
-    function cleanAddressTokenForGeocode(raw){
-      let s = decodeTok(raw).replace(/\s+/g,' ').trim();
-    
-      // 1) se il primo pezzo prima della virgola sembra un brand (niente numeri e non "via/viale/..."), lo scarto
-      const parts = s.split(',');
-      if (parts.length >= 2) {
-        const first = parts[0].trim().toLowerCase();
-        const looksLikeBrand = !/\d/.test(first) &&
-          !/^(via|viale|v\.|viale|piazza|p\.za|corso|largo|strada|ss|sp|sr|autostrada|a\d+)/i.test(first);
-        if (looksLikeBrand) s = parts.slice(1).join(',').trim();
-      }
-    
-      // 2) tolgo eventuale sigla provincia finale (", MI" oppure " MI")
-      s = s.replace(/,\s*[A-Z]{2}\b$/,'').replace(/\s+[A-Z]{2}\b$/,'');
-    
-      // 3) normalizzo un possibile inizio tipo "A1" -> "Autostrada A1" (aiuta Nominatim)
-      s = s.replace(/^A(\d+)\b/i,'Autostrada A$1');
-    
-      return s.replace(/\s+/g,' ').trim();
-    }
     // Normalizza query "rognose" (Provincia di..., CAP+sigla, ecc.)
-    function normalizeQuery(q){
-      let s = String(q);
-    
-      // "Provincia di Bergamo" -> "Bergamo"
-      s = s.replace(/\bProvincia di\s+([^,]+)/gi, '$1');
-    
-      // ", 24121-24129" o ", 22100 CO" o ", 22100"
-      s = s.replace(/,\s*\d{5}(?:-\d{5})?\s*[A-Z]{0,2}\b/gi, '');
-    
-      // ", CO" (solo sigla provincia)
-      s = s.replace(/,\s*[A-Z]{2}\b/g, '');
-    
-      // spazi multipli / virgole sporche
-      s = s.replace(/\s{2,}/g, ' ').replace(/\s*,\s*/g, ', ').trim();
-    
-      return s;
-    }
     function stripAtTail(s){
       return s.replace(/\/@.*$/,'').replace(/\/data=.*$/,'').replace(/\?.*$/,'');
     }
