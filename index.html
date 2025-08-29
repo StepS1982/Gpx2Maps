@@ -328,24 +328,6 @@
     function toastCenter(msg){ _toastQ.push(msg); _toastShowNext(); }
     function toast(msg){ toastCenter(msg); }
     
-    function _pumpToast(){
-      if (toastBusy || toastQueue.length===0) return;
-      toastBusy = true;
-    
-      const box = document.getElementById('toastsCenter');
-      box.innerHTML = ''; // mostro un solo toast per volta
-      const t = document.createElement('div');
-      t.className = 'toast center';
-      t.textContent = toastQueue.shift();
-      box.appendChild(t);
-    
-      setTimeout(()=>{
-        if (t.parentNode) t.parentNode.removeChild(t);
-        toastBusy = false;
-        _pumpToast(); // mostra il prossimo in coda
-      }, TOAST_MS);
-    }
-    
     async function confirmAction(text){
       const dlg=document.getElementById('confirmDialog');
       document.getElementById('confirmText').textContent=text||'';
