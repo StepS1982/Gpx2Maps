@@ -742,12 +742,26 @@
     }
 
     // true se è un link Google /maps/dir/ con parametri "ricchi" (POI) tipo ?data=...
+    // rileva i link Google /maps/dir/ “ricchi” (POI) che è meglio NON toccare
     function isGooglePOILink(urlStr){
       try{
         const U = new URL(urlStr);
         if(!/(^|\.)google\./i.test(U.host)) return false;
         if(!/\/maps\/dir\//i.test(U.pathname)) return false;
-        return U.searchParams.has('data'); // basta questo per i casi problematici
+    
+        // 1) caso più comune: /.../data=!4m... è nel PATH
+        if (U.pathname.includes('/data=')) return true;
+    
+        // 2) alcuni hanno i marker “!” (place id ecc.) dopo /@...
+        if (U.pathname.includes('/@') && /!1m\d/i.test(urlStr)) return true;
+    
+        // 3) place-id esadecimali nel link
+        if (/0x[0-9a-f]+:0x[0-9a-f]+/i.test(urlStr)) return true;
+    
+        // 4) (raro) data come query param
+        if (U.searchParams.has('data')) return true;
+    
+        return false;
       }catch{
         return false;
       }
