@@ -602,7 +602,9 @@
     
       return s;
     }
-    function stripAtTail(s){ return s.replace(/\/@.*$/,'').replace(/\/data=.*$/,''); }
+    function stripAtTail(s){
+      return s.replace(/\/@.*$/,'').replace(/\/data=.*$/,'').replace(/\?.*$/,'');
+    }
     function decodeTok(p){ try{return decodeURIComponent(p).replace(/\+/g,' ').trim()}catch{return p.replace(/\+/g,' ').trim()} }
     function xmlEscape(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
     function fileNameSafe(s){ return (s||'').replace(/[\\\/:*?"<>|]/g,'').replace(/\s+/g,' ').trim(); }
