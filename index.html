@@ -741,25 +741,15 @@
       return false;
     }
 
-    // Inserisce il punto iniziale “La tua posizione” (/dir//) senza toccare la query (?data=...).
-    function ensureBlankHeadGoogleDir(urlStr){
+    // true se è un link Google /maps/dir/ con parametri "ricchi" (POI) tipo ?data=...
+    function isGooglePOILink(urlStr){
       try{
         const U = new URL(urlStr);
-        if(!/(^|\.)google\./i.test(U.host)) return urlStr;
-    
-        const path = U.pathname;
-        const marker = '/maps/dir/';
-        const idx = path.toLowerCase().indexOf(marker);
-        if(idx === -1) return urlStr;
-    
-        const tail = path.slice(idx + marker.length); // ciò che segue "/maps/dir/"
-        if(tail.startsWith('/')) return U.toString(); // già ha "//" → ok
-    
-        // aggiungi una slash extra subito dopo "/maps/dir/"
-        U.pathname = path.slice(0, idx + marker.length) + '/' + tail;
-        return U.toString();
+        if(!/(^|\.)google\./i.test(U.host)) return false;
+        if(!/\/maps\/dir\//i.test(U.pathname)) return false;
+        return U.searchParams.has('data'); // basta questo per i casi problematici
       }catch{
-        return urlStr;
+        return false;
       }
     }
     
@@ -806,13 +796,11 @@
       }
     
       // === PATCH: 1 solo link → preserva il link così com'è (niente rebuild) ===
+      // --- 1 solo link: apriamo così com'è (niente ricostruzione), con avviso se è un link POI ---
       if (lines.length === 1){
-        let u = await resolveIfShort(lines[0]);      // segue shortlink (se serve)
-        u = ensureBlankHeadGoogleDir(u);             // << aggiunge /dir// mantenendo ?data=
-        if (/[?&]data=/.test(u)){
-          toastCenter('Link con POI Google preservato; aggiunto il punto iniziale “La tua posizione”.');
-        } else {
-          toastCenter('Aggiunto il punto iniziale “La tua posizione”.');
+        const u = await resolveIfShort(lines[0]); // segue eventuale shortlink
+        if (isGooglePOILink(u)) {
+          toastCenter('Link Google con POI/parametri speciali rilevato: lo apro così com’è. Consiglio: usa coordinate/indirizzi se vuoi massima stabilità o aggiungere "La tua posizione".');
         }
         renderOutput([u]);
         return;
@@ -820,15 +808,22 @@
     
       // === Da qui in poi: FUSIONE VERA (2+ link) ===
       // Risolvi shortlink su ogni riga (maps.app.goo.gl / goo.gl / g.co)
+      // Risolvi shortlink
       const resolved = [];
-      for(const ln of lines){ resolved.push(await resolveIfShort(ln)); }
-    
+      for (const ln of lines){ resolved.push(await resolveIfShort(ln)); }
+      
+      // Avviso se fra gli input ci sono link POI (potrebbero fondersi male)
+      if (resolved.some(isGooglePOILink)) {
+        toastCenter('Attenzione: tra i link ci sono POI Google (?data=…). La fusione può produrre risultati inattesi. Meglio usare coordinate o indirizzi puliti.');
+      }
+      
       // Estrai segmenti /maps/dir/
       const clean = [];
-      for(const link of resolved){
+      for (const link of resolved){
         const seg = extractDirSegment(link);
         if (seg) clean.push(seg);
       }
+
       if(!clean.length){
         toastCenter('Nessun link valido "/maps/dir/..." rilevato');
         return;
