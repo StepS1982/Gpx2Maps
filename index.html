@@ -387,7 +387,21 @@
         if (closeBtn) closeBtn.addEventListener('click', ()=>{ _hide(); });
     
         const cta = t.querySelector('[data-cta]');
-        if (cta) cta.addEventListener('click', ()=>{ _hide(); });
+        if (cta) {
+          cta.addEventListener('click', (ev)=>{
+            // Se è un <a>, lascia la navigazione al browser e CHIUDI DOPO
+            if (cta.tagName.toLowerCase() === 'a') {
+              // piccolo delay per non “strappare” il nodo prima che navighi
+              setTimeout(_hide, 350);
+            } else {
+              // fallback se fosse un <button>: apri tu e poi chiudi
+              const href = cta.getAttribute('data-href') || cta.getAttribute('href') || CONFIG.paypalDonateUrl;
+              window.open(href, '_blank', 'noopener,noreferrer');
+              setTimeout(_hide, 350);
+            }
+          }, { passive:true });
+        }
+
       } else {
         t = _makeBaseToast('toast center');
         t.textContent = String(item);
@@ -481,7 +495,9 @@ function focusResultsSection(sel){
             SE TI PIACE IL SOFTWARE E LO USI, VALUTA DI DONARE QUALCOSA ALLO SVILUPPATORE ❤️
           </div>
           <div class="row" style="justify-content:flex-end;">
-            <a class="btn small" data-cta href="${CONFIG.paypalDonateUrl}" target="_blank" rel="noopener">Dona</a>
+            <a class="btn small" data-cta
+               href="...paypal..."
+               target="_blank" rel="external noopener noreferrer">Dona</a>
           </div>
         `;
     
