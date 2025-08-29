@@ -525,10 +525,6 @@
     }
     
     // === Indizi per validare i fallback Nominatim ===
-    function _norm(s){
-      return String(s||'').toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g,''); // togli accenti
-    }
     function hasCountryWord(s){
       return /\b(italia|italy|svizzera|switzerland)\b/i.test(s);
     }
