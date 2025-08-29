@@ -444,7 +444,7 @@
     const POI_KEYWORDS = [
       'autogrill','hotel','ristorante','pizzeria','birroteca','trattoria','osteria','bar',
       'mcdonald','burger king','ikea','decathlon','outlet','supermercato','esselunga',
-      'carrefour','coop','lidl','iper','ipercoop','conad','eni','q8','tamoil','ip',
+      'carrefour','coop','lidl','iper','ipercoop','conad','eni','q8','tamoil','ip', 'bp',
       'stazione di servizio','area di servizio','area servizio','services','service'
     ];
     const STREET_WORDS_RE = /\b(via|viale|piazza|piazzale|corso|largo|strada|autostrada|uscita|svincolo|tangenziale)\b/i;
@@ -624,7 +624,16 @@
       document.getElementById('btnDownloadAll').style.display='';
       toastCenter(`Risultati aggiornati (${n} link)`);
     }
-
+    // Rileva se un segmento /maps/dir/ contiene POI/indirizzi "commerciali"
+    function segHasPOI(seg){
+      const isLatLon = s => /^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$/.test(s);
+      return seg.split('/').some(p => {
+        const tok = decodeTok(p);
+        if (!tok || isLatLon(tok)) return false;
+        // brand/POI noti, indirizzi con civico, parole da strada
+        return hasPOIKeyword(tok) || /,\s*\d+\b/.test(tok) || STREET_WORDS_RE.test(tok);
+      });
+    }
     document.getElementById('btnMerge').addEventListener('click', async ()=>{
       const lines=document.getElementById('linksInput').value.split('\n').map(s=>s.trim()).filter(Boolean);
       if(!lines.length){toastCenter('Inserisci almeno un link');return}
@@ -641,7 +650,10 @@
       // Estrai segmenti /maps/dir/
       const clean=[]; for(const link of resolved){ const seg=extractDirSegment(link); if(seg) clean.push(seg); }
       if(!clean.length){ toastCenter('Nessun link valido "/maps/dir/..." rilevato'); return; }
-
+      // solo avviso informativo: link con POI/parametri speciali
+      if (clean.some(segHasPOI)) {
+        toastCenter('Link Google con POI/parametri speciali rilevato: lo apro così com’è. Consiglio: usa coordinate/indirizzi se vuoi massima stabilità o aggiungere "La tua posizione".');
+      }
       // Costruisci punti con blank iniziale
       let all=[""]; for(const seg of clean){ all.push(...seg.split('/')); }
 
