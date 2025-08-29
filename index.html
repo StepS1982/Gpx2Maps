@@ -21,6 +21,17 @@
     .btn{appearance:none;border:1px solid transparent;background:var(--btn);color:#fff;padding:10px 14px;border-radius:999px;cursor:pointer;font-weight:700}
     .btn.secondary{background:var(--btn2)} .btn.ghost{background:#fff;color:var(--fg);border-color:var(--border)} .btn.small{padding:6px 10px;font-weight:600} .btn.danger{background:var(--btnDanger)}
     .btn.xs{padding:4px 8px;font-size:12px;line-height:1.1;border-radius:999px;font-weight:700}
+    /* chip giallina */
+    .btn.chip-yellow{
+      background:#fff8b5;          /* canarino leggero */
+      color:#4d3d00;               /* testo leggibile */
+      border-color:#f0e38a;
+    }
+    .btn.chip-yellow:hover,
+    .btn.chip-yellow:focus{
+      background:#fff49a;
+      border-color:#eadc73;
+    }
     .container{max-width:1100px;margin:0 auto;padding:16px}
     .note{margin:14px 0 6px;color:var(--muted);font-size:14px}
     .tabs{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--border);margin-top:12px}
@@ -102,10 +113,10 @@
     <section id="tab-maps2gpx" class="card" hidden>
       <div class="hd" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <span>2) Google Maps → GPX</span>
-        <a class="btn xs ghost"
+        <a class="btn xs chip-yellow"
            href="https://mapstogpx.com/"
            target="_blank" rel="noopener"
-           style="white-space:nowrap;">
+           style="white-space:nowrap;margin-left:10px;">
           Sito WEB esterno per la conversione da Maps a GPX
         </a>
       </div>
