@@ -65,10 +65,6 @@
       display:flex; flex-direction:column; gap:8px; min-width:280px; max-width:92vw;
     }
     .toast.center.action .row{ justify-content:flex-end }
-    .toast.center.action .closex{
-      position:absolute; top:6px; right:8px; appearance:none; border:none; background:transparent;
-      color:#cbd5e1; cursor:pointer; font-weight:900; font-size:16px;
-    }
     .toast.center.action { position: relative; }
     .toast.center.action .closex{
       position:absolute; top:6px; right:8px; appearance:none; border:none; background:transparent;
@@ -351,7 +347,7 @@
       const id=btn.dataset.tab;
       ['merge','maps2gpx','gpx2maps','sanitize','meteo'].forEach(k=>{
         const s=document.getElementById(`tab-${k}`);
-        if(s) s.hidden = k!==id && !(k==='merge'&&id===undefined);
+        if(s) s.hidden = k!==id;
       });
     }));
 
@@ -1920,7 +1916,7 @@ function focusResultsSection(sel){
       return url; // per eventuale revoke in futuro
     }
 
-    function toastQueued(msg, ms=5000){
+    function toastQueued(msg){
       // tua funzione di coda già esistente; se non ce l’hai, riusa toastCenter con setTimeout a 5s
       toastCenter(msg); // e mantieni durata 5000ms globalmente
     }
@@ -1962,7 +1958,6 @@ function focusResultsSection(sel){
   
         // Weather per ogni località
         const wxRows = [];
-        const wxDayLabelsRef = null;
         let dayLabels = null;
         for(let i=0;i<ordered.length;i++){
           $out.querySelector('.note').textContent = `Meteo ${i+1}/${ordered.length}...`;
