@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://gpx2maps.pages.dev/sitemap.xml
