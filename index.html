@@ -1058,6 +1058,9 @@ function focusResultsSection(sel){
       const prevT=gpxTRK.split('\n').slice(0,200).join('\n'); document.getElementById('gpxPreviewTrk').textContent=prevT+(gpxTRK.length>prevT.length?'\n...':''); document.getElementById('previewWrapTrk').hidden=false;
       document.getElementById('dlRow').style.display='';
       toastCenter('GPX RTE & TRK pronti');
+      focusResultsSection('#tab-maps2gpx .out');
+      showSmartFooter();
+      nudgeDonate();
       nudgeDonate();
     });
 
