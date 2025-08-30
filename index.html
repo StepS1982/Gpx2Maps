@@ -1941,7 +1941,7 @@ function focusResultsSection(sel){
       if(!notFound || !notFound.length) return;
       const shown = notFound.slice(0,6).join(' · ');
       const suffix = notFound.length>6 ? `… (tot: ${notFound.length})` : '';
-      toastQueued(`Non localizzati: ${shown}${suffix}`, 5000);
+      toastQueued(`Non localizzati: ${shown}${suffix}`);
     }
   
     document.getElementById('btnGenMeteo').addEventListener('click', async()=>{
