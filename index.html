@@ -763,6 +763,14 @@ function focusResultsSection(sel){
       focusResultsSection('#tab-merge .out');
       showSmartFooter();
       nudgeDonate();
+      toastAction(`
+        <button class="closex" data-close aria-label="Chiudi">×</button>
+        <div><strong>Ti è utile GPX2MAPS?</strong></div>
+        <div class="row">
+          <button class="btn ghost" data-close>No, grazie</button>
+          <a class="btn" data-cta href="${CONFIG.paypalDonateUrl}" target="_blank" rel="noopener">Dona</a>
+        </div>
+      `, 8000, ()=>console.log('toast chiuso'));
     }
     // Rileva se un segmento /maps/dir/ contiene POI/indirizzi "commerciali"
     function segHasPOI(seg){
