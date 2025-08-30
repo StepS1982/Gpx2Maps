@@ -386,21 +386,18 @@
         const closeBtn = t.querySelector('[data-close]');
         if (closeBtn) closeBtn.addEventListener('click', ()=>{ _hide(); });
     
-        const cta = t.querySelector('[data-cta]');
-        if (cta) {
-          cta.addEventListener('click', (ev)=>{
-            // Se è un <a>, lascia la navigazione al browser e CHIUDI DOPO
+        const ctas = t.querySelectorAll('[data-cta]');
+        ctas.forEach(cta=>{
+          cta.addEventListener('click', ()=>{
             if (cta.tagName.toLowerCase() === 'a') {
-              // piccolo delay per non “strappare” il nodo prima che navighi
-              setTimeout(_hide, 350);
+              setTimeout(_hide, 350);  // lascia navigare e poi chiudi
             } else {
-              // fallback se fosse un <button>: apri tu e poi chiudi
               const href = cta.getAttribute('data-href') || cta.getAttribute('href') || CONFIG.paypalDonateUrl;
-              window.open(href, '_blank', 'noopener,noreferrer');
+              window.open(href, '_blank', 'noopener');
               setTimeout(_hide, 350);
             }
           }, { passive:true });
-        }
+        });
 
       } else {
         t = _makeBaseToast('toast center');
