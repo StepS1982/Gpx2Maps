@@ -476,6 +476,7 @@ function focusResultsSection(sel){
         if(ratio >= 0.5){ show(); window.removeEventListener('scroll', onScrollHalf); }
       }, 300);
       window.addEventListener('scroll', onScrollHalf);
+      onScrollHalf(); // <-- NOVITÀ
     
       // esponi una funzione globale per mostrarlo nei “momenti felici”
       window.showSmartFooter = ()=> show();
