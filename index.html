@@ -451,8 +451,12 @@ function focusResultsSection(sel){
       const hide = ()=>{ el.hidden=true; };
     
       // Aggancia URL ai bottoni (riusa le config già settate in alto)
-      document.getElementById('smartDonate').href = CONFIG.paypalDonateUrl;
-      document.getElementById('smartAmazon').href = CONFIG.amazonAffiliateUrl;
+      document.getElementById('smartDonate').addEventListener('click', ()=> {
+        toastCenter('Pagina donazioni aperta. Grazie per il supporto! 🙏');
+      });
+      document.getElementById('smartAmazon').addEventListener('click', ()=> {
+        toastCenter('Pagina offerte Amazon aperta. Buoni affari! 💸');
+      });
 
       const btnClose = document.getElementById('smartClose');
       btnClose?.addEventListener('click', (e)=>{
