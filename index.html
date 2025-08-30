@@ -766,9 +766,10 @@ function focusResultsSection(sel){
       toastAction(`
         <button class="closex" data-close aria-label="Chiudi">×</button>
         <div><strong>Ti è utile GPX2MAPS?</strong></div>
-        <div class="row">
+        <div class="row" style="justify-content:flex-end">
           <button class="btn ghost" data-close>No, grazie</button>
           <a class="btn" data-cta href="${CONFIG.paypalDonateUrl}" target="_blank" rel="noopener">Dona</a>
+          <a class="btn secondary" data-cta href="${CONFIG.amazonAffiliateUrl}" target="_blank" rel="noopener">Offerte con Coupon Amazon</a>
         </div>
       `, 8000, ()=>console.log('toast chiuso'));
     }
@@ -1066,12 +1067,12 @@ function focusResultsSection(sel){
       toastAction(`
         <button class="closex" data-close aria-label="Chiudi">×</button>
         <div><strong>Ti è utile GPX2MAPS?</strong></div>
-        <div class="row">
+        <div class="row" style="justify-content:flex-end">
           <button class="btn ghost" data-close>No, grazie</button>
           <a class="btn" data-cta href="${CONFIG.paypalDonateUrl}" target="_blank" rel="noopener">Dona</a>
+          <a class="btn secondary" data-cta href="${CONFIG.amazonAffiliateUrl}" target="_blank" rel="noopener">Offerte con Coupon Amazon</a>
         </div>
       `, 8000, ()=>console.log('toast chiuso'));
-    });
 
     function downloadBlob(name, content, mime){
       // Manteniamo newline finale se presente (PS style)
@@ -1192,9 +1193,10 @@ function focusResultsSection(sel){
       toastAction(`
         <button class="closex" data-close aria-label="Chiudi">×</button>
         <div><strong>Ti è utile GPX2MAPS?</strong></div>
-        <div class="row">
+        <div class="row" style="justify-content:flex-end">
           <button class="btn ghost" data-close>No, grazie</button>
           <a class="btn" data-cta href="${CONFIG.paypalDonateUrl}" target="_blank" rel="noopener">Dona</a>
+          <a class="btn secondary" data-cta href="${CONFIG.amazonAffiliateUrl}" target="_blank" rel="noopener">Offerte con Coupon Amazon</a>
         </div>
       `, 8000, ()=>console.log('toast chiuso'));
     }
@@ -2090,9 +2092,10 @@ function focusResultsSection(sel){
         toastAction(`
         <button class="closex" data-close aria-label="Chiudi">×</button>
         <div><strong>Ti è utile GPX2MAPS?</strong></div>
-        <div class="row">
+        <div class="row" style="justify-content:flex-end">
           <button class="btn ghost" data-close>No, grazie</button>
           <a class="btn" data-cta href="${CONFIG.paypalDonateUrl}" target="_blank" rel="noopener">Dona</a>
+          <a class="btn secondary" data-cta href="${CONFIG.amazonAffiliateUrl}" target="_blank" rel="noopener">Offerte con Coupon Amazon</a>
         </div>
       `, 8000, ()=>console.log('toast chiuso'));
       }catch(e){
