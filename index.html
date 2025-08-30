@@ -1063,6 +1063,14 @@ function focusResultsSection(sel){
       focusResultsSection('#tab-maps2gpx .out');
       showSmartFooter();
       nudgeDonate();
+      toastAction(`
+        <button class="closex" data-close aria-label="Chiudi">×</button>
+        <div><strong>Ti è utile GPX2MAPS?</strong></div>
+        <div class="row">
+          <button class="btn ghost" data-close>No, grazie</button>
+          <a class="btn" data-cta href="${CONFIG.paypalDonateUrl}" target="_blank" rel="noopener">Dona</a>
+        </div>
+      `, 8000, ()=>console.log('toast chiuso'));
     });
 
     function downloadBlob(name, content, mime){
@@ -1181,6 +1189,14 @@ function focusResultsSection(sel){
       focusResultsSection('#tab-gpx2maps .out');
       showSmartFooter();
       nudgeDonate();
+      toastAction(`
+        <button class="closex" data-close aria-label="Chiudi">×</button>
+        <div><strong>Ti è utile GPX2MAPS?</strong></div>
+        <div class="row">
+          <button class="btn ghost" data-close>No, grazie</button>
+          <a class="btn" data-cta href="${CONFIG.paypalDonateUrl}" target="_blank" rel="noopener">Dona</a>
+        </div>
+      `, 8000, ()=>console.log('toast chiuso'));
     }
     
     async function makeLinksFrom(points){
@@ -2071,6 +2087,14 @@ function focusResultsSection(sel){
         focusResultsSection('#tab-meteo .out');
         showSmartFooter();
         nudgeDonate();
+        toastAction(`
+        <button class="closex" data-close aria-label="Chiudi">×</button>
+        <div><strong>Ti è utile GPX2MAPS?</strong></div>
+        <div class="row">
+          <button class="btn ghost" data-close>No, grazie</button>
+          <a class="btn" data-cta href="${CONFIG.paypalDonateUrl}" target="_blank" rel="noopener">Dona</a>
+        </div>
+      `, 8000, ()=>console.log('toast chiuso'));
       }catch(e){
         console.error(e);
         toastCenter('Errore: '+(e&&e.message?e.message:String(e)));
