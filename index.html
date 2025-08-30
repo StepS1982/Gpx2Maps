@@ -1070,7 +1070,7 @@ function focusResultsSection(sel){
           <a class="btn secondary" data-cta href="${CONFIG.amazonAffiliateUrl}" target="_blank" rel="noopener">Offerte con Coupon Amazon</a>
         </div>
       `, 8000, ()=>console.log('toast chiuso'));
-
+    });
     function downloadBlob(name, content, mime){
       // Manteniamo newline finale se presente (PS style)
       const out = content.endsWith('\n') ? content : (content + '\n');
