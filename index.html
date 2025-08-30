@@ -87,6 +87,8 @@
     @media (min-width:900px){
       .smart-footer{ left:calc(50% - 540px + 12px); right:calc(50% - 540px + 12px) }
     }
+    /* assicura che [hidden] nasconda SEMPRE, a prescindere da reset */
+    [hidden]{ display:none !important; }
   </style>
 </head>
 <body>
@@ -326,7 +328,7 @@
     <div class="sp"></div>
     <a id="smartDonate" class="btn small" href="#" target="_blank" rel="noopener">Dona</a>
     <a id="smartAmazon" class="btn small secondary" href="#" target="_blank" rel="noopener">Coupon Amazon</a>
-    <button id="smartClose" class="ghostx" aria-label="Nascondi">Nascondi</button>
+    <button id="smartClose" class="ghostx" type="button" aria-label="Nascondi">Nascondi</button>
   </div>
 
   <script>
@@ -428,7 +430,7 @@
     /* === UI helpers globali === */
 // === Donate nudge: sempre, testuale, in coda toast ===
 const DONATE_TOAST_MSG =
-  "SE TI PIACE IL SOFTWARE, FAI UNA DONAZIONE ALLO SVILUPPATORE. RICORDATI CHE PUOI ANCHE USUFRUIRE DEL LINK AMAZON SEGRETO PER ACCEDERE DIRETTAMENTE A SCONTI CON COUPON";
+    "Ti piace GPX2MAPS? Se vuoi, puoi offrirmi un caffè ☕ o dare un’occhiata ai coupon Amazon. Grazie!";
 function nudgeDonate(){ toastCenter(DONATE_TOAST_MSG); }
 function throttle(fn, wait){ let t=0; return (...a)=>{ const n=Date.now(); if(n-t>wait){ t=n; fn(...a);} }; }
 function focusResultsSection(sel){
@@ -451,11 +453,17 @@ function focusResultsSection(sel){
       // Aggancia URL ai bottoni (riusa le config già settate in alto)
       document.getElementById('smartDonate').href = CONFIG.paypalDonateUrl;
       document.getElementById('smartAmazon').href = CONFIG.amazonAffiliateUrl;
-    
-      document.getElementById('smartClose').addEventListener('click', ()=>{
-        localStorage.setItem(dismissKey,'1'); hide();
+
+      const btnClose = document.getElementById('smartClose');
+      btnClose?.addEventListener('click', (e)=>{
+        e.preventDefault(); e.stopPropagation();
+        try{ localStorage.setItem('smartFooterHidden','1'); }catch{}
+        document.getElementById('smartFooter').hidden = true;
+      }, {passive:false});
+      btnClose?.addEventListener('keyup', e=>{
+        if(e.key==='Enter'||e.key===' ') btnClose.click();
       });
-    
+          
       // trigger su metà scroll
       const onScrollHalf = throttle(()=>{
         const ratio = (window.scrollY + window.innerHeight) / Math.max(1, document.body.scrollHeight);
