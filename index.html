@@ -563,13 +563,6 @@ function focusResultsSection(sel){
       }
       return [...new Set(out)];
     }
-    const IT_STOP = new Set([
-      'di','del','della','delle','dei','degli','la','il','lo','i','gli','le','e','ed',
-      'in','da','su','al','ai','agli','alla','alle','dal','sul','per','con',
-      // paesi/province/sigle
-      'italia','svizzera','switzerland','italy','provincia','province',
-      'mi','co','va','lc','bg','ge','no','vb','vs'
-    ]);
     // match "severo ma giusto", con soglia morbida per passi/colle
     function nameMatchesToken(token, display){
       const hayNorm = ' ' + applySynonyms(display) + ' ';
@@ -622,16 +615,6 @@ function focusResultsSection(sel){
       return true;
     }
     // === Indizi per validare i fallback Nominatim ===
-    function hasCountryWord(s){
-      return /\b(italia|italy|svizzera|switzerland)\b/i.test(s);
-    }
-    function hintsFromToken(token){
-      const cap = (token.match(/\b\d{5}\b/g)||[])[0] || null;       // CAP italiano
-      const parts = token.split(',').map(x=>x.trim()).filter(Boolean);
-      const tail = parts.slice(-2).join(' ');                       // ultime 1-2 parti
-      const tailKw = _norm(tail).split(/\s+/).filter(w=>w.length>=4 && /^[a-z]/.test(w));
-      return { cap, tailKw };
-    }
     // --- helper: pulizia minima indirizzi IT quando il primo tentativo fallisce ---
     // Normalizza query "rognose" (Provincia di..., CAP+sigla, ecc.)
     function stripAtTail(s){
