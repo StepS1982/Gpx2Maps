@@ -449,7 +449,7 @@ function focusResultsSection(sel){
       const el = document.getElementById('smartFooter');
       if(!el) return;
       const dismissKey = 'smartFooterHidden';
-      const show = ()=>{ if(localStorage.getItem(dismissKey)==='1') return; el.hidden=false; };
+      const show = ()=>{ if(sessionStorage.getItem(dismissKey)==='1') return; el.hidden=false; };
       const hide = ()=>{ el.hidden=true; };
     
       // Aggancia URL ai bottoni (riusa le config già settate in alto)
@@ -463,7 +463,7 @@ function focusResultsSection(sel){
       const btnClose = document.getElementById('smartClose');
       btnClose?.addEventListener('click', (e)=>{
         e.preventDefault(); e.stopPropagation();
-        try{ localStorage.setItem('smartFooterHidden','1'); }catch{}
+        try{ sessionStorage.setItem('smartFooterHidden','1'); }catch{}
         document.getElementById('smartFooter').hidden = true;
       }, {passive:false});
       btnClose?.addEventListener('keyup', e=>{
