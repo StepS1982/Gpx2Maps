@@ -471,44 +471,6 @@ function focusResultsSection(sel){
       window.showSmartFooter = ()=> show();
     })();
     
-    /* Toast "Dona" in coda con snooze */
-    (function(){
-      const SNOOZE_MS   = 24*60*60*1000;   // 24h
-      const MIN_INTERVAL= 5*60*1000;       // 5 min
-      const LS_LAST   = 'donate_last_shown';
-      const LS_SNOOZE = 'donate_snooze_until';
-      let visible = false;
-    
-      function now(){ return Date.now(); }
-      function canShow(){
-        const snooze = +localStorage.getItem(LS_SNOOZE) || 0;
-        const last   = +localStorage.getItem(LS_LAST)   || 0;
-        const t = now();
-        return t > snooze && (t - last) > MIN_INTERVAL;
-      }
-      function markShown(){ localStorage.setItem(LS_LAST, String(now())); }
-      function snooze(){ localStorage.setItem(LS_SNOOZE, String(now()+SNOOZE_MS)); }
-    
-      window.maybeNudgeDonate = function(){
-        if(visible || !canShow()) return;
-        visible = true; markShown();
-    
-        const html = `
-          <button class="closex" data-close aria-label="Chiudi">×</button>
-          <div class="msg" style="max-width:64ch; text-transform:uppercase;">
-            SE TI PIACE IL SOFTWARE E LO USI, VALUTA DI DONARE QUALCOSA ALLO SVILUPPATORE ❤️
-          </div>
-          <div class="row" style="justify-content:flex-end;">
-            <a class="btn small" data-cta
-               href="...paypal..."
-               target="_blank" rel="external noopener noreferrer">Dona</a>
-          </div>
-        `;
-    
-        toastAction(html, 8000, ()=>{ snooze(); visible=false; });
-      };
-    })();
-    
     async function confirmAction(text){
       const dlg=document.getElementById('confirmDialog');
       document.getElementById('confirmText').textContent=text||'';
@@ -805,7 +767,6 @@ function focusResultsSection(sel){
       document.getElementById('btnDownloadAll').style.display='';
       toastCenter(`Risultati aggiornati (${n} link)`);
       focusResultsSection('#tab-merge .out');
-      maybeNudgeDonate();
       showSmartFooter();
       nudgeDonate();
     }
@@ -1214,7 +1175,6 @@ function focusResultsSection(sel){
       document.getElementById('btnDownloadAll3').style.display='';
       toastCenter(`Risultati aggiornati (${n} link)`);
       focusResultsSection('#tab-gpx2maps .out');
-      maybeNudgeDonate();
       showSmartFooter();
       nudgeDonate();
     }
@@ -2106,7 +2066,6 @@ function focusResultsSection(sel){
         addFileRow('Info Percorso CSV', csvBlob, fCSV, false);
         toastCenter('Meteo + Info percorso pronti');
         focusResultsSection('#tab-meteo .out');
-        maybeNudgeDonate();
         showSmartFooter();
         nudgeDonate();
       }catch(e){
