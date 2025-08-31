@@ -332,7 +332,89 @@
         </div>
       </div>
     </section>
+    <section id="tab-about" class="card" hidden>
+      <div class="hd">About & Guida</div>
+      <div class="bd">
+        <h2 style="margin-top:0">Cos’è GPX2MAPS</h2>
+        <p>
+          GPX2MAPS è una web-app gratuita per creare e gestire itinerari tra Google Maps e GPX.
+          Non richiede login e non usa database: tutto avviene nel tuo browser, con l’aiuto di
+          servizi esterni per geocoding/rotta/meteo. È pensata per motociclisti, cicloturisti, escursionisti e per chi pianifica viaggi con tappe multiple.
+        </p>
+    
+        <h3>Cosa puoi fare in pratica</h3>
+        <ul>
+          <li><strong>Fusione Link</strong> di Google Maps fino a 25 punti (limite “navigabile” di Maps).</li>
+          <li><strong>Google Maps → GPX</strong> (sia traccia TRK che rotta RTE, con waypoints WPT).</li>
+          <li><strong>GPX → Google Maps</strong> (crea link navigabili dai tuoi GPX).</li>
+          <li><strong>Sanitizza GPX</strong> (arrotonda coordinate, rimuove duplicati adiacenti, uniforma LF/UTF-8).</li>
+          <li><strong>Meteo + Info percorso</strong> (7 giorni × 4 fasce orarie per ogni tappa, con distanze e tempi).</li>
+        </ul>
+    
+        <h3>Guida rapida (per tab)</h3>
+        <h4>1) Fusione Link</h4>
+        <ul>
+          <li>Incolla uno o più link <code>/maps/dir/</code>. Se superi i 25 punti totali, scegli se <em>ottimizzare</em> (campionamento) o <em>splittare</em> in più link.</li>
+          <li>Il primo punto vuoto “<code>//</code>” indica “la tua posizione” in Google Maps.</li>
+        </ul>
+    
+        <h4>2) Google Maps → GPX</h4>
+        <ul>
+          <li>Incolla un link itinerario oppure una lista di località/coordinate (una per riga).</li>
+          <li>Ottieni due file: <strong>GPX Rotta (WPT+RTE)</strong> e <strong>GPX Traccia (WPT+TRK)</strong>.</li>
+        </ul>
+    
+        <h4>3) GPX → Google Maps</h4>
+        <ul>
+          <li>Carica un file GPX oppure incolla il testo.</li>
+          <li>Scegli se generare i link a partire da <strong>WPT</strong>, <strong>RTE</strong> o <strong>TRK</strong>.</li>
+        </ul>
+    
+        <h4>4) Sanitizza GPX</h4>
+        <ul>
+          <li>Normalizza numeri, rimuovi duplicati adiacenti e salva in UTF-8/LF.</li>
+        </ul>
+    
+        <h4>5) Meteo + Info percorso</h4>
+        <ul>
+          <li>Inserisci un link Maps oppure località (una per riga). Se il link ha la testa “<code>//</code>”, ti chiederemo la prima località.</li>
+          <li>Si generano 4 file: due HTML (vista settimanale e vista giorno-per-giorno), un TXT e un CSV con distanze/tempi totali e parziali.</li>
+        </ul>
+    
+        <h3>Limiti e note</h3>
+        <ul>
+          <li>Google Maps consente al massimo <strong>25 punti</strong> in modalità navigabile (incluso il primo punto “posizione”).</li>
+          <li>I POI “commerciali” o indirizzi troppo specifici talvolta cambiano nel tempo: per stabilità preferisci <strong>coordinate</strong> o <strong>località</strong>.</li>
+        </ul>
+    
+        <h3>Privacy & Sicurezza</h3>
+        <ul>
+          <li>Nessun login, nessun database; gli input restano nel tuo browser e nei file/URL che scarichi o apri.</li>
+          <li>Le chiamate a geocoding/rotta/meteo passano da un worker intermediario; non archiviamo i tuoi GPX.</li>
+          <li>Evita di incollare dati sensibili in input; le funzioni non richiedono dati personali.</li>
+        </ul>
+    
+        <h3>Supporto al progetto</h3>
+        <p>
+          Se trovi utile GPX2MAPS, puoi <a href="#" id="aboutDonate">fare una donazione</a> oppure dare un’occhiata alle
+          <a href="#" id="aboutAmazon">offerte con coupon Amazon</a>. Grazie! 🙏
+        </p>
+    
+        <h3>Repository & trasparenza</h3>
+        <p>
+          Vuoi vedere il repository? <a href="https://github.com/StepS1982/Gpx2Maps/" target="_blank" rel="noopener">Apri il repository su GitHub</a>.
+          Trovi anche note tecniche e, se vuoi, puoi segnalare bug o proporre miglioramenti.
+        </p>
+    
+        <h3>Contatti</h3>
+        <p>
+          Per segnalazioni e richieste: apri una <em>Issue</em> sul repository oppure scrivi una recensione/commento dove condividi il progetto.
+        </p>
+      </div>
+    </section>
   </div>
+
+  
 
   <footer>
     L'applicazione è stata realizzata a scopo gratuito per la comunità. Se si vuole fare un'opera di gentilezza nei confronti dello sviluppatore che ci ha perso del tempo per realizzarla, si prega di effettuare una donazione con il pulsante ‘Dona’ in alto. Approfitta anche del link diretto alla pagina nascosta di Amazon con tutte le offerte e coupon, che è accessibile con il pulsante che si trova sempre in alto.
@@ -398,6 +480,17 @@
         if(s) s.hidden = k!==id;
       });
     }));
+
+    // Apri "About" solo alla prima visita (persistenza su sessione)
+    (function(){
+      try{
+        if(!sessionStorage.getItem('seenAbout')){
+          sessionStorage.setItem('seenAbout','1');
+          const btn = document.querySelector('.tab[data-tab="about"]');
+          btn && btn.click(); // riusa il listener già esistente
+        }
+      }catch{}
+    })();
 
     /* Toast center in coda (5s, niente overwrite) */
     const _toastQ = [];
