@@ -1605,11 +1605,17 @@ function focusResultsSection(sel){
           const {text, stats} = sanitizeGPX(raw);
           sanitizedText = text;
           sanitizedName = `gpx_sanitizzato_${nowStamp()}.gpx`;
-    
+          /*
           $st().textContent =
             `WPT ${stats.wpt} · RTEPT ${stats.rtept} · TRKPT ${stats.trkpt} · `+
             `Normalizzati ${stats.normalized} · Duplicati rimossi: `+
             `WPT ${stats.dropped.wpt}, RTE ${stats.dropped.rtept}, TRK ${stats.dropped.trkpt}`;
+          */ // nuovo blocco sottostante per dare evidenza dei WPT rimossi
+          $st().textContent =
+            `WPT rimossi ${stats.dropped.wpt} · RTEPT ${stats.rtept} · TRKPT ${stats.trkpt} · ` +
+            `Normalizzati ${stats.normalized} · Duplicati rimossi: ` +
+            `RTE ${stats.dropped.rtept}, TRK ${stats.dropped.trkpt}`;
+          
           const prev = text.split('\n').slice(0,200).join('\n');
           $pre().textContent = prev + (text.length>prev.length?'\n...':'');
           $preW().hidden = false;
