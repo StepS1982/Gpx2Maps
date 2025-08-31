@@ -393,7 +393,7 @@
       tabs.forEach(b=>{b.classList.remove('active');b.setAttribute('aria-selected','false')});
       btn.classList.add('active');btn.setAttribute('aria-selected','true');
       const id=btn.dataset.tab;
-      ['merge','maps2gpx','gpx2maps','sanitize','meteo'].forEach(k=>{
+      ['merge','maps2gpx','gpx2maps','sanitize','meteo','about'].forEach(k=>{
         const s=document.getElementById(`tab-${k}`);
         if(s) s.hidden = k!==id;
       });
