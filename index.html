@@ -1514,18 +1514,9 @@ function focusResultsSection(sel){
         }
     
         // conta e round su wpt/rtept/trkpt
-        //const wpts = Array.from(doc.getElementsByTagName('wpt')); //non li considero i WPT
-        //wpts.forEach(el=>{ stats.wpt++; roundLatLon(el); }); //non li considero i WPT
-        // blocco per rimuovere i wpt al posto delle due righe sopra commentate
-        // --- WPT: rimuovi tutti (stile PS) ---
         const wpts = Array.from(doc.getElementsByTagName('wpt'));
-        stats.wpt = wpts.length;                 // quanti ne abbiamo trovati
-        wpts.forEach(el => {
-          const p = el.parentNode;
-          if (p) p.removeChild(el);              // elimina il nodo dal GPX
-        });
-        stats.dropped.wpt += wpts.length;        // conteggiali come "rimossi"
-            
+        wpts.forEach(el=>{ stats.wpt++; roundLatLon(el); });
+                    
         const rtes = Array.from(doc.getElementsByTagName('rte'));
         rtes.forEach(rte=>{
           const pts = Array.from(rte.getElementsByTagName('rtept'));
@@ -1605,17 +1596,12 @@ function focusResultsSection(sel){
           const {text, stats} = sanitizeGPX(raw);
           sanitizedText = text;
           sanitizedName = `gpx_sanitizzato_${nowStamp()}.gpx`;
-          /*
+          
           $st().textContent =
             `WPT ${stats.wpt} · RTEPT ${stats.rtept} · TRKPT ${stats.trkpt} · `+
             `Normalizzati ${stats.normalized} · Duplicati rimossi: `+
             `WPT ${stats.dropped.wpt}, RTE ${stats.dropped.rtept}, TRK ${stats.dropped.trkpt}`;
-          */ // nuovo blocco sottostante per dare evidenza dei WPT rimossi
-          $st().textContent =
-            `WPT rimossi ${stats.dropped.wpt} · RTEPT ${stats.rtept} · TRKPT ${stats.trkpt} · ` +
-            `Normalizzati ${stats.normalized} · Duplicati rimossi: ` +
-            `RTE ${stats.dropped.rtept}, TRK ${stats.dropped.trkpt}`;
-          
+                    
           const prev = text.split('\n').slice(0,200).join('\n');
           $pre().textContent = prev + (text.length>prev.length?'\n...':'');
           $preW().hidden = false;
