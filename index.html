@@ -1514,9 +1514,18 @@ function focusResultsSection(sel){
         }
     
         // conta e round su wpt/rtept/trkpt
+        //const wpts = Array.from(doc.getElementsByTagName('wpt')); //non li considero i WPT
+        //wpts.forEach(el=>{ stats.wpt++; roundLatLon(el); }); //non li considero i WPT
+        // blocco per rimuovere i wpt al posto delle due righe sopra commentate
+        // --- WPT: rimuovi tutti (stile PS) ---
         const wpts = Array.from(doc.getElementsByTagName('wpt'));
-        wpts.forEach(el=>{ stats.wpt++; roundLatLon(el); });
-    
+        stats.wpt = wpts.length;                 // quanti ne abbiamo trovati
+        wpts.forEach(el => {
+          const p = el.parentNode;
+          if (p) p.removeChild(el);              // elimina il nodo dal GPX
+        });
+        stats.dropped.wpt += wpts.length;        // conteggiali come "rimossi"
+            
         const rtes = Array.from(doc.getElementsByTagName('rte'));
         rtes.forEach(rte=>{
           const pts = Array.from(rte.getElementsByTagName('rtept'));
