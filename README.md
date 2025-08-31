@@ -1,4 +1,4 @@
-# GPX2MAPS – Web-APP a
+# GPX2MAPS – Web-APP
 **👉 Prova subito:** https://gpx2maps.pages.dev/
 
 Web app gratuita per:
