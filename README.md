@@ -43,4 +43,4 @@ Se l’app ti è utile, puoi:
 - Suggerisci la tua idea nelle Issues!
 
 ## Licenza
-(aggiungi la tua licenza, es. MIT)
+MIT
