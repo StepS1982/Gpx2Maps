@@ -414,9 +414,14 @@
         onClose  = item.onClose || null;
     
         // chiudi con [data-close] o [data-cta]
-        const closeBtn = t.querySelector('[data-close]');
-        if (closeBtn) closeBtn.addEventListener('click', ()=>{ _hide(); });
-    
+        t.querySelectorAll('[data-close]').forEach(btn=>{
+          btn.addEventListener('click', (e)=>{
+            e.preventDefault();
+            e.stopPropagation();
+            _hide();
+          });
+        });
+        t.addEventListener('keydown', e => { if (e.key === 'Escape') _hide(); });
         const ctas = t.querySelectorAll('[data-cta]');
         ctas.forEach(cta=>{
           cta.addEventListener('click', ()=>{
