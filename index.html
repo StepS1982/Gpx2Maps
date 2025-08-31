@@ -1518,13 +1518,24 @@ function focusResultsSection(sel){
         //wpts.forEach(el=>{ stats.wpt++; roundLatLon(el); }); //non li considero i WPT
         // blocco per rimuovere i wpt al posto delle due righe sopra commentate
         // --- WPT: rimuovi tutti (stile PS) ---
+        // --- WPT: rimuovi tutti e ripulisci il whitespace adiacente ---
         const wpts = Array.from(doc.getElementsByTagName('wpt'));
-        stats.wpt = wpts.length;                 // quanti ne abbiamo trovati
+        stats.wpt = wpts.length;
+        
         wpts.forEach(el => {
           const p = el.parentNode;
-          if (p) p.removeChild(el);              // elimina il nodo dal GPX
+          if (!p) return;
+          const prev = el.previousSibling;
+          const next = el.nextSibling;
+          const isWS = n => n && n.nodeType === 3 && /^[\t\r\n ]*$/.test(n.nodeValue);
+        
+          if (isWS(prev)) p.removeChild(prev); // togli la riga/indentazione prima
+          p.removeChild(el);                   // togli il waypoint
+          if (isWS(next)) p.removeChild(next); // togli la riga rimasta dopo
         });
-        stats.dropped.wpt += wpts.length;        // conteggiali come "rimossi"
+        
+        stats.dropped.wpt += wpts.length;
+        doc.normalize(); // compatta eventuali text node adiacenti
             
         const rtes = Array.from(doc.getElementsByTagName('rte'));
         rtes.forEach(rte=>{
@@ -1591,9 +1602,10 @@ function focusResultsSection(sel){
         let body = new XMLSerializer().serializeToString(doc);
         body = body.replace(/^\s*<\?xml[\s\S]*?\?>\s*/,''); // togli eventuale vecchia declaration
         let out = `<?xml version="1.0" encoding="UTF-8"?>\n` + body;
+        out = out.replace(/\n\s*\n+/g, '\n'); // comprime sequenze di righe vuote
         out = out.replace(/\r\n?/g, '\n');
         if(!out.endsWith('\n')) out += '\n';
-    
+            
         return { text: out, stats };
       }
     
