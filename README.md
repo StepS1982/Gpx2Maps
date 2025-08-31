@@ -41,6 +41,3 @@ Se l’app ti è utile, puoi:
 - Miglioramenti UI/UX
 - Altri profili (es. bike/hike) per il routing
 - Suggerisci la tua idea nelle Issues!
-
-## Licenza
-MIT
