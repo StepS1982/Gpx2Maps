@@ -53,7 +53,6 @@
     .tabs{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--border);margin-top:12px}
     .tab{padding:10px 12px;cursor:pointer;border:1px solid var(--border);border-bottom:none;border-radius:10px 10px 0 0;background:#f1f5f9;font-weight:700}
     .tab.active{background:#fff;color:#0ea5e9}
-    <button class="tab about" role="tab" aria-selected="false" data-tab="about">About & Guida</button>
     .card{background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
     .card .hd{padding:14px 16px;border-bottom:1px solid var(--border);font-weight:800}
     .card .bd{padding:16px}
@@ -159,6 +158,7 @@
       <button class="tab"         role="tab" aria-selected="false" data-tab="gpx2maps">3) GPX → Google Maps</button>
       <button class="tab"         role="tab" aria-selected="false" data-tab="sanitize">4) Sanitizza GPX</button>
       <button class="tab"         role="tab" aria-selected="false" data-tab="meteo">5) Meteo + Info percorso</button>
+      <button class="tab about" role="tab" aria-selected="false" data-tab="about">About & Guida</button>
     </div>
 
     <!-- TAB 1 -->
@@ -488,6 +488,11 @@
         if(s) s.hidden = k!==id;
       });
     }));
+
+    if (location.hash === '#about') {
+      const b = document.querySelector('.tab[data-tab="about"]');
+      b && b.click();
+    }
 
     // Apri "About" solo alla prima visita (persistenza su sessione)
     (function(){
