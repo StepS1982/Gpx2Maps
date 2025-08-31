@@ -469,6 +469,14 @@
     document.getElementById('smartDonate').href = CONFIG.paypalDonateUrl;
     document.getElementById('smartAmazon').href = CONFIG.amazonAffiliateUrl;
 
+    // Link dai bottoni inside About
+    document.addEventListener('DOMContentLoaded', ()=>{
+      const aD = document.getElementById('aboutDonate');
+      const aA = document.getElementById('aboutAmazon');
+      if(aD){ aD.href = CONFIG.paypalDonateUrl; aD.addEventListener('click', ()=>toastCenter('Grazie per il supporto! 🙏')); }
+      if(aA){ aA.href = CONFIG.amazonAffiliateUrl; aA.addEventListener('click', ()=>toastCenter('Pagina offerte Amazon aperta. 💸')); }
+    });
+
     /* Tabs */
     const tabs=[...document.querySelectorAll('.tab')];
     tabs.forEach(btn=>btn.addEventListener('click',()=>{
