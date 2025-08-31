@@ -1602,7 +1602,6 @@ function focusResultsSection(sel){
         let body = new XMLSerializer().serializeToString(doc);
         body = body.replace(/^\s*<\?xml[\s\S]*?\?>\s*/,''); // togli eventuale vecchia declaration
         let out = `<?xml version="1.0" encoding="UTF-8"?>\n` + body;
-        out = out.replace(/\n\s*\n+/g, '\n'); // comprime sequenze di righe vuote
         out = out.replace(/\r\n?/g, '\n');
         if(!out.endsWith('\n')) out += '\n';
             
