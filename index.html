@@ -1589,18 +1589,21 @@ function focusResultsSection(sel){
     
         // Serializza, forza intestazione XML UTF-8, LF-only, newline finale
         let body = new XMLSerializer().serializeToString(doc);
-        // togli event. vecchia dichiarazione XML
+        // rimuovi l’eventuale vecchia dichiarazione XML
         body = body.replace(/^\s*<\?xml[\s\S]*?\?>\s*/, '');
         
         let out = '<?xml version="1.0" encoding="UTF-8"?>\n' + body;
         
-        // normalizza fine riga e comprimi QUALSIASI blocco di righe vuote (anche con spazi)
+        // 1) CRLF -> LF  •  2) comprimi blocchi di righe vuote (anche con spazi/tab) a UNA sola riga
         out = out
-          .replace(/\r\n?/g, '\n')                // CRLF -> LF
-          .replace(/(?:\n[^\S\n]*){2,}/g, '\n');  // <<— robusto: molte righe bianche -> 1 sola
+          .replace(/\r\n?/g, '\n')
+          .replace(/(?:\n[^\S\n]*){2,}/g, '\n');
         
-        // conserva un singolo newline dopo </metadata> se manca (non tocca l'indentazione della riga dopo)
-        out = out.replace(/<\/metadata>(?!\n)/, '</metadata>\n');
+        // 3) assicura UNA riga di newline dopo </metadata> + rientro "  " del tag successivo (rte/trk)
+        out = out.replace(
+          /<\/metadata>\s*\n[ \t]*(?=<(?:rte|trk)\b)/,
+          '</metadata>\n  '
+        );
         
         if (!out.endsWith('\n')) out += '\n';
         
