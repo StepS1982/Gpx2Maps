@@ -1598,6 +1598,9 @@ function focusResultsSection(sel){
         out = out.replace(/\r\n?/g, '\n')        // CRLF -> LF
                  .replace(/\n[ \t]*\n+/g, '\n'); // più righe vuote -> una sola
         
+        // ★ FIX: aggiungi newline dopo </metadata> solo se manca
+        out = out.replace(/<\/metadata>(?!\n)/, '</metadata>\n');
+        
         if (!out.endsWith('\n')) out += '\n';
         
         return { text: out, stats };
