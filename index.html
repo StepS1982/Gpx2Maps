@@ -1598,9 +1598,6 @@ function focusResultsSection(sel){
         out = out.replace(/\r\n?/g, '\n')        // CRLF -> LF
                  .replace(/\n[ \t]*\n+/g, '\n'); // più righe vuote -> una sola
         
-        // (opzionale) se vuoi evitare che </metadata> resti attaccato al tag dopo:
-        out = out.replace(/<\/metadata>\s*(?=<)/, '</metadata>\n');
-        
         if (!out.endsWith('\n')) out += '\n';
         
         return { text: out, stats };
