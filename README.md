@@ -5,7 +5,7 @@ Web app gratuita per:
 - **Fondere/ottimizzare** link di Google Maps (fino a 25 punti navigabili)
 - **Maps → GPX** (RTE e TRK con WPT) via OSRM
 - **GPX → Maps** (genera link /maps/dir da WPT/RTE/TRK)
-- **Sanitizzare GPX** (arrotonda, dedupe adiacenti, LF/UTF-8)
+- **Sanitizzare GPX** (arrotonda, dedupe adiacenti, LF/UTF-8, rimuove i WPT)
 - **Meteo + info percorso** (7 giorni × 4 fasce, TXT/CSV)
 
 Niente account, niente database: tutto gira **client-side** nel browser.
@@ -25,7 +25,7 @@ Google Maps ha limiti stretti sui punti della rotta: GPX2MAPS aiuta a unirli/ott
 ## Come si usa
 1. Apri https://gpx2maps.pages.dev/
 2. Scegli il tab in base a quello che ti serve (Fusione, Maps→GPX, ecc.)
-3. Segui le istruzioni a schermo e scarica i file.
+3. Segui le istruzioni scritte
 
 ## Privacy
 - Nessun login.
