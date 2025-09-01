@@ -13,14 +13,14 @@ Niente account, niente database: tutto gira **client-side** nel browser.
 ![Anteprima](https://gpx2maps.pages.dev/gpx2maps_og.jpg)
 
 ## Perché
-Google Maps ha limiti stretti sui punti della rotta: GPX2MAPS aiuta a unirli/ottimizzarli e a passare facilmente tra Maps e GPX senza tool pesanti.
+Google Maps ha limiti stretti sui punti della rotta: GPX2MAPS aiuta a unirli/ottimizzarli e a passare facilmente tra Maps e GPX senza tool pesanti. Inoltre ti permette di estrarre il meteo di tutte le località del percorso e di queste, ricavare i tempi e le distanze per fare una più precisa pianificazione. 
 
 ## Funzionalità in dettaglio
 - **Fusione link**: dedupe adiacente, ottimizzazione a 25 o split automatico in più link.
 - **Maps → GPX**: genera due file (RTE e TRK) + WPT; nomi e encoding puliti.
 - **GPX → Maps**: crea uno o più link navigabili dai punti del tuo GPX.
 - **Sanitizza**: rounding a 6 decimali, rimozione duplicati adiacenti, output LF/UTF-8.
-- **Meteo**: tabella 7×4 con condizioni e min/max per ogni località; esporti HTML/TXT/CSV.
+- **Meteo**: tabella 7×4 con condizioni e min/max per ogni località. File generati: HTML/TXT/CSV. Gli ultimi due formati servono per i tempi e le distanze totali e parziali tra le varie località dell'itinerario.
 
 ## Come si usa
 1. Apri https://gpx2maps.pages.dev/
