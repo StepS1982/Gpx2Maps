@@ -1518,24 +1518,13 @@ function focusResultsSection(sel){
         //wpts.forEach(el=>{ stats.wpt++; roundLatLon(el); }); //non li considero i WPT
         // blocco per rimuovere i wpt al posto delle due righe sopra commentate
         // --- WPT: rimuovi tutti (stile PS) ---
-        // --- WPT: rimuovi tutti e ripulisci il whitespace adiacente ---
         const wpts = Array.from(doc.getElementsByTagName('wpt'));
-        stats.wpt = wpts.length;
-        
+        stats.wpt = wpts.length;                 // quanti ne abbiamo trovati
         wpts.forEach(el => {
           const p = el.parentNode;
-          if (!p) return;
-          const prev = el.previousSibling;
-          const next = el.nextSibling;
-          const isWS = n => n && n.nodeType === 3 && /^[\t\r\n ]*$/.test(n.nodeValue);
-        
-          if (isWS(prev)) p.removeChild(prev); // togli la riga/indentazione prima
-          p.removeChild(el);                   // togli il waypoint
-          if (isWS(next)) p.removeChild(next); // togli la riga rimasta dopo
+          if (p) p.removeChild(el);              // elimina il nodo dal GPX
         });
-        
-        stats.dropped.wpt += wpts.length;
-        doc.normalize(); // compatta eventuali text node adiacenti
+        stats.dropped.wpt += wpts.length;        // conteggiali come "rimossi"
             
         const rtes = Array.from(doc.getElementsByTagName('rte'));
         rtes.forEach(rte=>{
@@ -1600,12 +1589,22 @@ function focusResultsSection(sel){
     
         // Serializza, forza intestazione XML UTF-8, LF-only, newline finale
         let body = new XMLSerializer().serializeToString(doc);
-        body = body.replace(/^\s*<\?xml[\s\S]*?\?>\s*/,''); // togli eventuale vecchia declaration
-        let out = `<?xml version="1.0" encoding="UTF-8"?>\n` + body;
-        out = out.replace(/\r\n?/g, '\n');
-        if(!out.endsWith('\n')) out += '\n';
-            
+        // togli event. vecchia dichiarazione XML
+        body = body.replace(/^\s*<\?xml[\s\S]*?\?>\s*/, '');
+        
+        let out = '<?xml version="1.0" encoding="UTF-8"?>\n' + body;
+        
+        // normalizza fine riga e comprime solo le righe vuote multiple
+        out = out.replace(/\r\n?/g, '\n')        // CRLF -> LF
+                 .replace(/\n[ \t]*\n+/g, '\n'); // più righe vuote -> una sola
+        
+        // (opzionale) se vuoi evitare che </metadata> resti attaccato al tag dopo:
+        out = out.replace(/<\/metadata>\s*(?=<)/, '</metadata>\n');
+        
+        if (!out.endsWith('\n')) out += '\n';
+        
         return { text: out, stats };
+
       }
     
       // UI handlers
