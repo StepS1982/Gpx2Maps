@@ -1594,11 +1594,12 @@ function focusResultsSection(sel){
         
         let out = '<?xml version="1.0" encoding="UTF-8"?>\n' + body;
         
-        // normalizza fine riga e comprime solo le righe vuote multiple
-        out = out.replace(/\r\n?/g, '\n')        // CRLF -> LF
-                 .replace(/\n[ \t]*\n+/g, '\n'); // più righe vuote -> una sola
+        // normalizza fine riga e comprimi QUALSIASI blocco di righe vuote (anche con spazi)
+        out = out
+          .replace(/\r\n?/g, '\n')                // CRLF -> LF
+          .replace(/(?:\n[^\S\n]*){2,}/g, '\n');  // <<— robusto: molte righe bianche -> 1 sola
         
-        // ★ FIX: aggiungi newline dopo </metadata> solo se manca
+        // conserva un singolo newline dopo </metadata> se manca (non tocca l'indentazione della riga dopo)
         out = out.replace(/<\/metadata>(?!\n)/, '</metadata>\n');
         
         if (!out.endsWith('\n')) out += '\n';
