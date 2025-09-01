@@ -353,40 +353,40 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
     
         <h3>Cosa puoi fare in pratica</h3>
         <ul>
-          <li><strong>Fusione Link</strong> di Google Maps fino a 25 punti (limite “navigabile” di Maps).</li>
+          <li><strong>Fusione Link</strong> di Google Maps fino a 25 punti (limite reale “navigabile” di Maps).</li>
           <li><strong>Google Maps → GPX</strong> (sia traccia TRK che rotta RTE, con waypoints WPT).</li>
-          <li><strong>GPX → Google Maps</strong> (crea link navigabili dai tuoi GPX).</li>
-          <li><strong>Sanitizza GPX</strong> (arrotonda coordinate, rimuove duplicati adiacenti, uniforma LF/UTF-8).</li>
-          <li><strong>Meteo + Info percorso</strong> (7 giorni × 4 fasce orarie per ogni tappa, con distanze e tempi).</li>
+          <li><strong>GPX → Google Maps</strong> (crea link navigabili Google Maps dai tuoi GPX).</li>
+          <li><strong>Sanitizza GPX</strong> (arrotonda coordinate, rimuove duplicati adiacenti, aumenta la compatibilità e rimuove i WPT).</li>
+          <li><strong>Meteo + Info percorso</strong> (7 giorni × 4 fasce orarie per ogni tappa, con distanze e tempi si totali che parziali).</li>
         </ul>
     
         <h3>Guida rapida (per tab)</h3>
         <h4>1) Fusione Link</h4>
         <ul>
-          <li>Incolla uno o più link <code>/maps/dir/</code>. Se superi i 25 punti totali, scegli se <em>ottimizzare</em> (campionamento) o <em>splittare</em> in più link.</li>
-          <li>Il primo punto vuoto “<code>//</code>” indica “la tua posizione” in Google Maps.</li>
+          <li>Incolla uno o più link di Google Maps. Se superi i 25 punti totali (limite reale navigabile di Maps), scegli se <em>ottimizzare</em> (campionamento) o <em>splittare</em> in più link.</li>
+          <li>Il primo punto vuoto che viene automaticamente generato, indica “LA TUA POSIZIONE GPS”, rendendo così l'itinerario subito navigabile</li>
         </ul>
     
         <h4>2) Google Maps → GPX</h4>
         <ul>
-          <li>Incolla un link itinerario oppure una lista di località/coordinate (una per riga).</li>
+          <li>Incolla un link itinerario Maps, oppure una lista di località/coordinate (una per riga).</li>
           <li>Ottieni due file: <strong>GPX Rotta (WPT+RTE)</strong> e <strong>GPX Traccia (WPT+TRK)</strong>.</li>
         </ul>
     
         <h4>3) GPX → Google Maps</h4>
         <ul>
-          <li>Carica un file GPX oppure incolla il testo.</li>
+          <li>Carica un file GPX oppure incolla il testo del GPX</li>
           <li>Scegli se generare i link a partire da <strong>WPT</strong>, <strong>RTE</strong> o <strong>TRK</strong>.</li>
         </ul>
     
         <h4>4) Sanitizza GPX</h4>
         <ul>
-          <li>Normalizza numeri, rimuovi duplicati adiacenti e salva in UTF-8/LF.</li>
+          <li>Arrotonda le coordinate, rimuove duplicati adiacenti, aumenta la compatibilità e rimuove i WPT.</li>
         </ul>
     
         <h4>5) Meteo + Info percorso</h4>
         <ul>
-          <li>Inserisci un link Maps oppure località (una per riga). Se il link ha la testa “<code>//</code>”, ti chiederemo la prima località.</li>
+          <li>Inserisci un link Maps oppure località (una per riga). Se il link contiene come primo punto, "LA TUA POSIZIONE GPS", ti verrà richiesto di inserire la prima località.</li>
           <li>Si generano 4 file: due HTML (vista settimanale e vista giorno-per-giorno), un TXT e un CSV con distanze/tempi totali e parziali.</li>
         </ul>
     
@@ -394,6 +394,11 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
         <ul>
           <li>Google Maps consente al massimo <strong>25 punti</strong> in modalità navigabile (incluso il primo punto “posizione”).</li>
           <li>I POI “commerciali” o indirizzi troppo specifici talvolta cambiano nel tempo: per stabilità preferisci <strong>coordinate</strong> o <strong>località</strong>.</li>
+          <li><strong>NOTA BENE: Per trasformare in coordinata, una località o POI direttamente in Google Maps, per ogni tappa, basta prendere con il mouse quel punto e spostarlo leggermente in avanti o indietro sul percorso.</li>
+          <li><strong>Legenda formati GPX:</strong>
+          - WPT (Waypoint): Sono i punti nominati lungo il percorso e corrispondono alle ‘tappe’ che inserisci in Google Maps. Sono utili per identificare i luoghi principali.
+          - RTE (Route): È una rotta formata da checkpoint aggiuntivi tra i WPT per guidare Google Maps lungo il tracciato desiderato. È la scelta consigliata quando converti da GPX a Google Maps per maggiore affidabilità del percorso.
+          - TRK (Track): È una traccia molto densa di punti. Tende a forzare una direzione unica e può impedire a Google Maps di trovare alternative in caso di traffico o chiusure stradali. Sconsigliata se devi mantenere flessibilità di navigazione.</li>
         </ul>
     
         <h3>Privacy & Sicurezza</h3>
