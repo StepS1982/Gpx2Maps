@@ -171,10 +171,10 @@
         -->
         <div>
           <label for="linksInput" style="font-weight:800;">Incolla i link (uno per riga)</label>
-          <textarea id="linksInput" placeholder="Incolla QUI i tuoi link google maps, uno per riga, per crearne uno unico.
+          <textarea id="linksInput" placeholder="Inserisci/incolla QUI i tuoi link google maps, uno per riga, per crearne uno unico.
 L'itinerario generato avrà in automatico come primo punto 'LA TUA POSIZIONE GPS' per avere l'itinerario subito navigabile.
 NOTA BENE: Per avere la certezza assoluta di leggere precisamente i punti, sarebbe meglio che per ogni località cercata e messa come tappa su Maps, si prendesse con il mouse quel punto e lo si spostasse leggermente in avanti o indietro sul percorso della mappa.
-Con questa strategia, Maps trasformerà la località come coordinate e non come 'nome punto' per avere una precisione al 100%
+Con questa strategia, Maps trasformerà la località come coordinate e non come 'nome punto', per avere una precisione al 100%
 Questo testo si auto-cancellerà in automatico all'inserimento dei tuoi link"></textarea>
           <div class="row" style="margin-top:12px;">
             <button id="btnMerge" class="btn">Analizza e Unisci</button>
@@ -210,10 +210,14 @@ Questo testo si auto-cancellerà in automatico all'inserimento dei tuoi link"></
       <div class="bd grid grid-2">
         <div>
           <label for="maps2gpxInput" style="font-weight:800;">Incolla un link Google Maps (itinerario) o una lista di indirizzi/coordinate</label>
-          <textarea id="maps2gpxInput" placeholder="Esempi:
-- https://www.google.com/maps/dir/Punto+A/Punto+B/...
-- Indirizzi o lat,lon (uno per riga)
-- Puoi incollare link con // iniziale: qui viene ignorato (come nello script)"></textarea>
+          <textarea id="maps2gpxInput" placeholder="Inserisci/incolla QUI i tuoi link google maps, uno per riga, per generare un GPX con la rotta e uno con la traccia.
+Funziona anche se inserisi le località per esteso con la loro provincia per esteso. Esempio:
+arluno milano
+chiavari genova
+NOTA BENE: Per avere la certezza assoluta di leggere precisamente i punti da un link google maps, sarebbe meglio che per ogni località cercata e messa come tappa su Maps, si prendesse con il mouse quel punto e lo si spostasse leggermente in avanti o indietro sul percorso della mappa.
+Con questa strategia, Maps trasformerà la località come coordinate e non come 'nome punto', per avere una precisione al 100%
+Questo testo si auto-cancellerà in automatico all'inserimento dei tuoi link
+"></textarea>
           <div class="row" style="margin-top:12px;">
             <button id="btnGenGPX" class="btn">Genera GPX</button>
             <button id="btnClear2" class="btn ghost">Pulisci</button>
