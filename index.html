@@ -1838,6 +1838,9 @@ function focusResultsSection(sel){
     const _blobUrls = [];
   
     function clearUI(){
+      // libera eventuali blob precedenti
+      _blobUrls.forEach(u => URL.revokeObjectURL(u));
+      _blobUrls.length = 0;
       $out.querySelector('.note').textContent = 'Nessun file generato.';
       $list.innerHTML = '';
     }
@@ -2400,8 +2403,6 @@ function focusResultsSection(sel){
       async ()=>{
         try{
             clearUI();
-            _blobUrls.forEach(u => URL.revokeObjectURL(u));
-            _blobUrls.length = 0;
             const lines = $in.value.split('\n').map(s=>s.trim()).filter(Boolean);
             if(!lines.length){ toastCenter('Inserisci un link o una lista'); return; }
       
