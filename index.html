@@ -65,7 +65,7 @@
     dialog{border:none;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.2);width:min(560px,92vw)} dialog::backdrop{background:rgba(0,0,0,.35)}
     #toastsCenter{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:60}
     /* i toast dentro il center devono poter ricevere i click */
-    #toastsCenter .toast { pointer-events: auto; }
+    #toastsCenter { display:flex; align-items:center; justify-content:center; flex-direction:column; gap:8px; }
     .toast.center{padding:12px 16px;font-size:15px;background:rgba(17,24,39,.95);color:#fff;border-radius:10px;box-shadow:0 6px 16px rgba(0,0,0,.28);animation:fadePop .28s ease-out}
     @keyframes fadePop{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
     .out-item+.out-item{margin-top:8px}
@@ -562,6 +562,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
     /* Toast center in coda (5s, niente overwrite) */
     const _toastQ = [];
     let _toastShowing = false;
+    let _toastEpoch = 0; // ++ ogni volta che si azzerano i toast
     
     function _makeBaseToast(className='toast center'){
       const t = document.createElement('div');
@@ -572,6 +573,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
     function _toastShowNext(){
       if(_toastShowing || !_toastQ.length) return;
       _toastShowing = true;
+      const myEpoch = _toastEpoch;        // <<< epoch corrente
     
       const item = _toastQ.shift();
       const box  = document.getElementById('toastsCenter');
@@ -618,6 +620,8 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
       const timer = setTimeout(()=>{ _hide(); }, duration);
     
       function _hide(){
+        // se nel frattempo è stato fatto clear, ignora questo hide
+        if (myEpoch !== _toastEpoch) return;  // <<< stop timer “stale”
         clearTimeout(timer);
         if(t && t.parentNode) t.parentNode.removeChild(t);
         if(typeof onClose === 'function'){ try{ onClose(); }catch{} }
@@ -640,6 +644,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
       const box = document.getElementById('toastsCenter');
       if (box) box.innerHTML = '';
       _toastShowing = false;
+      _toastEpoch++;               // <<< invalida tutti i timer già partiti
     }
     
     /* === UI helpers globali === */
