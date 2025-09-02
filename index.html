@@ -131,7 +131,9 @@
       </div>
     </div>
     <div class="cta">
-      <a id="donateBtn" class="btn" href="#" target="_blank" rel="noopener">Dona</a>
+      <a id="donateBtn" class="btn"
+         href="https://www.paypal.com/donate?business=stefano.vitro%40gmail.com&amp;no_recurring=0&amp;item_name=Supporto+sviluppo+GPX2MAPS&amp;currency_code=EUR"
+         target="_blank" rel="noopener">Dona</a>
       <a id="amazonBtn" class="btn secondary"
          href="https://amzn.to/41o2XjA"
          target="_blank" rel="noopener sponsored nofollow">Offerte e Coupon Amazon</a>
@@ -420,8 +422,9 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
     
         <h3>Supporto al progetto</h3>
         <p>
-          Se trovi utile GPX2MAPS, puoi <a href="#" id="aboutDonate">fare una donazione</a> oppure dare un’occhiata alle
-          <a href="#" id="aboutAmazon">offerte con coupon Amazon</a>. Grazie! 🙏
+          Se trovi utile GPX2MAPS, puoi <a href="https://www.paypal.com/donate?business=stefano.vitro%40gmail.com&amp;no_recurring=0&amp;item_name=Supporto+sviluppo+GPX2MAPS&amp;currency_code=EUR"
+           id="aboutDonate" target="_blank" rel="noopener">fare una donazione</a> oppure dare un’occhiata alle <a href="https://amzn.to/41o2XjA"
+           id="aboutAmazon" target="_blank" rel="noopener sponsored nofollow">offerte con coupon Amazon</a>. Grazie! 🙏
         </p>
     
         <h3>Repository & trasparenza</h3>
@@ -476,8 +479,12 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
   <div id="smartFooter" class="smart-footer" hidden>
     <div class="msg">Supporta il progetto</div>
     <div class="sp"></div>
-    <a id="smartDonate" class="btn small" href="#" target="_blank" rel="noopener">Dona</a>
-    <a id="smartAmazon" class="btn small secondary" href="#" target="_blank" rel="noopener">Coupon Amazon</a>
+    <a id="smartDonate" class="btn small"
+       href="https://www.paypal.com/donate?business=stefano.vitro%40gmail.com&amp;no_recurring=0&amp;item_name=Supporto+sviluppo+GPX2MAPS&amp;currency_code=EUR"
+       target="_blank" rel="noopener">Dona</a>
+    <a id="smartAmazon" class="btn small secondary"
+       href="https://amzn.to/41o2XjA"
+       target="_blank" rel="noopener sponsored nofollow">Coupon Amazon</a>
     <button id="smartClose" class="ghostx" type="button" aria-label="Nascondi">Nascondi</button>
   </div>
 
@@ -619,6 +626,9 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
       }
     
       box.appendChild(t);
+      // FOCUS per intercettare "Esc" senza scrollare la pagina
+      t.setAttribute('tabindex','-1');
+      try { t.focus({ preventScroll: true }); } catch { t.focus(); }
     
       const timer = setTimeout(()=>{ _hide(); }, duration);
     
@@ -756,6 +766,7 @@ function focusResultsSection(sel){
       ['svizzera','switzerland'],
       ['italia','italy']
     ];
+    /*
     function applySynonyms(s){
       let out = ' ' + normStr(s) + ' ';
       for(const group of SYN_EQUIV){
@@ -766,7 +777,24 @@ function focusResultsSection(sel){
         }
       }
       return out.trim();
+    }*/
+    function applySynonyms(s){
+      // normalizza come fai già
+      let out = ' ' + normStr(s) + ' ';
+    
+      for (const group of SYN_EQUIV) {
+        const core = group[0];
+        for (const alias of group) {
+          const esc = alias.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+          // match "alias" come token intero: inizio-stringa o spazio prima, spazio o fine-stringa dopo
+          const re = new RegExp('(^|\\s)' + esc + '(\\s|$)', 'g');
+          out = out.replace(re, function(_, pre, post){ return pre + core + post; });
+        }
+      }
+      // compatta spazi e trim finale
+      return out.replace(/\s+/g, ' ').trim();
     }
+    
     // parole generiche da ignorare nei keyword
     const GENERIC_WORDS = new Set([
       'passo','pass','colle','forcella','galleria','tunnel','orrido',
