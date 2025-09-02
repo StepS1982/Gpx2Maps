@@ -2190,6 +2190,53 @@ function focusResultsSection(sel){
     function formatDur(h, m){
       return `${h} h ${m} m`;
     }
+
+    function buildInfoViewerHTML(rows, titolo){
+      const css = `
+      <style>
+        :root{--fg:#111827;--muted:#6b7280;--bg:#fff;--border:#e5e7eb}
+        *{box-sizing:border-box}
+        body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
+        header{padding:12px 14px;border-bottom:1px solid var(--border)}
+        h1{margin:0 0 4px;font-size:16px;font-weight:800}
+        .muted{color:var(--muted);font-size:12px}
+        .wrap{padding:12px}
+        table.resp{width:100%;border-collapse:collapse}
+        table.resp th, table.resp td{border:1px solid var(--border);padding:8px 10px;text-align:left;font-size:14px}
+        thead th{background:#f8fafc}
+        /* Mobile: trasformo le righe in card */
+        @media (max-width: 640px){
+          thead{display:none}
+          table.resp, tbody, tr, td{display:block;width:100%}
+          tbody tr{border:1px solid var(--border);border-radius:12px;margin:10px 0;padding:6px;background:#fff}
+          tbody td{border:none;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:12px;padding:10px}
+          tbody td:last-child{border-bottom:none}
+          tbody td::before{content:attr(data-label);font-weight:800}
+        }
+        footer{padding:10px 14px;color:var(--muted);font-size:12px}
+      </style>`;
+      let H = `<!doctype html><html lang="it"><head><meta charset="utf-8">
+      <title>Info percorso</title>${css}</head><body>`;
+      H += `<header><h1>Info percorso</h1>
+            <div class="muted">${xmlEscape(titolo.da)} → ${xmlEscape(titolo.a)}</div></header>`;
+      H += `<div class="wrap"><table class="resp"><thead><tr>
+        <th>Punto</th><th>Località</th><th>Totale Km</th><th>Totale Tempo</th><th>Parziale Km</th><th>Parziale Tempo</th>
+      </tr></thead><tbody>`;
+      for(const r of rows){
+        H += `<tr>
+          <td data-label="Punto">${r.idx}</td>
+          <td data-label="Località">${xmlEscape(r.name)}</td>
+          <td data-label="Totale Km">${formatKmIT(r.totKm)}</td>
+          <td data-label="Totale Tempo">${formatDur(r.totH,r.totM)}</td>
+          <td data-label="Parziale Km">${formatKmIT(r.parzKm)}</td>
+          <td data-label="Parziale Tempo">${formatDur(r.parzH,r.parzM)}</td>
+        </tr>`;
+      }
+      H += `</tbody></table></div>
+            <footer>Apri = anteprima responsive · Scarica = TXT tabulato identico al contenuto.</footer>
+            </body></html>`;
+      return H;
+    }
     
     // rows: [{idx,name,totKm,totH,totM,parzKm,parzH,parzM}]
     function buildInfoPercorsoTXT(rows, titolo){
@@ -2255,9 +2302,13 @@ function focusResultsSection(sel){
       return {legs, totals};
     }
   
-    function addFileRow(label, blob, fname, canOpen){
-      const url = URL.createObjectURL(blob);
-      _blobUrls.push(url);
+    // addFileRow(label, downloadBlob, fileName, canOpen, openBlobOverride?)
+    function addFileRow(label, blob, fname, canOpen, openBlobOverride){
+      const urlDownload = URL.createObjectURL(blob);
+      const urlOpen = openBlobOverride
+        ? URL.createObjectURL(openBlobOverride)
+        : urlDownload;
+    
       const row = document.createElement('div');
       row.className='row'; row.style.marginTop='8px';
       row.innerHTML = `<div style="flex:1 1 auto;font-weight:700;">${label}</div>
@@ -2265,17 +2316,17 @@ function focusResultsSection(sel){
           ${canOpen?'<button class="btn small ghost" data-open>Apri</button>':''}
           <button class="btn small" data-dl>Scarica</button>
         </div>`;
+    
       row.querySelector('[data-dl]').addEventListener('click',()=>{
-        const a=document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click(); a.remove();
+        const a=document.createElement('a'); a.href=urlDownload; a.download=fname; document.body.appendChild(a); a.click(); a.remove();
         toast('Download avviato');
       });
       if(canOpen){
         row.querySelector('[data-open]').addEventListener('click',()=>{
-          window.open(url,'_blank','noopener');
+          window.open(urlOpen,'_blank','noopener');
         });
       }
-      $list.appendChild(row);
-      return url; // per eventuale revoke in futuro
+      document.getElementById('meteoFiles').appendChild(row);
     }
 
     function toastQueued(msg){
@@ -2414,6 +2465,8 @@ function focusResultsSection(sel){
             // Blob con LF (Unix) e UTF-8
             const txtBlob = new Blob([txtStr.replace(/\r?\n/g,'\n')], { type:'text/plain;charset=utf-8' });
             const csvBlob = new Blob([csvStr.replace(/\r?\n/g,'\n')], { type:'text/csv;charset=utf-8' });
+            const infoViewerHTML = buildInfoViewerHTML(rows, titolo);
+            const infoViewerBlob = new Blob([infoViewerHTML], {type:'text/html;charset=utf-8'});
     
       
             // File names (PS-style)
@@ -2426,7 +2479,7 @@ function focusResultsSection(sel){
             $out.querySelector('.note').textContent = `Creati 4 file · aggiornato alle ${timeHHMMSS()}`;
             addFileRow('Meteo (visione settimanale)', htmlBlobWeek, fHTMLWeek, true);
             addFileRow('Meteo (visione giorno x giorno)', htmlBlobDay, fHTMLDay, true);
-            addFileRow('Info Percorso TXT', txtBlob, fTXT, true);
+            addFileRow('Info Percorso TXT', txtBlob, fTXT, true, infoViewerBlob);  // <— 5° argomento usato qui
             addFileRow('Info Percorso CSV', csvBlob, fCSV, true);
             toastCenter('Meteo + Info percorso pronti');
             focusResultsSection('#tab-meteo .out');
