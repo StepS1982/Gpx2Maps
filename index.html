@@ -63,9 +63,8 @@
     .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
     .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;word-break:break-all}
     dialog{border:none;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.2);width:min(560px,92vw)} dialog::backdrop{background:rgba(0,0,0,.35)}
-    #toastsCenter{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:60}
+    #toastsCenter{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:60;display:flex; align-items:center; justify-content:center; flex-direction:column; gap:8px;}
     /* i toast dentro il center devono poter ricevere i click */
-    #toastsCenter { display:flex; align-items:center; justify-content:center; flex-direction:column; gap:8px; }
     #toastsCenter .toast { pointer-events:auto; }    /* abilita i click nei toast */
     .toast.center{padding:12px 16px;font-size:15px;background:rgba(17,24,39,.95);color:#fff;border-radius:10px;box-shadow:0 6px 16px rgba(0,0,0,.28);animation:fadePop .28s ease-out}
     @keyframes fadePop{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
@@ -1733,7 +1732,7 @@ function focusResultsSection(sel){
     
         // TRK: per ogni trkseg, dedupe sulla lista diretta di trkpt
         trks.forEach(trk=>{
-          const segs = Array.from(trk.getElementsByTagName('trkseg'));
+          const segs = getByLocalName(trk, 'trkseg');
           segs.forEach(seg=>{
             const pts = Array.from(seg.children).filter(n=>n.tagName && n.tagName.toLowerCase()==='trkpt');
             if(pts.length) dedupeAdjacent(pts, 'trkpt', seg);
@@ -2322,8 +2321,9 @@ function focusResultsSection(sel){
       ].join(sep);
     
       const lines = [];
+      const last = rows[rows.length - 1];
       lines.push(`Percorso da: ${titolo.da} a: ${titolo.a}`);
-      lines.push(`Punti totali: ${rows.length} | Distanza totale: ${formatKmIT(rows.at(-1).totKm)} | Tempo totale: ${formatDur(rows.at(-1).totH, rows.at(-1).totM)}`);
+      lines.push(`Punti totali: ${rows.length} | Distanza totale: ${formatKmIT(last.totKm)} | Tempo totale: ${formatDur(last.totH, last.totM)}`);
       lines.push('');
       lines.push(header);
       lines.push(underline);
@@ -2359,7 +2359,8 @@ function focusResultsSection(sel){
       const urlOpen = openBlobOverride
         ? URL.createObjectURL(openBlobOverride)
         : urlDownload;
-    
+      _blobUrls.push(urlDownload);
+      if (canOpen) _blobUrls.push(urlOpen);
       const row = document.createElement('div');
       row.className='row'; row.style.marginTop='8px';
       row.innerHTML = `<div style="flex:1 1 auto;font-weight:700;">${label}</div>
