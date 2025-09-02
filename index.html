@@ -729,6 +729,24 @@ function focusResultsSection(sel){
     /* Helpers */
     // === Helpers per matching "strict" token vs display_name Nominatim
     /* POI hard-coded (eccezioni controllate) */
+
+    /* === ESEMPIO WHITELIST POI PRECISO ===
+    Aggiungi questo oggetto dentro l’array POI_FIX:
+    
+    {
+      label: 'Autogrill San Zenone Ovest',
+      lat: '45.XXXXXX',   // <-- sostituisci con la coordinata esatta
+      lon: '9.XXXXXX',    // <-- sostituisci con la coordinata esatta
+      match: (raw) => {
+        // match ultra-strict: accetta SOLO la stringa esatta (normalizzata)
+        return normText(raw) === 'autogrill san zenone ovest';
+        // In alternativa, se vuoi tollerare minime varianti, usa:
+        // const n = normText(raw);
+        // return n.includes('autogrill') && n.includes('san zenone ovest');
+      }
+    }
+    === FINE ESEMPIO === */
+    
     const POI_FIX = [
       {
         label: 'Orrido di Bracca',
@@ -799,7 +817,16 @@ function focusResultsSection(sel){
     const GENERIC_WORDS = new Set([
       'passo','pass','colle','forcella','galleria','tunnel','orrido',
       'provincia','cantone','distretto','circolo','comune'
-    ]);    
+    ]);
+
+    // >>> AGGIUNTA: stop-words italiane (solo rumore, non ampliano i match)
+    const STOP_IT = [
+      'di','del','della','dei','degli','delle','da','al','allo','alla','ai','agli','alle',
+      'nel','nella','nei','negli','nelle','lo','la','le','il','i','gli','in','su','sul',
+      'sulla','sui','sugli','sulle','a','ad','e','ed','con','per','tra','fra'
+    ];
+    STOP_IT.forEach(w => GENERIC_WORDS.add(w));
+    
     function keywordsForMatch(token){
       const words = applySynonyms(token).split(' ');
       const out = [];
