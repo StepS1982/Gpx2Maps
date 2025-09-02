@@ -1644,7 +1644,7 @@ function focusResultsSection(sel){
         //wpts.forEach(el=>{ stats.wpt++; roundLatLon(el); }); //non li considero i WPT
         // blocco per rimuovere i wpt al posto delle due righe sopra commentate
         // --- WPT: rimuovi tutti (stile PS) ---
-        const wpts = Array.from(doc.getElementsByTagName('wpt'));
+        const wpts = getByLocalName(doc, 'wpt');
         stats.wpt = wpts.length;                 // quanti ne abbiamo trovati
         wpts.forEach(el => {
           const p = el.parentNode;
@@ -1652,17 +1652,17 @@ function focusResultsSection(sel){
         });
         stats.dropped.wpt += wpts.length;        // conteggiali come "rimossi"
             
-        const rtes = Array.from(doc.getElementsByTagName('rte'));
+        const rtes = getByLocalName(doc, 'rte');
         rtes.forEach(rte=>{
-          const pts = Array.from(rte.getElementsByTagName('rtept'));
+          const pts = getByLocalName(rte, 'rtept');
           pts.forEach(el=>{ stats.rtept++; roundLatLon(el); });
         });
     
-        const trks = Array.from(doc.getElementsByTagName('trk'));
+        const trks = getByLocalName(doc, 'trk');
         trks.forEach(trk=>{
-          const segs = Array.from(trk.getElementsByTagName('trkseg'));
+          const segs = getByLocalName(trk, 'trkseg');
           segs.forEach(seg=>{
-            const pts = Array.from(seg.getElementsByTagName('trkpt'));
+            const pts = getByLocalName(seg, 'trkpt');
             pts.forEach(el=>{ stats.trkpt++; roundLatLon(el); });
           });
         });
