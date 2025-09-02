@@ -2192,48 +2192,99 @@ function focusResultsSection(sel){
     }
 
     function buildInfoViewerHTML(rows, titolo){
+      // ultimo record per totali
+      const last = rows[rows.length - 1] || { totKm: 0, totH: 0, totM: 0 };
+    
       const css = `
       <style>
         :root{--fg:#111827;--muted:#6b7280;--bg:#fff;--border:#e5e7eb}
         *{box-sizing:border-box}
         body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
-        header{padding:12px 14px;border-bottom:1px solid var(--border)}
-        h1{margin:0 0 4px;font-size:16px;font-weight:800}
-        .muted{color:var(--muted);font-size:12px}
+        header{padding:14px 16px;border-bottom:1px solid var(--border);text-align:center}
+        h1{margin:0 0 8px;font-size:18px;font-weight:800}
+        .header-lines{display:flex;flex-direction:column;gap:4px;align-items:center}
+        .header-lines .line{font-size:14px;font-weight:600}
+        .muted{color:var(--muted)}
         .wrap{padding:12px}
         table.resp{width:100%;border-collapse:collapse}
-        table.resp th, table.resp td{border:1px solid var(--border);padding:8px 10px;text-align:left;font-size:14px}
-        thead th{background:#f8fafc}
-        /* Mobile: trasformo le righe in card */
+        table.resp th, table.resp td{
+          border:1px solid var(--border);
+          padding:10px 12px;
+          text-align:center;              /* centrato */
+          font-size:15px;                 /* un filo più grande */
+          line-height:1.25;
+          vertical-align:middle;
+        }
+        thead th{background:#f8fafc;font-weight:800}
+    
+        /* Valori un po' più "corposi" senza usare tutto in bold */
+        .v{font-weight:600}
+    
+        /* Mobile: trasformo le righe in "card" leggibili e centrate */
         @media (max-width: 640px){
           thead{display:none}
           table.resp, tbody, tr, td{display:block;width:100%}
-          tbody tr{border:1px solid var(--border);border-radius:12px;margin:10px 0;padding:6px;background:#fff}
-          tbody td{border:none;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:12px;padding:10px}
+          tbody tr{
+            border:1px solid var(--border);
+            border-radius:12px;
+            margin:10px 0;
+            padding:6px;
+            background:#fff
+          }
+          tbody td{
+            border:none;
+            border-bottom:1px solid var(--border);
+            display:flex;
+            flex-direction:column;        /* etichetta sopra, valore sotto */
+            align-items:center;
+            gap:6px;
+            padding:10px;
+            text-align:center;
+          }
           tbody td:last-child{border-bottom:none}
-          tbody td::before{content:attr(data-label);font-weight:800}
+          tbody td::before{
+            content:attr(data-label);
+            font-weight:700;
+            color:var(--muted);
+            display:block;
+          }
         }
-        footer{padding:10px 14px;color:var(--muted);font-size:12px}
+    
+        footer{padding:10px 14px;color:var(--muted);font-size:12px;text-align:center}
       </style>`;
+    
       let H = `<!doctype html><html lang="it"><head><meta charset="utf-8">
       <title>Info percorso</title>${css}</head><body>`;
-      H += `<header><h1>Info percorso</h1>
-            <div class="muted">${xmlEscape(titolo.da)} → ${xmlEscape(titolo.a)}</div></header>`;
+    
+      // Titolo + 2 righe richieste (identiche al TXT)
+      const riga1 = `Percorso da: ${titolo.da} a: ${titolo.a}`;
+      const riga2 = `Punti totali: ${rows.length} | Distanza totale: ${formatKmIT(last.totKm)} | Tempo totale: ${formatDur(last.totH, last.totM)}`;
+    
+      H += `<header>
+              <h1>Info percorso</h1>
+              <div class="header-lines">
+                <div class="line">${xmlEscape(riga1)}</div>
+                <div class="line">${xmlEscape(riga2)}</div>
+              </div>
+            </header>`;
+    
       H += `<div class="wrap"><table class="resp"><thead><tr>
         <th>Punto</th><th>Località</th><th>Totale Km</th><th>Totale Tempo</th><th>Parziale Km</th><th>Parziale Tempo</th>
       </tr></thead><tbody>`;
+    
       for(const r of rows){
         H += `<tr>
-          <td data-label="Punto">${r.idx}</td>
-          <td data-label="Località">${xmlEscape(r.name)}</td>
-          <td data-label="Totale Km">${formatKmIT(r.totKm)}</td>
-          <td data-label="Totale Tempo">${formatDur(r.totH,r.totM)}</td>
-          <td data-label="Parziale Km">${formatKmIT(r.parzKm)}</td>
-          <td data-label="Parziale Tempo">${formatDur(r.parzH,r.parzM)}</td>
+          <td data-label="Punto"><span class="v">${r.idx}</span></td>
+          <td data-label="Località"><span class="v">${xmlEscape(r.name)}</span></td>
+          <td data-label="Totale Km"><span class="v">${formatKmIT(r.totKm)}</span></td>
+          <td data-label="Totale Tempo"><span class="v">${formatDur(r.totH,r.totM)}</span></td>
+          <td data-label="Parziale Km"><span class="v">${formatKmIT(r.parzKm)}</span></td>
+          <td data-label="Parziale Tempo"><span class="v">${formatDur(r.parzH,r.parzM)}</span></td>
         </tr>`;
       }
+    
       H += `</tbody></table></div>
-            <footer>Apri = anteprima responsive · Scarica = TXT tabulato identico al contenuto.</footer>
+            <footer>Apri = anteprima responsive · Scarica = TXT tabulato identico ai contenuti.</footer>
             </body></html>`;
       return H;
     }
