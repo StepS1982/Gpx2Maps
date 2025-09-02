@@ -48,6 +48,7 @@
       background:#fff49a;
       border-color:#eadc73;
     }
+    .btn[disabled]{ opacity:.6; cursor:not-allowed; pointer-events:none }
     .container{max-width:1100px;margin:0 auto;padding:16px}
     .note{margin:14px 0 6px;color:var(--muted);font-size:14px}
     .tabs{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--border);margin-top:12px}
@@ -488,6 +489,38 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
     document.getElementById('amazonBtn').href=CONFIG.amazonAffiliateUrl;
     document.getElementById('smartDonate').href = CONFIG.paypalDonateUrl;
     document.getElementById('smartAmazon').href = CONFIG.amazonAffiliateUrl;
+
+    // Esegue handler assicurando: lock, label temporanea, toast, unlock
+    function guardClick(selector, opts, handler){
+      const btn = document.querySelector(selector);
+      if(!btn) return;
+    
+      const labelWork = opts?.label || 'Elaboro…';
+      const toastMsg  = opts?.toast || 'Elaborazione in corso…';
+    
+      btn.addEventListener('click', async (ev)=>{
+        // già in corso? blocca
+        if(btn.dataset.busy === '1'){
+          toastCenter('Elaborazione già in corso…');
+          return;
+        }
+        // lock
+        btn.dataset.busy = '1';
+        const old = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = labelWork;
+        if(toastMsg) toastCenter(toastMsg);
+    
+        try{
+          await handler(ev);                // <— qui gira il tuo codice originale
+        }finally{
+          // unlock SEMPRE (successo/errore/throw)
+          btn.disabled = false;
+          btn.textContent = old;
+          delete btn.dataset.busy;
+        }
+      });
+    }
 
     // Link dai bottoni inside About
     document.addEventListener('DOMContentLoaded', ()=>{
@@ -955,41 +988,54 @@ function focusResultsSection(sel){
         return hasPOIKeyword(tok) || /,\s*\d+\b/.test(tok) || STREET_WORDS_RE.test(tok);
       });
     }
-    document.getElementById('btnMerge').addEventListener('click', async ()=>{
-      const lines=document.getElementById('linksInput').value.split('\n').map(s=>s.trim()).filter(Boolean);
-      if(!lines.length){toastCenter('Inserisci almeno un link');return}
 
-      // Caso 1 link con // => errore (coerente con PS)
-      if(lines.length===1 && /https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/\//i.test(lines[0])){
-        toastCenter('Errore: almeno due link sono necessari per la fusione.');
-        return;
+    function clearMergeResults(){
+      document.getElementById('output').innerHTML = '';
+      document.getElementById('stats').textContent = '';
+      document.getElementById('btnDownloadAll').style.display = 'none';
+    }
+
+    guardClick('#btnMerge',
+      { label:'Analizzo…', toast:'Analisi e fusione in corso…' },
+      async ()=>{
+        clearMergeResults();                 // pulizia risultati, NON dell’input
+        document.getElementById('btnMerge').addEventListener('click', async ()=>{
+          const lines=document.getElementById('linksInput').value.split('\n').map(s=>s.trim()).filter(Boolean);
+          if(!lines.length){toastCenter('Inserisci almeno un link');return}
+    
+          // Caso 1 link con // => errore (coerente con PS)
+          if(lines.length===1 && /https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/\//i.test(lines[0])){
+            toastCenter('Errore: almeno due link sono necessari per la fusione.');
+            return;
+          }
+    
+          // Risolvi shortlink
+          const resolved=[]; for(const ln of lines){ resolved.push(await resolveIfShort(ln)); }
+    
+          // Estrai segmenti /maps/dir/
+          const clean=[]; for(const link of resolved){ const seg=extractDirSegment(link); if(seg) clean.push(seg); }
+          if(!clean.length){ toastCenter('Nessun link valido "/maps/dir/..." rilevato'); return; }
+          // solo avviso informativo: link con POI/parametri speciali
+          if (clean.some(segHasPOI)) {
+            toastCenter('Link Google con POI/parametri speciali rilevato: lo apro così com’è. Consiglio: usa coordinate/indirizzi se vuoi massima stabilità o aggiungere "La tua posizione".');
+          }
+          // Costruisci punti con blank iniziale
+          let all=[""]; for(const seg of clean){ all.push(...seg.split('/')); }
+    
+          // Dedup PRIMA del check 25
+          all=dedupeAdjacent(all);
+    
+          if(all.length<=25){ renderOutput([buildGoogleDirURL(all)]); return; }
+    
+          // Strategia
+          const dlg=document.getElementById('strategyDialog'); dlg.showModal();
+          const strategy=await new Promise(r=>dlg.addEventListener('close',()=>r(dlg.returnValue==='opt'?'optimize':dlg.returnValue==='split'?'split':null),{once:true}));
+          if(!strategy){ toastCenter('Operazione annullata'); return; }
+          if(strategy==='optimize'){ renderOutput([buildGoogleDirURL(optimizeTo25(all))]); }
+          else { const blocks=splitInBlocks(all); renderOutput(blocks.map(b=>buildGoogleDirURL(b))); }
+        });
       }
-
-      // Risolvi shortlink
-      const resolved=[]; for(const ln of lines){ resolved.push(await resolveIfShort(ln)); }
-
-      // Estrai segmenti /maps/dir/
-      const clean=[]; for(const link of resolved){ const seg=extractDirSegment(link); if(seg) clean.push(seg); }
-      if(!clean.length){ toastCenter('Nessun link valido "/maps/dir/..." rilevato'); return; }
-      // solo avviso informativo: link con POI/parametri speciali
-      if (clean.some(segHasPOI)) {
-        toastCenter('Link Google con POI/parametri speciali rilevato: lo apro così com’è. Consiglio: usa coordinate/indirizzi se vuoi massima stabilità o aggiungere "La tua posizione".');
-      }
-      // Costruisci punti con blank iniziale
-      let all=[""]; for(const seg of clean){ all.push(...seg.split('/')); }
-
-      // Dedup PRIMA del check 25
-      all=dedupeAdjacent(all);
-
-      if(all.length<=25){ renderOutput([buildGoogleDirURL(all)]); return; }
-
-      // Strategia
-      const dlg=document.getElementById('strategyDialog'); dlg.showModal();
-      const strategy=await new Promise(r=>dlg.addEventListener('close',()=>r(dlg.returnValue==='opt'?'optimize':dlg.returnValue==='split'?'split':null),{once:true}));
-      if(!strategy){ toastCenter('Operazione annullata'); return; }
-      if(strategy==='optimize'){ renderOutput([buildGoogleDirURL(optimizeTo25(all))]); }
-      else { const blocks=splitInBlocks(all); renderOutput(blocks.map(b=>buildGoogleDirURL(b))); }
-    });
+    );
 
     document.getElementById('btnClear').addEventListener('click',()=>{
       document.getElementById('linksInput').value='';
