@@ -499,7 +499,6 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
       const toastMsg  = opts?.toast || 'Elaborazione in corso…';
     
       btn.addEventListener('click', async (ev)=>{
-        // già in corso? blocca
         if(btn.dataset.busy === '1'){
           toastCenter('Elaborazione già in corso…');
           return;
@@ -509,12 +508,14 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
         const old = btn.textContent;
         btn.disabled = true;
         btn.textContent = labelWork;
+    
+        // NUOVO: azzera la coda dei toast prima di mostrarne uno nuovo
+        toastClearAll();
         if(toastMsg) toastCenter(toastMsg);
     
         try{
-          await handler(ev);                // <— qui gira il tuo codice originale
+          await handler(ev);        // <<< qui DEVE esserci il codice che lavora davvero
         }finally{
-          // unlock SEMPRE (successo/errore/throw)
           btn.disabled = false;
           btn.textContent = old;
           delete btn.dataset.busy;
@@ -632,6 +633,13 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
     function toastAction(html, duration=8000, onClose=null){
       _toastQ.push({type:'action', html, duration, onClose});
       _toastShowNext();
+    }
+
+    function toastClearAll(){
+      _toastQ.length = 0;
+      const box = document.getElementById('toastsCenter');
+      if (box) box.innerHTML = '';
+      _toastShowing = false;
     }
     
     /* === UI helpers globali === */
@@ -999,7 +1007,6 @@ function focusResultsSection(sel){
       { label:'Analizzo…', toast:'Analisi e fusione in corso…' },
       async ()=>{
         clearMergeResults();                 // pulizia risultati, NON dell’input
-        document.getElementById('btnMerge').addEventListener('click', async ()=>{
           const lines=document.getElementById('linksInput').value.split('\n').map(s=>s.trim()).filter(Boolean);
           if(!lines.length){toastCenter('Inserisci almeno un link');return}
     
@@ -1033,8 +1040,7 @@ function focusResultsSection(sel){
           if(!strategy){ toastCenter('Operazione annullata'); return; }
           if(strategy==='optimize'){ renderOutput([buildGoogleDirURL(optimizeTo25(all))]); }
           else { const blocks=splitInBlocks(all); renderOutput(blocks.map(b=>buildGoogleDirURL(b))); }
-        });
-      }
+        }
     );
 
     document.getElementById('btnClear').addEventListener('click',()=>{
@@ -1187,7 +1193,6 @@ function focusResultsSection(sel){
     guardClick('#btnGenGPX',
       { label:'Calcolo…', toast:'Conversione Maps → GPX in corso…' },
       async ()=>{
-        document.getElementById('btnGenGPX').addEventListener('click', async ()=>{
           resetMaps2GPXUI();
           const raw=document.getElementById('maps2gpxInput').value.split('\n').map(s=>s.trim()).filter(Boolean);
           if(!raw.length){toastCenter('Inserisci almeno una riga');return}
@@ -1294,8 +1299,7 @@ function focusResultsSection(sel){
               <a class="btn secondary" data-cta href="${CONFIG.amazonAffiliateUrl}" target="_blank" rel="noopener">Offerte con Coupon Amazon</a>
             </div>
           `, 8000, ()=>console.log('toast chiuso'));
-        });
-      }
+        }
     );
     
     function downloadBlob(name, content, mime){
@@ -1471,7 +1475,6 @@ function focusResultsSection(sel){
     guardClick('#btnParseGPX',
       { label:'Analizzo…', toast:'Parsing GPX…' },
       async ()=>{
-        document.getElementById('btnParseGPX').addEventListener('click', async ()=>{
           const file = document.getElementById('gpxFile').files[0]||null;
           const pasted = document.getElementById('gpxText').value;
         
@@ -1493,8 +1496,7 @@ function focusResultsSection(sel){
           }else{
             toastCenter('Analisi GPX completata.');
           }
-        });
-      }
+        }
     );
 
     guardClick('#btnMakeWPT',
@@ -1703,7 +1705,6 @@ function focusResultsSection(sel){
         { label:'Sanifico…', toast:'Sanificazione GPX in corso…' },
         async ()=>{
           // UI handlers
-          document.getElementById('btnSanitize').addEventListener('click', ()=>{
             const raw = $in().value.trim();
             if(!raw){ toastCenter('Incolla un GPX o apri un file'); return; }
             try{
@@ -1731,8 +1732,7 @@ function focusResultsSection(sel){
               toastCenter('Errore di parsing GPX: verifica il file');
               resetSanUI();
             }
-          });
-        }
+          }
       );
     
       document.getElementById('btnDownloadSan').addEventListener('click', async ()=>{
@@ -2230,8 +2230,7 @@ function focusResultsSection(sel){
     guardClick('#btnGenMeteo',
       { label:'Elaboro…', toast:'Generazione Meteo + Info percorso in corso…' },
       async ()=>{
-        document.getElementById('btnGenMeteo').addEventListener('click', async()=>{
-          try{
+        try{
             clearUI();
             const lines = $in.value.split('\n').map(s=>s.trim()).filter(Boolean);
             if(!lines.length){ toastCenter('Inserisci un link o una lista'); return; }
@@ -2379,8 +2378,7 @@ function focusResultsSection(sel){
             console.error(e);
             toastCenter('Errore: '+(e&&e.message?e.message:String(e)));
           }
-        });
-      }
+        }
     );
   })();
   </script>
