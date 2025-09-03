@@ -295,7 +295,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
           <textarea id="sanitizeInput" placeholder="Inserisci/incolla QUI il contenuto GPX o carica un file dall'apposito pulsante sottostante"></textarea>
           <div class="row" style="margin-top:12px;">
             <input id="sanitizeFile" type="file" accept=".gpx,application/gpx+xml" />
-            <button id="btnSanitize" class="btn">Sanifica GPX</button>
+            <button id="btnSanitize" class="btn">Sanitizza GPX</button>
             <button id="btnClear4" class="btn ghost">Pulisci</button>
           </div>
         </div>
@@ -303,13 +303,13 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
           <div class="out card">
             <div class="hd">Risultati</div>
             <div class="bd">
-              <div id="stats4" class="note">Nessun file sanificato.</div>
+              <div id="stats4" class="note">Nessun file sanitizzato.</div>
               <details id="previewWrapSan" style="margin-top:8px;" hidden>
-                <summary>Anteprima GPX sanificato</summary>
+                <summary>Anteprima GPX sanitizzato</summary>
                 <pre id="gpxPreviewSan" class="mono" style="max-height:220px;overflow:auto;white-space:pre;background:#f8fafc;border:1px solid var(--border);padding:10px;border-radius:10px;"></pre>
               </details>
               <div class="row" id="dlRow4" style="margin-top:10px;display:none;">
-                <button id="btnDownloadSan" class="btn small">Scarica GPX sanificato</button>
+                <button id="btnDownloadSan" class="btn small">Scarica GPX sanitizzato</button>
               </div>
             </div>
           </div>
@@ -1742,7 +1742,7 @@ function focusResultsSection(sel){
       let sanitizedName = '';
     
       function resetSanUI(){
-        $st().textContent='Nessun file sanificato.';
+        $st().textContent='Nessun file sanitizzato.';
         $pre().textContent='';
         $preW().hidden=true;
         $dlW().style.display='none';
@@ -1891,7 +1891,7 @@ function focusResultsSection(sel){
       }
 
       guardClick('#btnSanitize',
-        { label:'Sanifico…', toast:'Sanificazione GPX in corso…' },
+        { label:'Sanitizzo…', toast:'Sanitizzazione GPX in corso…' },
         async ()=>{
           // UI handlers
             const raw = $in().value.trim();
@@ -1925,8 +1925,8 @@ function focusResultsSection(sel){
       );
     
       document.getElementById('btnDownloadSan').addEventListener('click', async ()=>{
-        if(!sanitizedText){ toastCenter('Nessun file sanificato'); return; }
-        const ok = await confirmAction('Scaricare il file GPX sanificato?');
+        if(!sanitizedText){ toastCenter('Nessun file sanitizzato'); return; }
+        const ok = await confirmAction('Scaricare il file GPX sanitizzato?');
         if(!ok) return;
         // Forziamo charset UTF-8; LF già garantito dal testo
         const bytes = new TextEncoder().encode(sanitizedText.endsWith('\n') ? sanitizedText : (sanitizedText+'\n'));
