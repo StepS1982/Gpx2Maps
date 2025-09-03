@@ -753,6 +753,7 @@ function focusResultsSection(sel){
         match: (raw) => {
           const n = normText(raw);
           // copre “Orrido di Bracca”, “Orrido del Bracca”, varianti con punteggiatura o plus
+          //return /\borrido\b/.test(n) && /\bbracca\b/.test(n);
           return n.includes('orrido di bracca') || n.includes('orrido del bracca') || n.includes('orrido bracca');
         }
       },
@@ -1878,7 +1879,16 @@ function focusResultsSection(sel){
       const ordered=[], skipped=[];
       for(let i=0;i<ts.length;i++){
         $out.querySelector('.note').textContent = `Geocoding ${i+1}/${ts.length}...`;
-        const g = await geocodeFreeform(ts[i]);
+        // 1) POI_FIX prima
+        let fixed = null;
+        for (const poi of POI_FIX) {
+          if (poi.match(ts[i])) {
+            fixed = { lat: fmt6s(poi.lat), lon: fmt6s(poi.lon), label: poi.label };
+            break;
+          }
+        }
+        // 2) poi geocoding normale
+        const g = fixed || await geocodeFreeform(ts[i]);
         if(!g) skipped.push(ts[i]); else ordered.push(g);
       }
       return {ordered, skipped};
