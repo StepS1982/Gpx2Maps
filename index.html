@@ -2529,19 +2529,21 @@ function focusResultsSection(sel){
       return lines.join('\n');
     }
 
-  
     async function buildRouteLegs(points){
-      // OSRM full route con legs (driving)
       const coords = points.map(p=>`${p.lon},${p.lat}`).join(';');
-      const url = `${CONFIG.workerBase}/osrm?coords=${encodeURIComponent(coords)}&profile=driving&overview=false&geometries=geojson&steps=false`;
-      const j = await getJSON(url);
+      const j = await osrmFetchCached(coords, {
+        profile:'driving', overview:'false', geometries:'geojson', steps:'false'
+      });
       if(!j || j.code!=='Ok' || !j.routes || !j.routes[0]) throw new Error('OSRM route error');
       const route = j.routes[0];
       const legs = (route.legs||[]).map(L=>({dist:+L.distance||0, dur:+L.duration||0}));
-      const totals = {dist:+route.distance||legs.reduce((a,b)=>a+b.dist,0), dur:+route.duration||legs.reduce((a,b)=>a+b.dur,0)};
+      const totals = {
+        dist:+route.distance || legs.reduce((a,b)=>a+b.dist,0),
+        dur:+route.duration || legs.reduce((a,b)=>a+b.dur,0)
+      };
       return {legs, totals};
     }
-  
+    
     // addFileRow(label, downloadBlob, fileName, canOpen, openBlobOverride?)
     function addFileRow(label, blob, fname, canOpen, openBlobOverride){
       const urlDownload = URL.createObjectURL(blob);
