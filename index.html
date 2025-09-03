@@ -218,7 +218,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
 Funziona anche se inserisci le località per esteso con la loro provincia per esteso. Esempio:
 arluno milano
 chiavari genova
-Funziona anche con le coordinate di latitudine e logitudine
+Funziona anche con le coordinate di latitudine e longitudine
 NOTA BENE: Per avere la certezza assoluta di leggere precisamente i punti da un link google maps, sarebbe meglio che per ogni località cercata e messa come tappa su Maps, si prendesse con il mouse quel punto e lo si spostasse leggermente in avanti o indietro sul percorso della mappa.
 Con questa strategia, Maps trasformerà la località come coordinate e non come 'nome punto', per avere una precisione al 100%"></textarea>
           <div class="row" style="margin-top:12px;">
@@ -326,7 +326,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
 Funziona anche se inserisci le località per esteso con la loro provincia per esteso. Esempio:
 arluno milano
 chiavari genova
-Funziona anche con le coordinate di latitudine e logitudine
+Funziona anche con le coordinate di latitudine e longitudine
 NOTA BENE: Per avere la certezza assoluta di leggere precisamente i punti da un link google maps, sarebbe meglio che per ogni località cercata e messa come tappa su Maps, si prendesse con il mouse quel punto e lo si spostasse leggermente in avanti o indietro sul percorso della mappa.
 Con questa strategia, Maps trasformerà la località come coordinate e non come 'nome punto', per avere una precisione al 100%"></textarea>
           <div class="row" style="margin-top:12px;">
@@ -1426,14 +1426,6 @@ function focusResultsSection(sel){
           if (usedFallback.length) {
             toastCenter(`Geocodificati con fallback (verifica): ${usedFallback.join(' · ')}`);
           }
-          // OSRM con coppie lon,lat ARROTONDATE A 6 (come PS)
-          const coordsParam = ordered.map(p => `${p.lon},${p.lat}`).join(';');
-          // radius fisso per ogni punto (metri) — solo per questo test
-          //const radiusesParam = new Array(ordered.length).fill(1000).join(';');
-          //const osrmUrl =
-          //`${CONFIG.workerBase}/osrm?coords=${encodeURIComponent(coordsParam)}` +
-          //`&profile=driving&overview=full&geometries=geojson&steps=true` +
-          //`&radiuses=${encodeURIComponent(radiusesParam)}`;
           
           // OSRM con coppie lon,lat ARROTONDATE A 6
           const coordsParam = ordered.map(p => `${p.lon},${p.lat}`).join(';');
