@@ -1901,12 +1901,54 @@ function focusResultsSection(sel){
     }
   
     // === Open-Meteo tramite worker ===
-    async function fetchWeather(lat,lon){
-      const u = `${CONFIG.workerBase}/weather?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&days=7`;
-      const j = await getJSON(u);
-      return j||null;
+    // === Meteo: worker con fallback diretto a Open-Meteo ===
+    const WX_TTL = 3 * 60 * 60 * 1000; // 3 ore
+    const wxKey = (lat,lon) => `wx_${(+lat).toFixed(2)}_${(+lon).toFixed(2)}`; // cella ~1.1 km
+    const wxGet = k => { try{ const o = JSON.parse(localStorage.getItem(k)); if(o && Date.now()-o.ts<WX_TTL) return o.data; }catch{} return null; };
+    const wxSet = (k,d)=>{ try{ localStorage.setItem(k, JSON.stringify({ts:Date.now(), data:d})); }catch{} };
+
+    // === Meteo: worker con fallback diretto a Open-Meteo + cache ===
+    let _WX_FALLBACK_TOLD = false; // evita mille toast
+    
+    async function fetchWeather(lat, lon){
+      const key = wxKey(lat, lon);
+      const cached = wxGet(key);
+      if (cached) return cached;
+    
+      const uWorker = `${CONFIG.workerBase}/weather?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&days=7`;
+    
+      // 1) Prova il worker
+      try{
+        const r = await fetch(uWorker, { headers:{ Accept:'application/json' } });
+        const j = await r.json();
+        if (j?.hourly?.time && j?.daily?.time && !j?.error){
+          wxSet(key, j);                 // <<<< SALVA IN CACHE
+          return j;
+        }
+        if (j?.error) console.warn('Worker /weather:', j.reason || j);
+      }catch(e){
+        console.warn('Worker /weather errore:', e);
+      }
+    
+      // 2) Fallback diretto su Open-Meteo
+      if(!_WX_FALLBACK_TOLD){
+        toastCenter('Quota meteo del worker esaurita — uso fallback Open-Meteo');
+        _WX_FALLBACK_TOLD = true;
+      }
+      const uOM = `https://api.open-meteo.com/v1/forecast`
+                + `?latitude=${lat}&longitude=${lon}`
+                + `&hourly=temperature_2m,weathercode,precipitation_probability`
+                + `&daily=temperature_2m_max,temperature_2m_min`
+                + `&timezone=auto`;
+      const r2 = await fetch(uOM, { headers:{ Accept:'application/json' } });
+      if (!r2.ok) throw new Error('Meteo non disponibile (fallback)');
+      const j2 = await r2.json();
+      if (!j2?.hourly?.time || !j2?.daily?.time) throw new Error('Meteo non disponibile');
+    
+      wxSet(key, j2);                    // <<<< SALVA IN CACHE
+      return j2;
     }
-  
+      
     // Mappa weathercode -> tipo base (per icone & severità)
     function wxKind(code){
       code = +code;
@@ -2421,18 +2463,32 @@ function focusResultsSection(sel){
             $out.querySelector('.note').textContent = 'Calcolo distanze e tempi...';
             const {legs, totals} = await buildRouteLegs(ordered);
       
-            // Weather per ogni località
+            // Weather per ogni località (de-dupe in RAM su celle ~1 km)
             const wxRows = [];
             let dayLabels = null;
+            const mem = new Map();
+            const cellKey = (lat,lon)=> `${(+lat).toFixed(2)},${(+lon).toFixed(2)}`;
+            
             for(let i=0;i<ordered.length;i++){
               $out.querySelector('.note').textContent = `Meteo ${i+1}/${ordered.length}...`;
-              const w = await fetchWeather(ordered[i].lat, ordered[i].lon);
-              if(!w || !w.hourly || !w.daily){ throw new Error('Meteo non disponibile'); }
+            
+              const k = cellKey(ordered[i].lat, ordered[i].lon);
+              let w = mem.get(k);
+              if (!w) {
+                w = await fetchWeather(ordered[i].lat, ordered[i].lon);
+                if(!w || !w.hourly || !w.daily){ throw new Error('Meteo non disponibile'); }
+                mem.set(k, w);
+              }
+            
               const g = build7x4(w);
               if(!dayLabels) dayLabels = g.dayLabels;
-              wxRows.push({name: labels[i], parts: g.grid.map((x)=>x), minmax: g.dMin.map((mn,di)=>({min:g.dMin[di], max:g.dMax[di]}))});
+              wxRows.push({
+                name: labels[i],
+                parts: g.grid.map(x=>x),
+                minmax: g.dMin.map((mn,di)=>({min:g.dMin[di], max:g.dMax[di]}))
+              });
             }
-      
+
             // Titoli
             const startName = fileNameSafe(labels[0]);
             const endName   = fileNameSafe(labels[labels.length-1]);
