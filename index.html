@@ -494,6 +494,37 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
     CONFIG.paypalDonateUrl = "https://www.paypal.com/donate?business=stefano.vitro%40gmail.com&no_recurring=0&item_name=Supporto+sviluppo+GPX2MAPS&currency_code=EUR";
     CONFIG.amazonAffiliateUrl = "https://amzn.to/41o2XjA";
 
+    /* === Cache locale con TTL (localStorage) === */
+    const LS = {
+      get(k, ttlMs){
+        try{
+          const o = JSON.parse(localStorage.getItem(k));
+          if(o && (Date.now() - o.ts) < ttlMs) return o.v;
+        }catch{}
+        return null;
+      },
+      set(k, v){
+        try{ localStorage.setItem(k, JSON.stringify({ ts: Date.now(), v })); }catch{}
+      }
+    };
+    const TTL = {
+      RESOLVE: 7 * 24 * 3600 * 1000,   // 7 giorni
+      GEOCODE: 30 * 24 * 3600 * 1000,  // 30 giorni
+      REVERSE: 30 * 24 * 3600 * 1000,  // 30 giorni (chiavi quantizzate)
+      OSRM:    24 * 3600 * 1000        // 24 ore
+    };
+    
+    /* fetch JSON con timeout (non lancia eccezione, restituisce {ok,j}) */
+    async function fetchJSONTO(u, ms=8000){
+      const ac = new AbortController();
+      const t = setTimeout(()=>ac.abort(), ms);
+      try{
+        const r = await fetch(u, { headers:{Accept:'application/json'}, signal: ac.signal });
+        const j = await r.json().catch(()=>null);
+        return { ok: r.ok, j };
+      }finally{ clearTimeout(t); }
+    }
+
     document.getElementById('donateBtn').href=CONFIG.paypalDonateUrl;
     document.getElementById('amazonBtn').href=CONFIG.amazonAffiliateUrl;
     document.getElementById('smartDonate').href = CONFIG.paypalDonateUrl;
@@ -941,17 +972,20 @@ function focusResultsSection(sel){
 
     async function resolveForMeteo(url){
       let u = url;
-    
-      // segue shortlink (maps.app.goo.gl / goo.gl / g.co)
       try{
-        const h=(new URL(url)).host;
-        if (/(^|\.)maps\.app\.goo\.gl$/i.test(h) || /(^|\.)goo\.gl$/i.test(h) || /(^|\.)g\.co$/i.test(h)) {
-          const {finalUrl} = await getJSON(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`);
-          if (finalUrl) u = finalUrl;
+        const h = (new URL(url)).host;
+        const looksShort = /(^|\.)maps\.app\.goo\.gl$/i.test(h) || /(^|\.)goo\.gl$/i.test(h) || /(^|\.)g\.co$/i.test(h);
+        if(looksShort){
+          const key = 'res_' + url;
+          const cached = LS.get(key, TTL.RESOLVE);
+          if(cached) return cached;
+    
+          const { ok, j } = await fetchJSONTO(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`, 7000);
+          const finalUrl = ok && j && j.finalUrl ? j.finalUrl : null;
+          if(finalUrl){ LS.set(key, finalUrl); u = finalUrl; }
         }
       }catch{}
-    
-      // se è un long google "strano" con daddr/saddr, per METEO usiamo saddr come primo punto (niente //)
+      // long “strani” google con daddr/saddr → normalizza (come prima)
       try{
         const U = new URL(u);
         const isGoogle = /(^|\.)google\./i.test(U.host);
@@ -968,46 +1002,41 @@ function focusResultsSection(sel){
           }
         }
       }catch{}
-    
       return u;
     }
     
     async function resolveIfShort(url){
       let u = url;
-  
-      // 1) segui gli shortlink (maps.app.goo.gl / goo.gl / g.co) via worker /resolve
       try{
-        const h=(new URL(url)).host;
-        if (/(^|\.)maps\.app\.goo\.gl$/i.test(h) || /(^|\.)goo\.gl$/i.test(h) || /(^|\.)g\.co$/i.test(h)) {
-          const {finalUrl} = await getJSON(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`);
-          if (finalUrl) u = finalUrl;
+        const h = (new URL(url)).host;
+        const looksShort = /(^|\.)maps\.app\.goo\.gl$/i.test(h) || /(^|\.)goo\.gl$/i.test(h) || /(^|\.)g\.co$/i.test(h);
+        if(looksShort){
+          const key = 'res_' + url;
+          const cached = LS.get(key, TTL.RESOLVE);
+          if(cached) return cached;
+    
+          const { ok, j } = await fetchJSONTO(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`, 7000);
+          const finalUrl = ok && j && j.finalUrl ? j.finalUrl : null;
+          if(finalUrl){ LS.set(key, finalUrl); return finalUrl; }
         }
       }catch{}
-  
-      // 2) se è un long "strano" di Google con daddr/to: (anche path "/")
+      // long “strani” con daddr/to: -> // (come prima)
       try{
         const U = new URL(u);
         const isGoogle = /(^|\.)google\./i.test(U.host);
         if (isGoogle && (U.pathname === '/' || U.pathname === '/maps')) {
           const raw = U.searchParams.get('daddr');
           if (raw) {
-            // decodifica con "+" -> spazio
             const decodePlus = s => decodeURIComponent(String(s).replace(/\+/g,' ')).trim();
-            const daddr = decodePlus(raw);
-  
-            // split su "to:" con o senza spazi
-            const dests = daddr.split(/\s+to:/i).map(s=>s.trim()).filter(Boolean);
-  
-            // costruisci /maps/dir// + destinazioni (ignoriamo saddr: vogliamo "//")
+            const dests = decodePlus(raw).split(/\s+to:/i).map(s=>s.trim()).filter(Boolean);
             if (dests.length){
-              const segs = ['']; // "//" come primo punto
+              const segs = [''];
               segs.push(...dests.map(s => encodeURIComponent(s).replace(/%20/g,'+')));
               return 'https://www.google.com/maps/dir/' + segs.join('/');
             }
           }
         }
       }catch{}
-  
       return u;
     }
 
@@ -1138,7 +1167,37 @@ function focusResultsSection(sel){
     }
 
     function isLatLonStr(s){ const m=s.trim().match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/); return m?{lat:m[1],lon:m[2]}:null; }
-    async function geocodeTry(q){ try{ const r=await getJSON(`${CONFIG.workerBase}/geocode?q=${encodeURIComponent(q)}`); if(Array.isArray(r)&&r.length) return r[0]; }catch{} return null; }
+
+    async function geocodeTry(q){
+      const key = 'gc_' + normStr(q);
+      const hit = LS.get(key, TTL.GEOCODE);
+      if(hit) return hit;
+    
+      // 1) worker
+      try{
+        const j = await getJSON(`${CONFIG.workerBase}/geocode?q=${encodeURIComponent(q)}`);
+        if(Array.isArray(j) && j[0]){
+          LS.set(key, j[0]);
+          return j[0];
+        }
+      }catch{}
+    
+      // 2) fallback diretto Nominatim (solo se serve)
+      try{
+        const nomi = new URL('https://nominatim.openstreetmap.org/search');
+        nomi.searchParams.set('format','jsonv2');
+        nomi.searchParams.set('limit','1');
+        nomi.searchParams.set('accept-language','it');
+        nomi.searchParams.set('q', q);
+        const { ok, j } = await fetchJSONTO(nomi.toString(), 8000);
+        if(ok && Array.isArray(j) && j[0]){
+          LS.set(key, j[0]);
+          return j[0];
+        }
+      }catch{}
+    
+      return null;
+    }
 
     // === CLONE PS 1:1 ===
     // - niente fallback ", Italia" o head trimming
