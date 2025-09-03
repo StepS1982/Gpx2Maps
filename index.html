@@ -1727,6 +1727,17 @@ function focusResultsSection(sel){
     
         // Serializza, forza intestazione XML UTF-8, LF-only, newline finale
         let body = new XMLSerializer().serializeToString(doc);
+        // --- espandi i self-closing per trkpt/rtept in forma aperta+chiusa ---
+        function expandSelfClosing(xml, tag){
+          const re = new RegExp(`<${tag}(\\s[^>]*)?\\/>`, 'gi');
+          return xml.replace(re, (_m, attrs) => `<${tag}${attrs||''}></${tag}>`);
+        }
+        
+        // applica ai tag GPX interessati
+        body = expandSelfClosing(body, 'trkpt');
+        body = expandSelfClosing(body, 'rtept');
+        // (se un domani decidi di NON rimuovere i WPT e vuoi tenerli non self-closing)
+        // body = expandSelfClosing(body, 'wpt');
         // rimuovi l’eventuale vecchia dichiarazione XML
         body = body.replace(/^\s*<\?xml[\s\S]*?\?>\s*/, '');
         
