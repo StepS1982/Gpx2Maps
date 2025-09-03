@@ -1233,7 +1233,7 @@ function focusResultsSection(sel){
       L.push('  <trk><name>'+xmlEscape(title)+'</name><trkseg>');
       for(const c of trkCoords){
         const lon=fmt6s(String(c[0])),lat=fmt6s(String(c[1]));
-        L.push(`    <trkpt lat="${lat}" lon="${lon}" />`);
+        L.push(`    <trkpt lat="${lat}" lon="${lon}"></trkpt>`);
       }
       L.push('  </trkseg></trk>');
       L.push('</gpx>');
