@@ -1251,16 +1251,82 @@ function focusResultsSection(sel){
     }
 
     async function reverseShortLabel(lat,lon){
+      // chiave compatibile col worker (quantizza a 0.003 ≈ 110 m)
+      const qLat = (+lat).toFixed(3);
+      const qLon = (+lon).toFixed(3);
+      const key  = `rev_${qLat}_${qLon}`;
+      const hit  = LS.get(key, TTL.REVERSE);
+      if(hit) return hit;
+    
+      // 1) worker
       try{
-        const r=await getJSON(`${CONFIG.workerBase}/reverse?lat=${lat}&lon=${lon}`);
-        const a=r&&r.address?r.address:{};
-        const city=a.city||a.town||a.village||a.hamlet||'';
-        const prov=a.state_district||a.county||'';
-        if(city) return prov?`${city} (${prov})`:city;
+        const r = await getJSON(`${CONFIG.workerBase}/reverse?lat=${qLat}&lon=${qLon}`);
+        const a = r && r.address ? r.address : {};
+        const city = a.city || a.town || a.village || a.hamlet || '';
+        const prov = a.state_district || a.county || '';
+        const label = city ? (prov ? `${city} (${prov})` : city) : 'Località';
+        LS.set(key, label);
+        return label;
       }catch{}
+    
+      // 2) fallback Nominatim diretto
+      try{
+        const nomi = new URL('https://nominatim.openstreetmap.org/reverse');
+        nomi.searchParams.set('format','jsonv2');
+        nomi.searchParams.set('accept-language','it');
+        nomi.searchParams.set('lat', qLat);
+        nomi.searchParams.set('lon', qLon);
+        const { ok, j } = await fetchJSONTO(nomi.toString(), 8000);
+        if(ok && j){
+          const a = j.address || {};
+          const city = a.city || a.town || a.village || a.hamlet || '';
+          const prov = a.state_district || a.county || '';
+          const label = city ? (prov ? `${city} (${prov})` : city) : 'Località';
+          LS.set(key, label);
+          return label;
+        }
+      }catch{}
+    
       return 'Località';
     }
 
+    function qsOSRM(o){
+      return Object.entries(o)
+        .filter(([k,v]) => v!=null && v!=='')
+        .map(([k,v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+        .join('&');
+    }
+    async function osrmFetchCached(coordsParam, params){
+      const profile = params.profile || 'driving';
+      const query   = qsOSRM({ ...params, profile: undefined }); // nel query non ripetiamo profile
+      const key     = 'osrm_' + profile + '_' + coordsParam + '|' + query;
+      const hit     = LS.get(key, TTL.OSRM);
+      if(hit) return hit;
+    
+      // 1) worker
+      try{
+        const j = await getJSON(
+          `${CONFIG.workerBase}/osrm?coords=${encodeURIComponent(coordsParam)}&profile=${encodeURIComponent(profile)}&${query}`
+        );
+        if(j && j.code === 'Ok'){
+          LS.set(key, j);
+          return j;
+        }
+      }catch{}
+    
+      // 2) fallback diretto OSRM
+      try{
+        const url = `https://router.project-osrm.org/route/v1/${encodeURIComponent(profile)}/${coordsParam}?${query}`;
+        const { ok, j } = await fetchJSONTO(url, 10000);
+        if(ok && j && j.code === 'Ok'){
+          LS.set(key, j);
+          return j;
+        }
+      }catch{}
+    
+      throw new Error('OSRM non disponibile');
+    }
+    
     function buildGPX_RTE_WPT(points, steps, title){
       const L=[];
       L.push('<?xml version="1.0" encoding="UTF-8"?>');
@@ -1365,16 +1431,29 @@ function focusResultsSection(sel){
           // radius fisso per ogni punto (metri) — solo per questo test
           //const radiusesParam = new Array(ordered.length).fill(1000).join(';');
           //const osrmUrl =
-            //`${CONFIG.workerBase}/osrm?coords=${encodeURIComponent(coordsParam)}` +
-            //`&profile=driving&overview=full&geometries=geojson&steps=true` +
-            //`&radiuses=${encodeURIComponent(radiusesParam)}`;
-          const osrmUrl =
-            `${CONFIG.workerBase}/osrm?coords=${encodeURIComponent(coordsParam)}` +
-            `&profile=driving&overview=full&geometries=geojson&steps=true`;
+          //`${CONFIG.workerBase}/osrm?coords=${encodeURIComponent(coordsParam)}` +
+          //`&profile=driving&overview=full&geometries=geojson&steps=true` +
+          //`&radiuses=${encodeURIComponent(radiusesParam)}`;
+          
+          // OSRM con coppie lon,lat ARROTONDATE A 6
+          const coordsParam = ordered.map(p => `${p.lon},${p.lat}`).join(';');
           document.getElementById('stats2').textContent='Calcolo rotta (OSRM)...';
-          let osrm; try{ osrm=await getJSON(osrmUrl); }catch(e){ toastCenter('Errore OSRM'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
-          if(!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]){ toastCenter('OSRM non ha restituito una rotta valida'); document.getElementById('stats2').textContent='Errore: OSRM'; return; }
-    
+          let osrm;
+          try{
+            osrm = await osrmFetchCached(coordsParam, {
+              profile:'driving', overview:'full', geometries:'geojson', steps:'true'
+            });
+          }catch(e){
+            toastCenter('Errore OSRM');
+            document.getElementById('stats2').textContent='Errore: OSRM';
+            return;
+          }
+          if(!osrm || osrm.code!=='Ok' || !osrm.routes || !osrm.routes[0]){
+            toastCenter('OSRM non ha restituito una rotta valida');
+            document.getElementById('stats2').textContent='Errore: OSRM';
+            return;
+          }
+        
           // Steps RTE: includi tutti i maneuver (depart/arrive compresi) con dedup adiacente 1e-7 (1:1 PS)
           const rte=[];
           for(const leg of (osrm.routes[0].legs||[])){
