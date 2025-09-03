@@ -1710,20 +1710,6 @@ function focusResultsSection(sel){
           }
         }
     
-        // WPT: dedupe solo su sequenze adiacenti a livello root
-        {
-          const children = Array.from(root.children);
-          let run = [];
-          for(const ch of children){
-            if(ch.tagName && ch.tagName.toLowerCase()==='wpt') run.push(ch);
-            else{
-              if(run.length) dedupeAdjacent(run, 'wpt', root);
-              run = [];
-            }
-          }
-          if(run.length) dedupeAdjacent(run, 'wpt', root);
-        }
-    
         // RTE: per ogni rte, dedupe sulla lista diretta di rtept
         rtes.forEach(rte=>{
           const pts = Array.from(rte.children).filter(n=>n.tagName && n.tagName.toLowerCase()==='rtept');
