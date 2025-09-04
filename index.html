@@ -2721,7 +2721,8 @@ function focusResultsSection(sel){
             
             // Blob con LF (Unix) e UTF-8
             const txtBlob = new Blob([txtStr.replace(/\r?\n/g,'\n')], { type:'text/plain;charset=utf-8' });
-            const csvBlob = new Blob([csvStr.replace(/\r?\n/g,'\n')], { type:'text/csv;charset=utf-8' });
+            const csvWithSep = 'sep=;\n' + csvStr.replace(/\r?\n/g,'\n');
+            const csvBlob = new Blob(["\uFEFF", csvWithSep], { type:'text/csv;charset=utf-8' });
             const infoViewerHTML = buildInfoViewerHTML(rows, titolo);
             const infoViewerBlob = new Blob([infoViewerHTML], {type:'text/html;charset=utf-8'});
     
