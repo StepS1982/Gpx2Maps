@@ -161,11 +161,11 @@
 
     <div class="tabs" role="tablist">
       <button class="tab active" role="tab" aria-selected="true" id="tabbtn-merge" aria-controls="tab-merge">1) Fusione Link</button>
-      <button class="tab active" role="tab" aria-selected="false" id="tabbtn-maps2gpx" aria-controls="tab-maps2gpx">2) Google Maps → GPX</button>
-      <button class="tab active" role="tab" aria-selected="false" id="tabbtn-gpx2maps" aria-controls="tab-gpx2maps">3) GPX → Google Maps</button>
-      <button class="tab active" role="tab" aria-selected="false" id="tabbtn-sanitize" aria-controls="tab-sanitize">4) Sanitizza GPX</button>
-      <button class="tab active" role="tab" aria-selected="false" id="tabbtn-meteo" aria-controls="tab-meteo">5) Meteo + Info percorso</button>
-      <button class="tab active" role="tab" aria-selected="false" id="tabbtn-about" aria-controls="tab-about" aria-current="page">About & Guida</button>
+      <button class="tab" role="tab" aria-selected="false" id="tabbtn-maps2gpx" aria-controls="tab-maps2gpx">2) Google Maps → GPX</button>
+      <button class="tab" role="tab" aria-selected="false" id="tabbtn-gpx2maps" aria-controls="tab-gpx2maps">3) GPX → Google Maps</button>
+      <button class="tab" role="tab" aria-selected="false" id="tabbtn-sanitize" aria-controls="tab-sanitize">4) Sanitizza GPX</button>
+      <button class="tab" role="tab" aria-selected="false" id="tabbtn-meteo" aria-controls="tab-meteo">5) Meteo + Info percorso</button>
+      <button class="tab about" role="tab" aria-selected="false" id="tabbtn-about" aria-controls="tab-about" aria-current="page">About & Guida</button>
     </div>
 
     <!-- TAB 1 -->
@@ -577,17 +577,31 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
       if(aA){ aA.href = CONFIG.amazonAffiliateUrl; aA.addEventListener('click', ()=>toastCenter('Pagina offerte Amazon aperta. 💸')); }
     });
 
-    /* Tabs */
-    const tabs=[...document.querySelectorAll('.tab')];
-    tabs.forEach(btn=>btn.addEventListener('click',()=>{
-      tabs.forEach(b=>{b.classList.remove('active');b.setAttribute('aria-selected','false')});
-      btn.classList.add('active');btn.setAttribute('aria-selected','true');
-      const id=btn.dataset.tab;
-      ['merge','maps2gpx','gpx2maps','sanitize','meteo','about'].forEach(k=>{
-        const s=document.getElementById(`tab-${k}`);
-        if(s) s.hidden = k!==id;
+    /* Tabs (robuste: usano aria-controls, non richiedono data-*) */
+    const tabBtns = [...document.querySelectorAll('.tab[aria-controls]')];
+    
+    function showTab(btn){
+      const targetId = btn.getAttribute('aria-controls');
+      tabBtns.forEach(b=>{
+        const pid = b.getAttribute('aria-controls');
+        b.classList.toggle('active', b===btn);
+        b.setAttribute('aria-selected', b===btn ? 'true' : 'false');
+        const panel = document.getElementById(pid);
+        if(panel) panel.hidden = (pid !== targetId);
       });
-    }));
+    }
+    
+    tabBtns.forEach(b=>b.addEventListener('click', ()=>showTab(b)));
+    
+    // init: #about da hash, altrimenti il primo pannello non hidden (o il primo in assoluto)
+    (function initTabs(){
+      const fromHash = (location.hash === '#about') ? document.getElementById('tabbtn-about') : null;
+      const firstVisible = tabBtns.find(b=>{
+        const pane = document.getElementById(b.getAttribute('aria-controls'));
+        return pane && !pane.hidden;
+      }) || tabBtns[0];
+      showTab(fromHash || firstVisible);
+    })();
 
     if (location.hash === '#about') {
       const b = document.querySelector('.tab[data-tab="about"]');
