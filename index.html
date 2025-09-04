@@ -2017,12 +2017,6 @@ function focusResultsSection(sel){
   
     function itKm(x){ return fmt6s(+x/1000).replace('.',','); } // metri->km con virgola (string)
     function it1(x){ return String(Math.round(+x*10)/10).replace('.',','); } // 1 decimale con virgola
-    function toHM(sec){
-      sec = Math.round(sec||0);
-      const h = Math.floor(sec/3600), m = Math.round((sec%3600)/60);
-      return `${h} h ${m} m`;
-    }
-  
     // Geocoding (riuso Tab2)
     async function geocodeList(ts){
       const ordered=[], skipped=[];
