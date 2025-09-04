@@ -165,7 +165,7 @@
       <button class="tab" role="tab" aria-selected="false" id="tabbtn-gpx2maps" aria-controls="tab-gpx2maps">3) GPX → Google Maps</button>
       <button class="tab" role="tab" aria-selected="false" id="tabbtn-sanitize" aria-controls="tab-sanitize">4) Sanitizza GPX</button>
       <button class="tab" role="tab" aria-selected="false" id="tabbtn-meteo" aria-controls="tab-meteo">5) Meteo + Info percorso</button>
-      <button class="tab about" role="tab" aria-selected="false" id="tabbtn-about" aria-controls="tab-about" aria-current="page">About & Guida</button>
+      <button class="tab about" role="tab" aria-selected="false" id="tabbtn-about" aria-controls="tab-about">About & Guida</button>
     </div>
 
     <!-- TAB 1 -->
@@ -1271,7 +1271,7 @@ function focusResultsSection(sel){
     }
 
     async function reverseShortLabel(lat,lon){
-      // chiave compatibile col worker (quantizza a 0.003 ≈ 110 m)
+      // chiave compatibile col worker (quantizza a 0.003 ≈ 333 m)
       const qLat = (+lat).toFixed(3);
       const qLon = (+lon).toFixed(3);
       const key  = `rev_${qLat}_${qLon}`;
