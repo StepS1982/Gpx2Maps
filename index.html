@@ -1446,7 +1446,7 @@ function focusResultsSection(sel){
             ordered.push(g);
           }
           if(ordered.length<2){ document.getElementById('stats2').textContent='Errore: geocoding fallito (troppi pochi punti).'; return; }
-          if(skipped.length){ toastCenter(`Saltati ${skipped.length} punto/i non geocodificati: ${skipped.join(' · ')}`); }
+          if (skipped.length){ notifyNotLocalized(skipped); }
           if (usedFallback.length) {
             toastCenter(`Geocodificati con fallback (verifica): ${usedFallback.join(' · ')}`);
           }
