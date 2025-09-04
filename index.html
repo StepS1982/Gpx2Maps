@@ -1866,10 +1866,14 @@ function focusResultsSection(sel){
           const re = new RegExp(`<${tag}(\\s[^>]*)?\\/>`, 'gi');
           return xml.replace(re, (_m, attrs) => `<${tag}${attrs||''}></${tag}>`);
         }
+        function expandSelfClosingNS(xml, local){
+          const re = new RegExp(`<([\\w:-]*:?${local})(\\s[^>]*)?\\/\\>`, 'gi');
+          return xml.replace(re, (_m, tag, attrs) => `<${tag}${attrs||''}></${tag}>`);
+        }
         
         // applica ai tag GPX interessati
-        body = expandSelfClosing(body, 'trkpt');
-        body = expandSelfClosing(body, 'rtept');
+        body = expandSelfClosingNS(body, 'trkpt');
+        body = expandSelfClosingNS(body, 'rtept');
         // (se un domani decidi di NON rimuovere i WPT e vuoi tenerli non self-closing)
         // body = expandSelfClosing(body, 'wpt');
         // rimuovi l’eventuale vecchia dichiarazione XML
