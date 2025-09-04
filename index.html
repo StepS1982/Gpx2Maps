@@ -710,6 +710,15 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
       _toastShowing = false;
       _toastEpoch++;               // <<< invalida tutti i timer già partiti
     }
+
+    // --- globale, fuori da IIFE ---
+    function notifyNotLocalized(notFound){
+      if(!notFound?.length) return;
+      const n = notFound.length;
+      const shown = notFound.slice(0,6).join(' · ');
+      const ell = n>6 ? ' …' : '';
+      toastCenter(`Non localizzati (${n}): ${shown}${ell}`);
+    }
     
     /* === UI helpers globali === */
 // === Donate nudge: sempre, testuale, in coda toast ===
@@ -2576,19 +2585,6 @@ function focusResultsSection(sel){
         });
       }
       document.getElementById('meteoFiles').appendChild(row);
-    }
-
-    function toastQueued(msg){
-      // tua funzione di coda già esistente; se non ce l’hai, riusa toastCenter con setTimeout a 5s
-      toastCenter(msg); // e mantieni durata 5000ms globalmente
-    }
-
-    function notifyNotLocalized(notFound){
-      if(!notFound?.length) return;
-      const n = notFound.length;
-      const shown = notFound.slice(0,6).join(' · ');
-      const ell = n>6 ? ' …' : '';
-      toastQueued(`Non localizzati (${n}): ${shown}${ell}`);
     }
 
     guardClick('#btnGenMeteo',
