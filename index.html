@@ -595,26 +595,23 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
     
     // init: #about da hash, altrimenti il primo pannello non hidden (o il primo in assoluto)
     (function initTabs(){
-      const fromHash = (location.hash === '#about') ? document.getElementById('tabbtn-about') : null;
+      const aboutBtn = document.getElementById('tabbtn-about');
+    
+      // Se #about nell'hash, apri About
+      const fromHash = (location.hash === '#about') ? aboutBtn : null;
+    
       const firstVisible = tabBtns.find(b=>{
         const pane = document.getElementById(b.getAttribute('aria-controls'));
         return pane && !pane.hidden;
       }) || tabBtns[0];
+    
       showTab(fromHash || firstVisible);
-    })();
-
-    if (location.hash === '#about') {
-      const b = document.querySelector('.tab[data-tab="about"]');
-      b && b.click();
-    }
-
-    // Apri "About" solo alla prima visita (persistenza su sessione)
-    (function(){
+    
+      // Prima visita: apri About (una volta per sessione)
       try{
         if(!sessionStorage.getItem('seenAbout')){
           sessionStorage.setItem('seenAbout','1');
-          const btn = document.querySelector('.tab[data-tab="about"]');
-          btn && btn.click(); // riusa il listener già esistente
+          showTab(aboutBtn);
         }
       }catch{}
     })();
