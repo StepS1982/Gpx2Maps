@@ -2030,23 +2030,23 @@ function focusResultsSection(sel){
     function itKm(x){ return fmt6s(+x/1000).replace('.',','); } // metri->km con virgola (string)
     function it1(x){ return String(Math.round(+x*10)/10).replace('.',','); } // 1 decimale con virgola
     // Geocoding (riuso Tab2)
+    // Sostituisci l'attuale geocodeList con questa versione
     async function geocodeList(ts){
-      const ordered=[], skipped=[];
+      const ordered = [], skipped = [], usedFallback = [];
       for(let i=0;i<ts.length;i++){
         $out.querySelector('.note').textContent = `Geocoding ${i+1}/${ts.length}...`;
-        // 1) POI_FIX prima
         let fixed = null;
         for (const poi of POI_FIX) {
           if (poi.match(ts[i])) {
             fixed = { lat: fmt6s(poi.lat), lon: fmt6s(poi.lon), label: poi.label };
+            usedFallback.push(poi.label);         // << aggiunta
             break;
           }
         }
-        // 2) poi geocoding normale
         const g = fixed || await geocodeFreeform(ts[i]);
         if(!g) skipped.push(ts[i]); else ordered.push(g);
       }
-      return {ordered, skipped};
+      return { ordered, skipped, usedFallback };   // << aggiunta
     }
   
     async function reverseShortLocal(lat,lon){
@@ -2604,10 +2604,13 @@ function focusResultsSection(sel){
             const tokens = await tokensFromInput(lines);
       
             // Geocode -> punti (fmt6s)
-            const {ordered, skipped} = await geocodeList(tokens);
+            const { ordered, skipped, usedFallback } = await geocodeList(tokens);
             if(ordered.length<2){ toastCenter('Troppi punti non geocodificati'); return; }
-            //if(skipped.length){ toastCenter(`Saltati ${skipped.length} punto/i non geocodificati`); }
-            if(skipped.length){ notifyNotLocalized(skipped); }
+            if (skipped.length){ notifyNotLocalized(skipped); }
+
+            if (usedFallback.length){
+              toastCenter(`Geocodificati con fallback (verifica): ${usedFallback.join(' · ')}`);
+            }
       
             // Label località (no coordinate nei file)
             const labels=[];
