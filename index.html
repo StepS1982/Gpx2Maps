@@ -1067,21 +1067,23 @@ function focusResultsSection(sel){
     function splitInBlocks(all){ const MAX=25, blocks=[]; let rest=all.slice(), first=true; while(rest.length){ const chunk=rest.slice(0,MAX); if(!first && chunk[0]==="") chunk.shift(); blocks.push(chunk); rest=rest.slice(MAX); first=false; } return blocks; }
 
     function renderOutput(urls){
-      const out=document.getElementById('output'),stats=document.getElementById('stats'); out.innerHTML='';
+      const out=document.getElementById('output'),stats=document.getElementById('stats');
+      out.innerHTML='';
       if(!urls.length){ stats.textContent='Nessun risultato.'; document.getElementById('btnDownloadAll').style.display='none'; return; }
       const n=urls.length; stats.textContent=(n===1?'1 link generato':`${n} link generati`)+` · aggiornato alle ${timeHHMMSS()}`;
       urls.forEach(u=>{
-        const div=document.createElement('div'); div.className='out-item';
-        div.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
-            <div class="mono" style="flex:1 1 auto;">${u}</div>
-            <div class="row" style="flex:0 0 auto;">
-              <button class="btn small ghost" data-copy>Copia</button>
-              <button class="btn small" data-open>Apri</button>
-            </div>
-          </div>`;
-        div.querySelector('[data-copy]').addEventListener('click',async()=>{await navigator.clipboard.writeText(u);toast('URL copiato')});
-        div.querySelector('[data-open]').addEventListener('click',async()=>{const ok=await confirmAction('Aprire il link in una nuova scheda?'); if(ok) window.open(u,'_blank','noopener')});
-        out.appendChild(div);
+        const wrap = document.createElement('div'); wrap.className='out-item';
+        const line = document.createElement('div'); line.style.cssText='display:flex;justify-content:space-between;gap:10px;align-items:center;';
+        const mono = document.createElement('div'); mono.className='mono'; mono.style.cssText='flex:1 1 auto;'; mono.textContent = u;
+        const btns = document.createElement('div'); btns.className='row'; btns.style.cssText='flex:0 0 auto;';
+    
+        const bCopy=document.createElement('button'); bCopy.className='btn small ghost'; bCopy.textContent='Copia';
+        bCopy.addEventListener('click', async()=>{ await navigator.clipboard.writeText(u); toast('URL copiato'); });
+    
+        const bOpen=document.createElement('button'); bOpen.className='btn small'; bOpen.textContent='Apri';
+        bOpen.addEventListener('click', async()=>{ const ok=await confirmAction('Aprire il link in una nuova scheda?'); if(ok) window.open(u,'_blank','noopener'); });
+    
+        btns.append(bCopy,bOpen); line.append(mono,btns); wrap.append(line); out.append(wrap);
       });
       document.getElementById('btnDownloadAll').style.display='';
       toastCenter(`Risultati aggiornati (${n} link)`);
@@ -1098,6 +1100,7 @@ function focusResultsSection(sel){
         </div>
       `, 8000, ()=>console.log('toast chiuso'));
     }
+    
     // Rileva se un segmento /maps/dir/ contiene POI/indirizzi "commerciali"
     function segHasPOI(seg){
       const isLatLon = s => /^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$/.test(s);
@@ -1596,35 +1599,27 @@ function focusResultsSection(sel){
       all = dedupeAdjacent(all);
       return all;
     }
-    
+
     function renderOutput3(urls){
-      const out = document.getElementById('output3');
-      const stats = document.getElementById('stats3');
-      out.innerHTML = '';
-      if(!urls.length){
-        stats.textContent = 'Nessun risultato.';
-        document.getElementById('btnDownloadAll3').style.display='none';
-        return;
-      }
-      const n=urls.length;
-      stats.textContent = (n===1?'1 link generato':`${n} link generati`) + ` · aggiornato alle ${timeHHMMSS()}`;
-      for(const u of urls){
-        const div=document.createElement('div'); div.className='out-item';
-        div.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
-          <div class="mono" style="flex:1 1 auto;">${u}</div>
-          <div class="row" style="flex:0 0 auto;">
-            <button class="btn small ghost" data-copy>Copia</button>
-            <button class="btn small" data-open>Apri</button>
-          </div>
-        </div>`;
-        div.querySelector('[data-copy]').addEventListener('click', async()=>{
-          await navigator.clipboard.writeText(u); toast('URL copiato');
-        });
-        div.querySelector('[data-open]').addEventListener('click', async()=>{
-          const ok=await confirmAction('Aprire il link in una nuova scheda?'); if(ok) window.open(u,'_blank','noopener');
-        });
-        out.appendChild(div);
-      }
+      const out=document.getElementById('output3');
+      const stats=document.getElementById('stats3');
+      out.innerHTML='';
+      if(!urls.length){ stats.textContent='Nessun risultato.'; document.getElementById('btnDownloadAll3').style.display='none'; return; }
+      const n=urls.length; stats.textContent=(n===1?'1 link generato':`${n} link generati`)+` · aggiornato alle ${timeHHMMSS()}`;
+      urls.forEach(u=>{
+        const wrap=document.createElement('div'); wrap.className='out-item';
+        const line=document.createElement('div'); line.style.cssText='display:flex;justify-content:space-between;gap:10px;align-items:center;';
+        const mono=document.createElement('div'); mono.className='mono'; mono.style.cssText='flex:1 1 auto;'; mono.textContent = u;
+        const btns=document.createElement('div'); btns.className='row'; btns.style.cssText='flex:0 0 auto;';
+    
+        const bCopy=document.createElement('button'); bCopy.className='btn small ghost'; bCopy.textContent='Copia';
+        bCopy.addEventListener('click', async()=>{ await navigator.clipboard.writeText(u); toast('URL copiato'); });
+    
+        const bOpen=document.createElement('button'); bOpen.className='btn small'; bOpen.textContent='Apri';
+        bOpen.addEventListener('click', async()=>{ const ok=await confirmAction('Aprire il link in una nuova scheda?'); if(ok) window.open(u,'_blank','noopener'); });
+    
+        btns.append(bCopy,bOpen); line.append(mono,btns); wrap.append(line); out.append(wrap);
+      });
       document.getElementById('btnDownloadAll3').style.display='';
       toastCenter(`Risultati aggiornati (${n} link)`);
       focusResultsSection('#tab-gpx2maps .out');
@@ -1640,7 +1635,7 @@ function focusResultsSection(sel){
         </div>
       `, 8000, ()=>console.log('toast chiuso'));
     }
-    
+        
     async function makeLinksFrom(points){
       if(!points || points.length<1){ toastCenter('Servono almeno 1-2 punti'); return; }
     
