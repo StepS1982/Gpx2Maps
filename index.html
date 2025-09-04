@@ -630,61 +630,65 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
     function _toastShowNext(){
       if(_toastShowing || !_toastQ.length) return;
       _toastShowing = true;
-      const myEpoch = _toastEpoch;        // <<< epoch corrente
+      const myEpoch = _toastEpoch;
     
       const item = _toastQ.shift();
       const box  = document.getElementById('toastsCenter');
       let t, duration = 5000, onClose = null;
+      const isAction = !!(item && item.type === 'action');
     
       if (typeof item === 'string'){
-        t = _makeBaseToast('toast center');
+        t = _makeBaseToast('toast center'); // semplice
         t.textContent = item;
-      } else if (item && item.type === 'action'){ // {type:'action', html, duration, onClose}
+      } else if (isAction){ // action toast
         t = _makeBaseToast('toast center action');
+        t.setAttribute('role','dialog');            // accessibile
+        t.setAttribute('aria-label','Notifica con azioni');
         t.innerHTML = item.html || '';
         duration = item.duration || 8000;
         onClose  = item.onClose || null;
     
-        // chiudi con [data-close] o [data-cta]
+        // chiudi con [data-close] / [data-cta]
         t.querySelectorAll('[data-close]').forEach(btn=>{
-          btn.addEventListener('click', (e)=>{
-            e.preventDefault();
-            e.stopPropagation();
-            _hide();
-          });
+          btn.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); _hide(); });
         });
         t.addEventListener('keydown', e => { if (e.key === 'Escape') _hide(); });
-        const ctas = t.querySelectorAll('[data-cta]');
-        ctas.forEach(cta=>{
+        t.querySelectorAll('[data-cta]').forEach(cta=>{
           cta.addEventListener('click', ()=>{
-            if (cta.tagName.toLowerCase() === 'a') {
-              setTimeout(_hide, 350);  // lascia navigare e poi chiudi
-            } else {
+            if (cta.tagName.toLowerCase() === 'a') setTimeout(_hide, 350);
+            else {
               const href = cta.getAttribute('data-href') || cta.getAttribute('href') || CONFIG.paypalDonateUrl;
               window.open(href, '_blank', 'noopener');
               setTimeout(_hide, 350);
             }
           }, { passive:true });
         });
-
       } else {
         t = _makeBaseToast('toast center');
         t.textContent = String(item);
       }
     
       box.appendChild(t);
-      // FOCUS per intercettare "Esc" senza scrollare la pagina
-      t.setAttribute('tabindex','-1');
-      try { t.focus({ preventScroll: true }); } catch { t.focus(); }
+    
+      // 🔹 Focus solo per action toast, e poi ripristina
+      let prevFocus = null;
+      if (isAction) {
+        t.setAttribute('tabindex','-1');
+        prevFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        try { t.focus({ preventScroll:true }); } catch { t.focus(); }
+      }
     
       const timer = setTimeout(()=>{ _hide(); }, duration);
     
       function _hide(){
-        // se nel frattempo è stato fatto clear, ignora questo hide
-        if (myEpoch !== _toastEpoch) return;  // <<< stop timer “stale”
+        if (myEpoch !== _toastEpoch) return;     // timer invalidato
         clearTimeout(timer);
         if(t && t.parentNode) t.parentNode.removeChild(t);
         if(typeof onClose === 'function'){ try{ onClose(); }catch{} }
+        // 🔹 Ripristina focus al controllo precedente (se esiste)
+        if (isAction && prevFocus && document.contains(prevFocus)) {
+          try { prevFocus.focus({ preventScroll:true }); } catch { prevFocus.focus(); }
+        }
         _toastShowing = false;
         _toastShowNext();
       }
