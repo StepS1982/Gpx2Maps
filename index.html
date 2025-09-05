@@ -510,7 +510,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
       }
     };
     const TTL = {
-      RESOLVE: 7 * 24 * 3600 * 1000,   // 7 giorni
+      RESOLVE: 0,   // ZERO
       GEOCODE: 30 * 24 * 3600 * 1000,  // 30 giorni
       REVERSE: 30 * 24 * 3600 * 1000,  // 30 giorni (chiavi quantizzate)
       OSRM:    24 * 3600 * 1000        // 24 ore
@@ -1032,72 +1032,42 @@ function focusResultsSection(sel){
     
     // “Vecchio” trucco XHR per farsi dare l’URL finale dal browser.
     // Anche se la risposta è opaque (CORS), responseURL di solito è valorizzato.
-    function xhrFollow(url, timeout=7000){
-      return new Promise((resolve)=>{
-        try{
-          const xhr = new XMLHttpRequest();
-          xhr.open('GET', url, true);
-          xhr.timeout = timeout;
-          xhr.onload = xhr.onerror = xhr.ontimeout = function(){
-            resolve(xhr.responseURL || url);
-          };
-          xhr.send();
-        }catch{
-          resolve(url);
-        }
-      });
-    }
-    
-    // Resolver smart: 1) client XHR → 2) unwrap → 3) fallback worker → 4) unwrap
+    // Resolver: solo worker (no XHR verso Google), con unwrap locale e normalizzazioni
     async function resolveSmart(url){
       let u = url;
+    
       try{
         const host = (new URL(url)).host;
         const looksShort = /(^|\.)maps\.app\.goo\.gl$|(^|\.)goo\.gl$|(^|\.)g\.co$/i.test(host);
     
         if (looksShort){
-          const key = 'res2_' + url;
-          const cached = LS.get(key, TTL.RESOLVE);
-          if (cached && isGoodMapsURL(cached)) return cached;
-          if (cached && !isGoodMapsURL(cached)) { try{ localStorage.removeItem(key); }catch{} }
+          // 1) chiedi al worker, con cache-busting per sicurezza
+          const r1 = await fetchJSONTO(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}&_=${Date.now()}`, 8000);
+          let final = (r1.ok && r1.j && r1.j.finalUrl) ? unwrapKnownClient(r1.j.finalUrl) : url;
     
-          // 1) client (responseURL anche con CORS)
-          let c1 = await xhrFollow(url).catch(()=>url);
-          c1 = unwrapKnownClient(c1);
-    
-          // 2) worker
-          let c2 = null;
-          try{
-            const { ok, j } = await fetchJSONTO(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`, 7000);
-            if (ok && j && j.finalUrl) c2 = unwrapKnownClient(j.finalUrl);
-          }catch{}
-    
-          // 3) scegli il "migliore"
-          const candidates = [c1, c2].filter(Boolean);
-          let final = candidates.find(s => /\/maps\/dir\//i.test(s))
-                 || candidates.find(s => /^https?:\/\/[^/]*google\.[^/]+\/maps(\/|$|\?)/i.test(s))
-                 || c1;
-    
-          // 4) se è la pagina mobile "geocode", prova a risolvere di nuovo via worker
+          // 2) pagina intermedia /maps?geocode=... → un altro hop via worker
           try{
             const U = new URL(final);
             if (/^\/maps$/i.test(U.pathname) && U.searchParams.has('geocode')){
-              const { ok, j } = await fetchJSONTO(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(final)}`, 7000);
-              if (ok && j && j.finalUrl) final = unwrapKnownClient(j.finalUrl);
+              const r2 = await fetchJSONTO(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(final)}&_=${Date.now()}`, 8000);
+              if (r2.ok && r2.j && r2.j.finalUrl) final = unwrapKnownClient(r2.j.finalUrl);
             }
           }catch{}
     
-          // 5) cache solo se davvero utile
-          if (isGoodMapsURL(final)) LS.set(key, final);
           u = final;
         }
       }catch{}
     
-      // Normalizzazioni e pulizia parametri rumorosi
+      // --- normalizzazioni Google: rimuovi g_st/skid e costruisci /maps/dir quando serve ---
       try{
         const U = new URL(u);
         const isGoogle = /(^|\.)google\./i.test(U.host);
-        if (isGoogle) { U.searchParams.delete('g_st'); U.searchParams.delete('skid'); u = U.toString(); }
+    
+        if (isGoogle) {
+          U.searchParams.delete('g_st');
+          U.searchParams.delete('skid');
+          u = U.toString();
+        }
     
         // / o /maps con daddr/saddr → costruisci /maps/dir/…
         if (isGoogle && (U.pathname==='/' || U.pathname==='/maps')) {
