@@ -1218,10 +1218,15 @@ function focusResultsSection(sel){
           const clean=[];
           for (const link of resolved){
             let seg = extractDirSegment(link);
-            if (!seg && /maps\.app\.goo\.gl/i.test(link)) {
+          
+            // prova il worker anche per "google.com/maps?..." (pagina geocode mobile)
+            if (!seg && ( /maps\.app\.goo\.gl/i.test(link) || /google\.[^/]+\/maps\?/i.test(link) )) {
               try{
                 const { ok, j } = await fetchJSONTO(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(link)}`, 7000);
-                if (ok && j && j.finalUrl) seg = extractDirSegment(unwrapKnownClient(j.finalUrl));
+                if (ok && j && j.finalUrl) {
+                  const un = unwrapKnownClient(j.finalUrl);
+                  seg = extractDirSegment(un);
+                }
               }catch{}
             }
             if (seg) clean.push(seg);
