@@ -1148,7 +1148,7 @@ function focusResultsSection(sel){
           <a class="btn" data-cta href="${CONFIG.paypalDonateUrl}" target="_blank" rel="noopener noreferrer">Dona</a>
           <a class="btn secondary" data-cta href="${CONFIG.amazonAffiliateUrl}" target="_blank" rel="noopener">Offerte con Coupon Amazon</a>
         </div>
-      `, 8000, ()=>console.log('toast chiuso'));
+      `, 8000);
     }
     
     // Rileva se un segmento /maps/dir/ contiene POI/indirizzi "commerciali"
@@ -1600,7 +1600,7 @@ function focusResultsSection(sel){
               <a class="btn" data-cta href="${CONFIG.paypalDonateUrl}" target="_blank" rel="noopener noreferrer">Dona</a>
               <a class="btn secondary" data-cta href="${CONFIG.amazonAffiliateUrl}" target="_blank" rel="noopener">Offerte con Coupon Amazon</a>
             </div>
-          `, 8000, ()=>console.log('toast chiuso'));
+          `, 8000);
         }
     );
     
@@ -1720,7 +1720,7 @@ function focusResultsSection(sel){
           <a class="btn" data-cta href="${CONFIG.paypalDonateUrl}" target="_blank" rel="noopener noreferrer">Dona</a>
           <a class="btn secondary" data-cta href="${CONFIG.amazonAffiliateUrl}" target="_blank" rel="noopener">Offerte con Coupon Amazon</a>
         </div>
-      `, 8000, ()=>console.log('toast chiuso'));
+      `, 8000);
     }
         
     async function makeLinksFrom(points){
@@ -2844,7 +2844,7 @@ function focusResultsSection(sel){
               <a class="btn" data-cta href="${CONFIG.paypalDonateUrl}" target="_blank" rel="noopener noreferrer">Dona</a>
               <a class="btn secondary" data-cta href="${CONFIG.amazonAffiliateUrl}" target="_blank" rel="noopener">Offerte con Coupon Amazon</a>
             </div>
-          `, 8000, ()=>console.log('toast chiuso'));
+          `, 8000);
           }catch(e){
             console.error(e);
             toastCenter('Errore: '+(e&&e.message?e.message:String(e)));
