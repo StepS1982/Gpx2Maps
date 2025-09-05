@@ -1458,8 +1458,11 @@ function focusResultsSection(sel){
           }
           if(ordered.length<2){ document.getElementById('stats2').textContent='Errore: geocoding fallito (troppi pochi punti).'; return; }
           if (skipped.length){ notifyNotLocalized(skipped); }
-          if (usedFallback.length) {
-            toastCenter(`Geocodificati con fallback (verifica): ${usedFallback.join(' · ')}`);
+          {
+            const list = [...new Set(usedFallback)];
+            if (list.length){
+              toastCenter(`Geocodificati con fallback (verifica): ${list.join(' · ')}`);
+            }
           }
           
           // OSRM con coppie lon,lat ARROTONDATE A 6
