@@ -719,6 +719,17 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
       const ell = n>6 ? ' …' : '';
       toastCenter(`Non localizzati (${n}): ${shown}${ell}`);
     }
+
+    function isGoodMapsURL(u){
+      try{
+        const U = new URL(u);
+        if (!/google\./i.test(U.host)) return false;
+        if (/^\/maps\/dir\//i.test(U.pathname)) return true;
+        if (U.pathname==='/maps' && (U.searchParams.get('daddr') || U.searchParams.get('saddr'))) return true;
+        if (/^\/maps\/dir\/?$/i.test(U.pathname) && U.searchParams.get('api')==='1') return true;
+        return false;
+      }catch{ return false; }
+    }
     
     /* === UI helpers globali === */
 // === Donate nudge: sempre, testuale, in coda toast ===
@@ -1046,7 +1057,9 @@ function focusResultsSection(sel){
         if (looksShort){
           const key = 'res2_' + url;
           const cached = LS.get(key, TTL.RESOLVE);
-          if (cached) return cached;
+          // se ho in cache un “finale” non utile, ignoralo (e cancella)
+          if (cached && isGoodMapsURL(cached)) return cached;
+          if (cached && !isGoodMapsURL(cached)) { try{ localStorage.removeItem(key); }catch{}
     
           // 1) prova client-side come “prima”
           let final1 = await xhrFollow(url).catch(()=>url);
@@ -1065,11 +1078,8 @@ function focusResultsSection(sel){
             }catch{}
           }
     
-          LS.set(key, final);
-          // cachea solo se è davvero utile per noi
-          const good = /\/maps\/dir\//i.test(final) ||
-                       (/^https?:\/\/[^/]*google\.[^/]+\//i.test(final) && /[?&](api=1|daddr=)/i.test(final));
-          if (good) LS.set(key, final);
+          // cachea SOLO se è davvero utile
+          if (isGoodMapsURL(final)) LS.set(key, final);
           u = final;
         }
       }catch{}
