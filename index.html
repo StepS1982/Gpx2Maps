@@ -1000,11 +1000,9 @@ function focusResultsSection(sel){
       try{
         let cur = new URL(u);
         for (let i=0; i<4; i++){
-          // consent.google.* → continue=
-          if (/consent\.google\./i.test(cur.host)) {
-            const c = cur.searchParams.get('continue');
-            if (c) { cur = new URL(c, cur); continue; }
-          }
+          // qualunque host con ?continue= (prima dei casi specifici)
+          const cont = cur.searchParams.get('continue');
+          if (cont) { cur = new URL(cont, cur); continue; }
           // www.google.TLD/url → q= | url= | continue=
           if (/^www\.google\.[^/]+$/i.test(cur.host) && cur.pathname === '/url') {
             const q = cur.searchParams.get('q') || cur.searchParams.get('url') || cur.searchParams.get('continue');
