@@ -1209,7 +1209,17 @@ function focusResultsSection(sel){
           const resolved=[]; for(const ln of lines){ resolved.push(await resolveSmart(ln)); }
     
           // Estrai segmenti /maps/dir/
-          const clean=[]; for(const link of resolved){ const seg=extractDirSegment(link); if(seg) clean.push(seg); }
+          const clean=[];
+          for (const link of resolved){
+            let seg = extractDirSegment(link);
+            if (!seg && /maps\.app\.goo\.gl/i.test(link)) {
+              try{
+                const { ok, j } = await fetchJSONTO(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(link)}`, 7000);
+                if (ok && j && j.finalUrl) seg = extractDirSegment(unwrapKnownClient(j.finalUrl));
+              }catch{}
+            }
+            if (seg) clean.push(seg);
+          }
           if(!clean.length){
             console.debug('Resolve results:', resolved);
             toastCenter('Nessun link /maps/dir/ trovato. Riprova o usa il link lungo.');
