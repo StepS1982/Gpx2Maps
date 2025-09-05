@@ -995,6 +995,126 @@ function focusResultsSection(sel){
     }
     const fmt6s = x => roundHalfEvenStr(x, 6);
 
+    // Unwrap dei wrapper più comuni (client-side)
+    function unwrapKnownClient(u){
+      try{
+        let cur = new URL(u);
+        for (let i=0; i<4; i++){
+          // consent.google.* → continue=
+          if (/consent\.google\./i.test(cur.host)) {
+            const c = cur.searchParams.get('continue');
+            if (c) { cur = new URL(c, cur); continue; }
+          }
+          // www.google.TLD/url → q= | url= | continue=
+          if (/^www\.google\.[^/]+$/i.test(cur.host) && cur.pathname === '/url') {
+            const q = cur.searchParams.get('q') || cur.searchParams.get('url') || cur.searchParams.get('continue');
+            if (q) { cur = new URL(q, cur); continue; }
+          }
+          // maps.app.goo.gl → link=
+          if (/maps\.app\.goo\.gl$/i.test(cur.host)) {
+            const link = cur.searchParams.get('link');
+            if (link) { cur = new URL(link, cur); continue; }
+          }
+          break;
+        }
+        return cur.toString();
+      }catch{ return u; }
+    }
+    
+    // “Vecchio” trucco XHR per farsi dare l’URL finale dal browser.
+    // Anche se la risposta è opaque (CORS), responseURL di solito è valorizzato.
+    function xhrFollow(url, timeout=7000){
+      return new Promise((resolve)=>{
+        try{
+          const xhr = new XMLHttpRequest();
+          xhr.open('GET', url, true);
+          xhr.timeout = timeout;
+          xhr.onload = xhr.onerror = xhr.ontimeout = function(){
+            resolve(xhr.responseURL || url);
+          };
+          xhr.send();
+        }catch{
+          resolve(url);
+        }
+      });
+    }
+    
+    // Resolver smart: 1) client XHR → 2) unwrap → 3) fallback worker → 4) unwrap
+    async function resolveSmart(url){
+      let u = url;
+      try{
+        const host = (new URL(url)).host;
+        const looksShort = /(^|\.)maps\.app\.goo\.gl$/i.test(host) || /(^|\.)goo\.gl$/i.test(host) || /(^|\.)g\.co$/i.test(host);
+        if (looksShort){
+          const key = 'res2_' + url;
+          const cached = LS.get(key, TTL.RESOLVE);
+          if (cached) return cached;
+    
+          // 1) prova client-side come “prima”
+          let final1 = await xhrFollow(url).catch(()=>url);
+          final1 = unwrapKnownClient(final1);
+    
+          // 2) se ancora “corto” o non è una URL Maps sensata, prova il worker
+          let final = final1;
+          const stillShort = /(^|\.)maps\.app\.goo\.gl$/i.test((()=>{ try{return new URL(final1).host}catch{return ''} })());
+          const notMapsDir  = !/\/maps\//i.test(final1);
+          if (stillShort || notMapsDir){
+            try{
+              const { ok, j } = await fetchJSONTO(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`, 7000);
+              if (ok && j && j.finalUrl){
+                final = unwrapKnownClient(j.finalUrl);
+              }
+            }catch{}
+          }
+    
+          LS.set(key, final);
+          u = final;
+        }
+      }catch{}
+    
+      // Normalizzazioni “long strani” → /maps/dir/...
+      try{
+        const U = new URL(u);
+        const isGoogle = /(^|\.)google\./i.test(U.host);
+    
+        // caso / o /maps con daddr/to:
+        if (isGoogle && (U.pathname === '/' || U.pathname === '/maps')) {
+          const decodePlus = s => decodeURIComponent(String(s).replace(/\+/g,' ')).trim();
+          const daddr = U.searchParams.get('daddr');
+          const saddr = U.searchParams.get('saddr');
+          if (daddr){
+            const dests = decodePlus(daddr).split(/\s+to:/i).map(s=>s.trim()).filter(Boolean);
+            const enc = s => encodeURIComponent(s).replace(/%20/g,'+');
+            const segs = [];
+            if (saddr) segs.push(enc(decodePlus(saddr)));
+            segs.push(...dests.map(enc));
+            return 'https://www.google.com/maps/dir/' + segs.join('/');
+          }
+        }
+    
+        // caso /maps/dir?api=1
+        if (isGoogle && /^\/maps\/dir\/?$/i.test(U.pathname) && U.searchParams.get('api') === '1') {
+          const decodePlus = s => decodeURIComponent(String(s).replace(/\+/g,' ')).trim();
+          const enc = s => encodeURIComponent(s).replace(/%20/g,'+');
+    
+          const origin = U.searchParams.get('origin');
+          const dest   = U.searchParams.get('destination');
+          const wraw   = U.searchParams.get('waypoints') || '';
+    
+          const segs = [];
+          if (!origin || /\b(my location|la tua posizione|la mia posizione)\b/i.test(decodePlus(origin))) segs.push('');
+          else segs.push(enc(decodePlus(origin)));
+    
+          wraw.split('|').map(s => s.replace(/^via:/i,'').trim()).filter(Boolean)
+              .forEach(w => segs.push(enc(decodePlus(w))));
+          if (dest) segs.push(enc(decodePlus(dest)));
+    
+          if (segs.length >= 2) return 'https://www.google.com/maps/dir/' + segs.join('/');
+        }
+      }catch{}
+      return u;
+    }
+
     /* ===== TAB 1: Merge ===== */
     function extractDirSegment(s){
       const m=stripAtTail(s.trim()).match(/^https?:\/\/[^/]*google\.[^/]+\/maps\/dir\/(.+)$/i);
@@ -1208,13 +1328,14 @@ function focusResultsSection(sel){
           }
     
           // Risolvi shortlink
-          const resolved=[]; for(const ln of lines){ resolved.push(await resolveIfShort(ln)); }
+          //const resolved=[]; for(const ln of lines){ resolved.push(await resolveIfShort(ln)); }
+          const resolved=[]; for(const ln of lines){ resolved.push(await resolveSmart(ln)); }
     
           // Estrai segmenti /maps/dir/
           const clean=[]; for(const link of resolved){ const seg=extractDirSegment(link); if(seg) clean.push(seg); }
-          if (!clean.length) {
+          if(!clean.length){
             console.debug('Resolve results:', resolved);
-            toastCenter('Nessun link /maps/dir/: prova di nuovo o usa il link lungo. (Vedi console per il resolve)');
+            toastCenter('Nessun link /maps/dir/ trovato. Riprova o usa il link lungo.');
             return;
           }
           // solo avviso informativo: link con POI/parametri speciali
@@ -2089,7 +2210,8 @@ function focusResultsSection(sel){
     async function tokensFromInput(lines){
       let tokens = [];
       if(lines.length===1 && /^https?:\/\//i.test(lines[0])){
-        const resolved = await resolveForMeteo(lines[0]);
+        //const resolved = await resolveForMeteo(lines[0]);
+        const resolved = await resolveSmart(lines[0]);
         const seg = segmentDirOnly(resolved);
         if(!seg){ throw new Error('Link non valido: manca /maps/dir/'); }
         let parts = seg.split('/');
