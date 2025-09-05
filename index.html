@@ -1049,13 +1049,15 @@ function focusResultsSection(sel){
     
           const { ok, j } = await fetchJSONTO(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`, 7000);
           const finalUrl = ok && j && j.finalUrl ? j.finalUrl : null;
-          if(finalUrl){ LS.set(key, finalUrl); return finalUrl; }
+          if(finalUrl){ LS.set(key, finalUrl); u = finalUrl; }
         }
       }catch{}
-      // long “strani” con daddr/to: -> // (come prima)
+    
+      // long “strani” con daddr/to:
       try{
         const U = new URL(u);
         const isGoogle = /(^|\.)google\./i.test(U.host);
+        // caso 1: / o /maps con daddr -> /maps/dir/...
         if (isGoogle && (U.pathname === '/' || U.pathname === '/maps')) {
           const raw = U.searchParams.get('daddr');
           if (raw) {
@@ -1068,7 +1070,38 @@ function focusResultsSection(sel){
             }
           }
         }
+    
+        // NEW: api=1 -> normalizza in /maps/dir/parts
+        if (isGoogle && /^\/maps\/dir\/?$/i.test(U.pathname) && U.searchParams.get('api') === '1') {
+          const decodePlus = s => decodeURIComponent(String(s).replace(/\+/g,' ')).trim();
+          const enc = s => encodeURIComponent(s).replace(/%20/g,'+');
+    
+          const origin = U.searchParams.get('origin');
+          const dest   = U.searchParams.get('destination');
+          const wraw   = U.searchParams.get('waypoints') || '';
+    
+          const segs = [];
+          // origin: se assente o “my location/la tua posizione” → lascia blank per avere “//”
+          if (!origin || /\b(my location|la tua posizione|la mia posizione)\b/i.test(decodePlus(origin))) {
+            segs.push('');
+          } else {
+            segs.push(enc(decodePlus(origin)));
+          }
+    
+          // waypoints separati da "|", spesso con prefisso via:
+          wraw.split('|')
+            .map(s => s.replace(/^via:/i,'').trim())
+            .filter(Boolean)
+            .forEach(w => segs.push(enc(decodePlus(w))));
+    
+          if (dest) segs.push(enc(decodePlus(dest)));
+    
+          if (segs.length >= 2) {
+            return 'https://www.google.com/maps/dir/' + segs.join('/');
+          }
+        }
       }catch{}
+    
       return u;
     }
 
