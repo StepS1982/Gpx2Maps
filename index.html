@@ -1208,7 +1208,7 @@ function focusResultsSection(sel){
           }
           // solo avviso informativo: link con POI/parametri speciali
           if (clean.some(segHasPOI)) {
-            toastCenter('Link Google con POI/parametri speciali rilevato: lo apro così com’è. Consiglio: usa coordinate/indirizzi se vuoi massima stabilità o aggiungere "La tua posizione".');
+            toastCenter('Link Google con POI/parametri speciali rilevato: lo apro così com’è. Consiglio: usa coordinate se vuoi massima stabilità.');
           }
           // Costruisci punti con blank iniziale
           let all=[""]; for(const seg of clean){ all.push(...seg.split('/')); }
@@ -1495,6 +1495,8 @@ function focusResultsSection(sel){
                 console.debug('Resolve results (tab2):', resolved);
                 toastCenter('Link non valido: manca /maps/dir/');
                 return;
+              } else if (segHasPOI(seg)) {
+                toastCenter('Link Google con POI/parametri speciali rilevato: lo apro così com’è. Consiglio: usa coordinate se vuoi massima stabilità.');
               }
               let parts = seg.split('/');
               parts=parts.filter(x=>x!==''); 
@@ -2093,7 +2095,9 @@ function focusResultsSection(sel){
       if(lines.length===1 && /^https?:\/\//i.test(lines[0])){
         const resolved = await resolveSmart(lines[0]);
         let seg = segmentDirOnly(resolved);
-        
+        if (seg && segHasPOI(seg)) {
+          toastCenter('Link Google con POI/parametri speciali rilevato: lo apro così com’è. Consiglio: usa coordinate se vuoi massima stabilità.');
+        }
         // Fallback: pagina mobile "?geocode=..."
         if (!seg && /google\.[^/]+\/maps\?/i.test(resolved)) {
           try{
