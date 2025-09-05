@@ -1122,140 +1122,6 @@ function focusResultsSection(sel){
       return m[1].replace(/^\/+/, '').replace(/\/+$/,''); // rimuovi slash iniziali per evitare /dir///
     }
 
-    async function resolveForMeteo(url){
-      let u = url;
-      try{
-        const h = (new URL(url)).host;
-        const looksShort = /(^|\.)maps\.app\.goo\.gl$/i.test(h) || /(^|\.)goo\.gl$/i.test(h) || /(^|\.)g\.co$/i.test(h);
-        if(looksShort){
-          const key = 'res_' + url;
-          const cached = LS.get(key, TTL.RESOLVE);
-          if(cached) return cached;
-    
-          const { ok, j } = await fetchJSONTO(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`, 7000);
-          const finalUrl = ok && j && j.finalUrl ? j.finalUrl : null;
-          if(finalUrl){ LS.set(key, finalUrl); u = finalUrl; }
-        }
-      }catch{}
-      // long “strani” google con daddr/saddr → normalizza (come prima)
-      try{
-        const U = new URL(u);
-        const isGoogle = /(^|\.)google\./i.test(U.host);
-        if (isGoogle && (U.pathname === '/' || U.pathname === '/maps')) {
-          const decodePlus = s => decodeURIComponent(String(s).replace(/\+/g,' ')).trim();
-          const daddr = U.searchParams.get('daddr');
-          const saddr = U.searchParams.get('saddr');
-          if (daddr){
-            const dests = decodePlus(daddr).split(/\s+to:/i).map(s=>s.trim()).filter(Boolean);
-            const segs = [];
-            if (saddr) segs.push(encodeURIComponent(decodePlus(saddr)).replace(/%20/g,'+'));
-            segs.push(...dests.map(s => encodeURIComponent(s).replace(/%20/g,'+')));
-            return 'https://www.google.com/maps/dir/' + segs.join('/');
-          }
-        }
-
-        // NEW: api=1 -> normalizza in /maps/dir/parts
-        if (isGoogle && /^\/maps\/dir\/?$/i.test(U.pathname) && U.searchParams.get('api') === '1') {
-          const decodePlus = s => decodeURIComponent(String(s).replace(/\+/g,' ')).trim();
-          const enc = s => encodeURIComponent(s).replace(/%20/g,'+');
-    
-          const origin = U.searchParams.get('origin');
-          const dest   = U.searchParams.get('destination');
-          const wraw   = U.searchParams.get('waypoints') || '';
-    
-          const segs = [];
-          // origin: se assente o “my location/la tua posizione” → lascia blank per avere “//”
-          if (!origin || /\b(my location|la tua posizione|la mia posizione)\b/i.test(decodePlus(origin))) {
-            segs.push('');
-          } else {
-            segs.push(enc(decodePlus(origin)));
-          }
-    
-          // waypoints separati da "|", spesso con prefisso via:
-          wraw.split('|')
-            .map(s => s.replace(/^via:/i,'').trim())
-            .filter(Boolean)
-            .forEach(w => segs.push(enc(decodePlus(w))));
-    
-          if (dest) segs.push(enc(decodePlus(dest)));
-    
-          if (segs.length >= 2) {
-            return 'https://www.google.com/maps/dir/' + segs.join('/');
-          }
-        }
-        
-      }catch{}
-      return u;
-    }
-    
-    async function resolveIfShort(url){
-      let u = url;
-      try{
-        const h = (new URL(url)).host;
-        const looksShort = /(^|\.)maps\.app\.goo\.gl$/i.test(h) || /(^|\.)goo\.gl$/i.test(h) || /(^|\.)g\.co$/i.test(h);
-        if(looksShort){
-          const key = 'res_' + url;
-          const cached = LS.get(key, TTL.RESOLVE);
-          if(cached) return cached;
-    
-          const { ok, j } = await fetchJSONTO(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`, 7000);
-          const finalUrl = ok && j && j.finalUrl ? j.finalUrl : null;
-          if(finalUrl){ LS.set(key, finalUrl); u = finalUrl; }
-        }
-      }catch{}
-    
-      // long “strani” con daddr/to:
-      try{
-        const U = new URL(u);
-        const isGoogle = /(^|\.)google\./i.test(U.host);
-        // caso 1: / o /maps con daddr -> /maps/dir/...
-        if (isGoogle && (U.pathname === '/' || U.pathname === '/maps')) {
-          const raw = U.searchParams.get('daddr');
-          if (raw) {
-            const decodePlus = s => decodeURIComponent(String(s).replace(/\+/g,' ')).trim();
-            const dests = decodePlus(raw).split(/\s+to:/i).map(s=>s.trim()).filter(Boolean);
-            if (dests.length){
-              const segs = [''];
-              segs.push(...dests.map(s => encodeURIComponent(s).replace(/%20/g,'+')));
-              return 'https://www.google.com/maps/dir/' + segs.join('/');
-            }
-          }
-        }
-    
-        // NEW: api=1 -> normalizza in /maps/dir/parts
-        if (isGoogle && /^\/maps\/dir\/?$/i.test(U.pathname) && U.searchParams.get('api') === '1') {
-          const decodePlus = s => decodeURIComponent(String(s).replace(/\+/g,' ')).trim();
-          const enc = s => encodeURIComponent(s).replace(/%20/g,'+');
-    
-          const origin = U.searchParams.get('origin');
-          const dest   = U.searchParams.get('destination');
-          const wraw   = U.searchParams.get('waypoints') || '';
-    
-          const segs = [];
-          // origin: se assente o “my location/la tua posizione” → lascia blank per avere “//”
-          if (!origin || /\b(my location|la tua posizione|la mia posizione)\b/i.test(decodePlus(origin))) {
-            segs.push('');
-          } else {
-            segs.push(enc(decodePlus(origin)));
-          }
-    
-          // waypoints separati da "|", spesso con prefisso via:
-          wraw.split('|')
-            .map(s => s.replace(/^via:/i,'').trim())
-            .filter(Boolean)
-            .forEach(w => segs.push(enc(decodePlus(w))));
-    
-          if (dest) segs.push(enc(decodePlus(dest)));
-    
-          if (segs.length >= 2) {
-            return 'https://www.google.com/maps/dir/' + segs.join('/');
-          }
-        }
-      }catch{}
-    
-      return u;
-    }
-
     function buildGoogleDirURL(parts){ return 'https://www.google.com/maps/dir/'+parts.join('/'); }
     function dedupeAdjacent(a){ const out=[]; let prev=null; for(const x of a){ if(x!==prev) out.push(x); prev=x; } return out; }
     function evenSample(inner,need){ if(need<=0)return[]; if(inner.length<=need)return inner.slice(); const out=[]; for(let i=0;i<need;i++){ const idx=Math.round(i*(inner.length-1)/(need-1)); out.push(inner[idx]); } const res=[]; for(const v of out){ if(res[res.length-1]!==v) res.push(v); } while(res.length>need) res.pop(); return res; }
@@ -1328,7 +1194,6 @@ function focusResultsSection(sel){
           }
     
           // Risolvi shortlink
-          //const resolved=[]; for(const ln of lines){ resolved.push(await resolveIfShort(ln)); }
           const resolved=[]; for(const ln of lines){ resolved.push(await resolveSmart(ln)); }
     
           // Estrai segmenti /maps/dir/
@@ -1612,9 +1477,13 @@ function focusResultsSection(sel){
           let tokens=[];
           for(const line of raw){
             if(/^https?:\/\//i.test(line)){
-              const resolved=await resolveIfShort(line);
+              const resolved=await resolveSmart(line);
               const seg=extractDirSegmentKeepLeading(resolved);
-              if(!seg){toastCenter('Link non valido: manca /maps/dir/');return;}
+              if(!seg){
+                console.debug('Resolve results (tab2):', resolved);
+                toastCenter('Link non valido: manca /maps/dir/');
+                return;
+              }
               let parts=seg.split('/'); 
               parts=parts.filter(x=>x!==''); 
               parts=parts.map(decodeTok).filter(Boolean);
@@ -2210,7 +2079,6 @@ function focusResultsSection(sel){
     async function tokensFromInput(lines){
       let tokens = [];
       if(lines.length===1 && /^https?:\/\//i.test(lines[0])){
-        //const resolved = await resolveForMeteo(lines[0]);
         const resolved = await resolveSmart(lines[0]);
         const seg = segmentDirOnly(resolved);
         if(!seg){ throw new Error('Link non valido: manca /maps/dir/'); }
