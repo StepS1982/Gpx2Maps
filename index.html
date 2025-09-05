@@ -1053,10 +1053,7 @@ function focusResultsSection(sel){
       let u = url;
       try{
         const host = (new URL(url)).host;
-        const looksShort =
-          /(^|\.)maps\.app\.goo\.gl$/i.test(host) ||
-          /(^|\.)goo\.gl$/i.test(host) ||
-          /(^|\.)g\.co$/i.test(host);
+        const looksShort = /(^|\.)maps\.app\.goo\.gl$|(^|\.)goo\.gl$|(^|\.)g\.co$/i.test(host);
     
         if (looksShort){
           const key = 'res2_' + url;
@@ -1064,41 +1061,52 @@ function focusResultsSection(sel){
           if (cached && isGoodMapsURL(cached)) return cached;
           if (cached && !isGoodMapsURL(cached)) { try{ localStorage.removeItem(key); }catch{} }
     
-          // 1) client-side
-          let final1 = await xhrFollow(url).catch(()=>url);
-          final1 = unwrapKnownClient(final1);
+          // 1) client (responseURL anche con CORS)
+          let c1 = await xhrFollow(url).catch(()=>url);
+          c1 = unwrapKnownClient(c1);
     
-          // 2) fallback worker se ancora corto o non /maps/...
-          let final = final1;
-          const stillShort = /(^|\.)maps\.app\.goo\.gl$/i.test((()=>{ try{return new URL(final1).host}catch{return ''} })());
-          const notMapsDir  = !/\/maps\//i.test(final1);
-          if (stillShort || notMapsDir){
-            try{
-              const { ok, j } = await fetchJSONTO(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`, 7000);
-              if (ok && j && j.finalUrl){
-                final = unwrapKnownClient(j.finalUrl);
-              }
-            }catch{}
-          }
+          // 2) worker
+          let c2 = null;
+          try{
+            const { ok, j } = await fetchJSONTO(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(url)}`, 7000);
+            if (ok && j && j.finalUrl) c2 = unwrapKnownClient(j.finalUrl);
+          }catch{}
     
+          // 3) scegli il "migliore"
+          const candidates = [c1, c2].filter(Boolean);
+          let final = candidates.find(s => /\/maps\/dir\//i.test(s))
+                 || candidates.find(s => /^https?:\/\/[^/]*google\.[^/]+\/maps(\/|$|\?)/i.test(s))
+                 || c1;
+    
+          // 4) se è la pagina mobile "geocode", prova a risolvere di nuovo via worker
+          try{
+            const U = new URL(final);
+            if (/^\/maps$/i.test(U.pathname) && U.searchParams.has('geocode')){
+              const { ok, j } = await fetchJSONTO(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(final)}`, 7000);
+              if (ok && j && j.finalUrl) final = unwrapKnownClient(j.finalUrl);
+            }
+          }catch{}
+    
+          // 5) cache solo se davvero utile
           if (isGoodMapsURL(final)) LS.set(key, final);
           u = final;
         }
       }catch{}
     
-      // Normalizzazioni "long" → /maps/dir/...
+      // Normalizzazioni e pulizia parametri rumorosi
       try{
         const U = new URL(u);
         const isGoogle = /(^|\.)google\./i.test(U.host);
+        if (isGoogle) { U.searchParams.delete('g_st'); U.searchParams.delete('skid'); u = U.toString(); }
     
-        // caso / o /maps con daddr/to:
-        if (isGoogle && (U.pathname === '/' || U.pathname === '/maps')) {
-          const decodePlus = s => decodeURIComponent(String(s).replace(/\+/g,' ')).trim();
+        // / o /maps con daddr/saddr → costruisci /maps/dir/…
+        if (isGoogle && (U.pathname==='/' || U.pathname==='/maps')) {
           const daddr = U.searchParams.get('daddr');
           const saddr = U.searchParams.get('saddr');
           if (daddr){
-            const dests = decodePlus(daddr).split(/\s+to:/i).map(s=>s.trim()).filter(Boolean);
+            const decodePlus = s => decodeURIComponent(String(s).replace(/\+/g,' ')).trim();
             const enc = s => encodeURIComponent(s).replace(/%20/g,'+');
+            const dests = decodePlus(daddr).split(/\s+to:/i).map(s=>s.trim()).filter(Boolean);
             const segs = [];
             if (saddr) segs.push(enc(decodePlus(saddr)));
             segs.push(...dests.map(enc));
@@ -1106,24 +1114,19 @@ function focusResultsSection(sel){
           }
         }
     
-        // caso /maps/dir?api=1
-        if (isGoogle && /^\/maps\/dir\/?$/i.test(U.pathname) && U.searchParams.get('api') === '1') {
+        // /maps/dir?api=1 → /maps/dir/…
+        if (isGoogle && /^\/maps\/dir\/?$/i.test(U.pathname) && U.searchParams.get('api')==='1') {
           const decodePlus = s => decodeURIComponent(String(s).replace(/\+/g,' ')).trim();
           const enc = s => encodeURIComponent(s).replace(/%20/g,'+');
-    
           const origin = U.searchParams.get('origin');
           const dest   = U.searchParams.get('destination');
           const wraw   = U.searchParams.get('waypoints') || '';
-    
           const segs = [];
           if (!origin || /\b(my location|la tua posizione|la mia posizione)\b/i.test(decodePlus(origin))) segs.push('');
           else segs.push(enc(decodePlus(origin)));
-    
-          wraw.split('|').map(s => s.replace(/^via:/i,'').trim()).filter(Boolean)
-              .forEach(w => segs.push(enc(decodePlus(w))));
+          wraw.split('|').map(s=>s.replace(/^via:/i,'').trim()).filter(Boolean).forEach(w=>segs.push(enc(decodePlus(w))));
           if (dest) segs.push(enc(decodePlus(dest)));
-    
-          if (segs.length >= 2) return 'https://www.google.com/maps/dir/' + segs.join('/');
+          if (segs.length>=2) return 'https://www.google.com/maps/dir/'+segs.join('/');
         }
       }catch{}
     
