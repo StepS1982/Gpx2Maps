@@ -806,28 +806,7 @@ function focusResultsSection(sel){
       }
     }
     === FINE ESEMPIO === */
-    
-    const POI_FIX = [
-      {
-        label: 'Orrido di Bracca',
-        lat: '45.846870', lon: '9.731200',
-        match: (raw) => {
-          const n = normText(raw);
-          // copre “Orrido di Bracca”, “Orrido del Bracca”, varianti con punteggiatura o plus
-          //return /\borrido\b/.test(n) && /\bbracca\b/.test(n);
-          return n.includes('orrido di bracca') || n.includes('orrido del bracca') || n.includes('orrido bracca');
-        }
-      },
-      {
-        label: 'Passo del Grimsel',
-        lat: '46.561400', lon: '8.337580',
-        match: (raw) => {
-          const n = normText(raw);
-          // copre "Passo del Grimsel", "Grimselpass", ecc.
-          return n.includes('grimsel');
-        }
-      },
-    ];
+
     // --- normalizzazioni/sinonimi per match "leggero" ---
     function normStr(s){
       return String(s).toLowerCase()
@@ -887,7 +866,37 @@ function focusResultsSection(sel){
       'sulla','sui','sugli','sulle','a','ad','e','ed','con','per','tra','fra'
     ];
     STOP_IT.forEach(w => GENERIC_WORDS.add(w));
+
+    // Normalizza un testo: toglie accenti, punteggiatura, lowercase e comprime gli spazi
+    function normText(s){
+      return String(s)
+        .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // rimuovi diacritici
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g,' ') // tieni solo lettere/numeri
+        .trim();
+    }
     
+    const POI_FIX = [
+      {
+        label: 'Orrido di Bracca',
+        lat: '45.846870', lon: '9.731200',
+        match: (raw) => {
+          const n = normText(raw);
+          // copre “Orrido di Bracca”, “Orrido del Bracca”, varianti con punteggiatura o plus
+          //return /\borrido\b/.test(n) && /\bbracca\b/.test(n);
+          return n.includes('orrido di bracca') || n.includes('orrido del bracca') || n.includes('orrido bracca');
+        }
+      },
+      {
+        label: 'Passo del Grimsel',
+        lat: '46.561400', lon: '8.337580',
+        match: (raw) => {
+          const n = normText(raw);
+          // copre "Passo del Grimsel", "Grimselpass", ecc.
+          return n.includes('grimsel');
+        }
+      },
+    ];
     function keywordsForMatch(token){
       const words = applySynonyms(token).split(' ');
       const out = [];
@@ -963,14 +972,7 @@ function focusResultsSection(sel){
     function nowStamp(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; }
     function timeHHMMSS(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
     function joinLF(a){ return a.join('\n'); }
-    // Normalizza un testo: toglie accenti, punteggiatura, lowercase e comprime gli spazi
-    function normText(s){
-      return String(s)
-        .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // rimuovi diacritici
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g,' ') // tieni solo lettere/numeri
-        .trim();
-    }
+    
     // HALF-EVEN (banker's) a 6 decimali – come PS
     function roundHalfEvenStr(x, d=6){
       let s=(typeof x==='number')?x.toString():String(x).trim();
@@ -1442,7 +1444,7 @@ function focusResultsSection(sel){
             let fixed = null;
             for (const poi of POI_FIX) {
               if (poi.match(tok)) { 
-                fixed = { lat: poi.lat, lon: poi.lon, label: poi.label };
+                fixed = { lat: fmt6s(poi.lat), lon: fmt6s(poi.lon), label: poi.label };
                 // se vuoi conteggiarli come “fallback”, registra il nome
                 usedFallback.push(poi.label);                 // <-- facoltativo
                 break;
@@ -2603,8 +2605,11 @@ function focusResultsSection(sel){
             if(ordered.length<2){ toastCenter('Troppi punti non geocodificati'); return; }
             if (skipped.length){ notifyNotLocalized(skipped); }
 
-            if (usedFallback.length){
-              toastCenter(`Geocodificati con fallback (verifica): ${usedFallback.join(' · ')}`);
+            {
+              const list = [...new Set(usedFallback)];
+              if (list.length){
+                toastCenter(`Geocodificati con fallback (verifica): ${list.join(' · ')}`);
+              }
             }
       
             // Label località (no coordinate nei file)
