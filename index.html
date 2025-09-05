@@ -1053,19 +1053,22 @@ function focusResultsSection(sel){
       let u = url;
       try{
         const host = (new URL(url)).host;
-        const looksShort = /(^|\.)maps\.app\.goo\.gl$/i.test(host) || /(^|\.)goo\.gl$/i.test(host) || /(^|\.)g\.co$/i.test(host);
+        const looksShort =
+          /(^|\.)maps\.app\.goo\.gl$/i.test(host) ||
+          /(^|\.)goo\.gl$/i.test(host) ||
+          /(^|\.)g\.co$/i.test(host);
+    
         if (looksShort){
           const key = 'res2_' + url;
           const cached = LS.get(key, TTL.RESOLVE);
-          // se ho in cache un “finale” non utile, ignoralo (e cancella)
           if (cached && isGoodMapsURL(cached)) return cached;
-          if (cached && !isGoodMapsURL(cached)) { try{ localStorage.removeItem(key); }catch{}
+          if (cached && !isGoodMapsURL(cached)) { try{ localStorage.removeItem(key); }catch{} }
     
-          // 1) prova client-side come “prima”
+          // 1) client-side
           let final1 = await xhrFollow(url).catch(()=>url);
           final1 = unwrapKnownClient(final1);
     
-          // 2) se ancora “corto” o non è una URL Maps sensata, prova il worker
+          // 2) fallback worker se ancora corto o non /maps/...
           let final = final1;
           const stillShort = /(^|\.)maps\.app\.goo\.gl$/i.test((()=>{ try{return new URL(final1).host}catch{return ''} })());
           const notMapsDir  = !/\/maps\//i.test(final1);
@@ -1078,13 +1081,12 @@ function focusResultsSection(sel){
             }catch{}
           }
     
-          // cachea SOLO se è davvero utile
           if (isGoodMapsURL(final)) LS.set(key, final);
           u = final;
         }
       }catch{}
     
-      // Normalizzazioni “long strani” → /maps/dir/...
+      // Normalizzazioni "long" → /maps/dir/...
       try{
         const U = new URL(u);
         const isGoogle = /(^|\.)google\./i.test(U.host);
@@ -1124,6 +1126,7 @@ function focusResultsSection(sel){
           if (segs.length >= 2) return 'https://www.google.com/maps/dir/' + segs.join('/');
         }
       }catch{}
+    
       return u;
     }
 
