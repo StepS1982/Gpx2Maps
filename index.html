@@ -1510,14 +1510,23 @@ function focusResultsSection(sel){
           let tokens=[];
           for(const line of raw){
             if(/^https?:\/\//i.test(line)){
-              const resolved=await resolveSmart(line);
-              const seg=extractDirSegmentKeepLeading(resolved);
+              const resolved = await resolveSmart(line);
+              let seg = extractDirSegmentKeepLeading(resolved);
+              
+              // Fallback: se è la pagina mobile "?geocode=..."
+              if (!seg && /google\.[^/]+\/maps\?/i.test(resolved)) {
+                try{
+                  const { ok, j } = await fetchJSONTO(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(resolved)}`, 7000);
+                  if (ok && j && j.finalUrl) seg = extractDirSegmentKeepLeading(unwrapKnownClient(j.finalUrl));
+                }catch{}
+              }
+              
               if(!seg){
                 console.debug('Resolve results (tab2):', resolved);
                 toastCenter('Link non valido: manca /maps/dir/');
                 return;
               }
-              let parts=seg.split('/'); 
+              let parts = seg.split('/');
               parts=parts.filter(x=>x!==''); 
               parts=parts.map(decodeTok).filter(Boolean);
               tokens.push(...parts);
@@ -2113,7 +2122,16 @@ function focusResultsSection(sel){
       let tokens = [];
       if(lines.length===1 && /^https?:\/\//i.test(lines[0])){
         const resolved = await resolveSmart(lines[0]);
-        const seg = segmentDirOnly(resolved);
+        let seg = segmentDirOnly(resolved);
+        
+        // Fallback: pagina mobile "?geocode=..."
+        if (!seg && /google\.[^/]+\/maps\?/i.test(resolved)) {
+          try{
+            const { ok, j } = await fetchJSONTO(`${CONFIG.workerBase}/resolve?url=${encodeURIComponent(resolved)}`, 7000);
+            if (ok && j && j.finalUrl) seg = segmentDirOnly(unwrapKnownClient(j.finalUrl));
+          }catch{}
+        }
+        
         if(!seg){ throw new Error('Link non valido: manca /maps/dir/'); }
         let parts = seg.split('/');
         // se il primo è vuoto => chiedi località
