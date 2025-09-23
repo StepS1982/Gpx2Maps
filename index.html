@@ -2743,7 +2743,8 @@ function focusResultsSection(sel){
               const k = cellKey(ordered[i].lat, ordered[i].lon);
               let w = mem.get(k);
               if (!w) {
-                w = await fetchWeatherRetry(ordered[i].lat, ordered[i].lon);
+                await throttlePerCell(300);
+            w = await fetchWeatherRetry(ordered[i].lat, ordered[i].lon);
                 if(!w || !w.hourly || !w.daily){ throw new Error('Meteo non disponibile'); }
                 mem.set(k, w);
               }
@@ -2949,6 +2950,14 @@ async function fetchWeatherRetry(lat, lon, days=7){
       throw e;
     }
   }
+}
+
+let __wxThrottleLastTs = 0;
+async function throttlePerCell(delayMs=300){
+  const now = Date.now();
+  const dt = now - __wxThrottleLastTs;
+  if (dt < delayMs) { await new Promise(r=>setTimeout(r, delayMs-dt)); }
+  __wxThrottleLastTs = Date.now();
 }
 </script>
 </body>
