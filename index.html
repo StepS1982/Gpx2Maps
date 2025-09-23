@@ -332,7 +332,6 @@ Funziona anche con le coordinate di latitudine e longitudine
 NOTA BENE: Per avere la certezza assoluta di leggere precisamente i punti da un link google maps, sarebbe meglio che per ogni località cercata e messa come tappa su Maps, si prendesse con il mouse quel punto e lo si spostasse leggermente in avanti o indietro sul percorso della mappa.
 Con questa strategia, Maps trasformerà la località come coordinate e non come 'nome punto', per avere una precisione al 100%"></textarea>
           <div class="row" style="margin-top:12px;">
-            <input id="meteoGpxFile" type="file" accept=".gpx,application/gpx+xml,text/xml" />
             <button id="btnGenMeteo" class="btn">Genera Meteo + Info percorso</button>
             <button id="btnClearMeteo" class="btn ghost">Pulisci</button>
           </div>
@@ -2872,108 +2871,7 @@ function focusResultsSection(sel){
             toastCenter('Errore: '+(e&&e.message?e.message:String(e)));
           }
         }
-    )
-    // Upload GPX per Meteo (priorità TRK > RTE > WPT; ottimizza sempre a 25 se >25)
-    (function(){
-      const $file = document.getElementById('meteoGpxFile');
-      if(!$file) return;
-      $file.addEventListener('change', async (ev)=>{
-        try{
-          clearUI();
-          $in.value='';
-          const f = ev.target.files && ev.target.files[0];
-          if(!f){ toastCenter('Seleziona un file GPX'); return; }
-          const text = await readFileText(f);
-          const parsed = parseGPXText(text);
-          let points = [];
-          if (parsed.trk && parsed.trk.length>=2) points = parsed.trk;
-          else if (parsed.rte && parsed.rte.length>=2) points = parsed.rte;
-          else if (parsed.wpt && parsed.wpt.length>=2) points = parsed.wpt;
-          if (points.length<2){ toastCenter('GPX con meno di 2 punti utili'); return; }
-
-          let parts = partsFromPoints(points);
-          if (parts.length>25) parts = optimizeTo25(parts);
-
-          const ordered = parts.slice(1).map(tok=>{
-            const [lat,lon] = tok.split(',');
-            return { lat: fmt6s(lat), lon: fmt6s(lon) };
-          });
-
-          // Label località (no coordinate nei file)
-          const labels=[];
-          for(let i=0;i<ordered.length;i++){
-            $out.querySelector('.note').textContent = `Reverse ${i+1}/${ordered.length}...`;
-            labels.push(await reverseShortLocal(ordered[i].lat, ordered[i].lon));
-          }
-
-          // Distanze/tempi via OSRM
-          $out.querySelector('.note').textContent = 'Calcolo distanze e tempi...';
-          const {legs, totals} = await buildRouteLegs(ordered);
-
-          // Weather per ogni località (de-dupe in RAM su celle ~1 km)
-          const wxRows = [];
-          let dayLabels = null;
-          const mem = new Map();
-          const cellKey = (lat,lon)=> `${(+lat).toFixed(2)},${(+lon).toFixed(2)}`;
-          
-          for(let i=0;i<ordered.length;i++){
-            $out.querySelector('.note').textContent = `Meteo ${i+1}/${ordered.length}...`;
-            const k = cellKey(ordered[i].lat, ordered[i].lon);
-            let w = mem.get(k);
-            if (!w) {
-              w = await fetchWeather(ordered[i].lat, ordered[i].lon);
-              if(!w || !w.hourly || !w.daily){ throw new Error('Meteo non disponibile'); }
-              mem.set(k, w);
-            }
-            const g = build7x4(w);
-            if(!dayLabels) dayLabels = g.dayLabels;
-            wxRows.push({
-              name: labels[i],
-              parts: g.grid.map(x=>x),
-              minmax: g.dMin.map((mn,di)=>({min:g.dMin[di], max:g.dMax[di]}))
-            });
-          }
-
-          // Titoli e generazione file
-          const startName = fileNameSafe(labels[0]);
-          const endName   = fileNameSafe(labels[labels.length-1]);
-          const title = `Meteo da: ${labels[0]} a: ${labels[labels.length-1]}`;
-
-          const htmlWeek = htmlMeteoWeek(title, wxRows, dayLabels);
-          const htmlBlobWeek = new Blob([htmlWeek], {type:'text/html;charset=utf-8'});
-          const htmlDay = htmlMeteoDay(title, wxRows, dayLabels);
-          const htmlBlobDay = new Blob([htmlDay], {type:'text/html;charset=utf-8'});
-
-          // Info percorso (TXT/CSV)
-          const rows = await rowsForInfoPercorso(ordered, labels, legs, totals);
-          const txt  = buildInfoPercorsoTXT({ rows, titolo:{ da: labels[0], a: labels[labels.length-1] } });
-          const csv  = buildInfoPercorsoCSV({ rows, titolo:{ da: labels[0], a: labels[labels.length-1] } });
-
-          const txtBlob = new Blob([txt], {type:'text/plain;charset=utf-8'});
-          const csvBlob = new Blob([csv], {type:'text/csv;charset=utf-8'});
-
-          const base = `${startName.toLowerCase().replace(/\s+/g,'_')}_${endName.toLowerCase().replace(/\s+/g,'_')}_${nowStamp()}`;
-          const fHTMLWeek = `meteo_percorso_week_${base}.html`;
-          const fHTMLDay = `meteo_percorso_day_${base}.html`;
-          const fTXT  = `info_percorso_${base}.txt`;
-          const fCSV  = `info_percorso_${base}.csv`;
-
-          $out.querySelector('.note').textContent = `Creati 4 file · aggiornato alle ${timeHHMMSS()}`;
-          addFileRow('Meteo (visione settimanale)', htmlBlobWeek, fHTMLWeek, true);
-          addFileRow('Meteo (visione giorno x giorno)', htmlBlobDay, fHTMLDay, true);
-          addFileRow('Info Percorso TXT', txtBlob, fTXT, true);
-          addFileRow('Info Percorso CSV', csvBlob, fCSV, true);
-
-          toastCenter('Meteo generato dal GPX (priorità TRK > RTE > WPT)');
-        }catch(e){
-          console.error(e);
-          toastCenter('Errore durante la generazione dal GPX');
-        }finally{
-          ev.target.value='';
-        }
-      });
-    })();
-;
+    );
   })();
   </script>
 </body>
