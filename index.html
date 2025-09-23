@@ -1125,6 +1125,17 @@ function focusResultsSection(sel){
     function evenSample(inner,need){ if(need<=0)return[]; if(inner.length<=need)return inner.slice(); const out=[]; for(let i=0;i<need;i++){ const idx=Math.round(i*(inner.length-1)/(need-1)); out.push(inner[idx]); } const res=[]; for(const v of out){ if(res[res.length-1]!==v) res.push(v); } while(res.length>need) res.pop(); return res; }
     function optimizeTo25(all){ if(all.length<=25) return all; const first=all[0], last=all[all.length-1]; const mid=all.slice(1,all.length-1); const sampled=evenSample(mid,23); return [first,...sampled,last].slice(0,25); }
     function splitInBlocks(all){ const MAX=25, blocks=[]; let rest=all.slice(), first=true; while(rest.length){ const chunk=rest.slice(0,MAX); if(!first && chunk[0]==="") chunk.shift(); blocks.push(chunk); rest=rest.slice(MAX); first=false; } return blocks; }
+    function dedupeAdjacentDecoded(a){
+      const out = [];
+      let prevNorm = null;
+      for (const x of a){
+        const n = decodeTok(x).toLowerCase();   // normalizza: decode + minuscolo
+        if (prevNorm !== null && n === prevNorm) continue;
+        out.push(x);
+        prevNorm = n;
+      }
+      return out;
+    }
 
     function renderOutput(urls){
       const out=document.getElementById('output'),stats=document.getElementById('stats');
@@ -1223,8 +1234,8 @@ function focusResultsSection(sel){
           // Costruisci punti con blank iniziale
           let all=[""]; for(const seg of clean){ all.push(...seg.split('/')); }
     
-          // Dedup PRIMA del check 25
-          all=dedupeAdjacent(all);
+          // Dedup PRIMA del check 25 (versione “norm” per POI/encoding)
+          all = dedupeAdjacentDecoded(all);
     
           if(all.length<=25){ renderOutput([buildGoogleDirURL(all)]); return; }
     
