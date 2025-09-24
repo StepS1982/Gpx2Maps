@@ -2743,13 +2743,7 @@ function focusResultsSection(sel){
               const k = cellKey(ordered[i].lat, ordered[i].lon);
               let w = mem.get(k);
               if (!w) {
-                await throttlePerCell(300);
-            try {
-            w = await fetchWeatherRetry(ordered[i].lat, ordered[i].lon);
-          } catch(e) {
-            console.warn('Weather failed for', ordered[i], e);
-            w = null;
-          }
+                w = await fetchWeatherRetry(ordered[i].lat, ordered[i].lon);
                 if(!w || !w.hourly || !w.daily){ throw new Error('Meteo non disponibile'); }
                 mem.set(k, w);
               }
@@ -2941,29 +2935,20 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function fetchWeatherRetry(lat, lon, days=7){
   let attempt = 0;
-  while (attempt < 5){
+  while (attempt < 3){
     attempt++;
     try{
       const w = await fetchWeatherRetry(lat, lon, days);
       if (w && w.hourly && w.daily) return w;
       throw new Error('bad weather payload');
     }catch(e){
-      if (attempt < 5){
-        const delay = attempt*500; // 500,1000,1500,2000...
-        await sleep(delay);
+      if (attempt < 3){
+        await sleep(attempt === 1 ? 400 : 1000);
         continue;
       }
       throw e;
     }
   }
-}
-
-let __wxThrottleLastTs = 0;
-async function throttlePerCell(delayMs=300){
-  const now = Date.now();
-  const dt = now - __wxThrottleLastTs;
-  if (dt < delayMs) { await new Promise(r=>setTimeout(r, delayMs-dt)); }
-  __wxThrottleLastTs = Date.now();
 }
 </script>
 </body>
