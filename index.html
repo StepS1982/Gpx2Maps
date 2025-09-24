@@ -1183,7 +1183,7 @@ function focusResultsSection(sel){
       focusResultsSection('#tab-merge .out');
       showSmartFooter();
       nudgeDonate();
-      maybeShowDonateToast();
+      maybeShowSupportToast();
     }
     
     // Rileva se un segmento /maps/dir/ contiene POI/indirizzi "commerciali"
@@ -1627,7 +1627,7 @@ function focusResultsSection(sel){
           focusResultsSection('#tab-maps2gpx .out');
           showSmartFooter();
           nudgeDonate();
-          maybeShowDonateToast();
+          maybeShowSupportToast();
         }
     );
     
@@ -1739,7 +1739,7 @@ function focusResultsSection(sel){
       focusResultsSection('#tab-gpx2maps .out');
       showSmartFooter();
       nudgeDonate();
-      maybeShowDonateToast();
+      maybeShowSupportToast();
     }
         
     async function makeLinksFrom(points){
@@ -2893,7 +2893,7 @@ function focusResultsSection(sel){
             focusResultsSection('#tab-meteo .out');
             showSmartFooter();
             nudgeDonate();
-            maybeShowDonateToast();
+            maybeShowSupportToast();
           }catch(e){
             console.error(e);
             toastCenter('Errore: '+(e&&e.message?e.message:String(e)));
