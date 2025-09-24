@@ -2675,6 +2675,41 @@ function focusResultsSection(sel){
       };
       return {legs, totals};
     }
+
+    // ---- OSRM con timeout (6s) -> fallback locale (Haversine) ----
+    function haversineMeters(a,b){
+      const R = 6371000; // m
+      const toRad = d => d*Math.PI/180;
+      const lat1 = +a.lat, lon1 = +a.lon, lat2 = +b.lat, lon2 = +b.lon;
+      const dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
+      const s1 = Math.sin(dLat/2), s2 = Math.sin(dLon/2);
+      const aa = s1*s1 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*s2*s2;
+      return 2*R*Math.asin(Math.min(1, Math.sqrt(aa)));
+    }
+    function buildLocalLegs(points, avgKmh=60){
+      const legs = [];
+      let distance_m = 0, duration_s = 0;
+      for(let i=1;i<points.length;i++){
+        const d = haversineMeters(points[i-1], points[i]);
+        const t = (d/1000)/avgKmh*3600;
+        legs.push({ dist:d, dur:t });
+        distance_m += d; duration_s += t;
+      }
+      return { legs, totals: { dist: distance_m, dur: duration_s, distance_m, duration_s } };
+    }
+    async function buildRouteLegsOrEstimate(points){
+      try{
+        const res = await Promise.race([
+          buildRouteLegs(points), // funzione originale
+          sleep(6000).then(()=>{ throw new Error('osrm-timeout'); })
+        ]);
+        if(res && res.legs && res.totals) return res;
+        throw new Error('bad-osrm-response');
+      }catch(e){
+        console.warn('OSRM non disponibile/lento: uso stima locale (Haversine).', e);
+        return buildLocalLegs(points, 60);
+      }
+    }
     
     // addFileRow(label, downloadBlob, fileName, canOpen, openBlobOverride?)
     function addFileRow(label, blob, fname, canOpen, openBlobOverride){
@@ -2883,41 +2918,6 @@ function focusResultsSection(sel){
         }
     );
   })();
-  
-// ---- OSRM con timeout (6s) -> fallback locale (Haversine) ----
-function haversineMeters(a,b){
-  const R = 6371000; // m
-  const toRad = d => d*Math.PI/180;
-  const lat1 = +a.lat, lon1 = +a.lon, lat2 = +b.lat, lon2 = +b.lon;
-  const dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
-  const s1 = Math.sin(dLat/2), s2 = Math.sin(dLon/2);
-  const aa = s1*s1 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*s2*s2;
-  return 2*R*Math.asin(Math.min(1, Math.sqrt(aa)));
-}
-function buildLocalLegs(points, avgKmh=60){
-  const legs = [];
-  let distance_m = 0, duration_s = 0;
-  for(let i=1;i<points.length;i++){
-    const d = haversineMeters(points[i-1], points[i]);
-    const t = (d/1000)/avgKmh*3600;
-    legs.push({ dist:d, dur:t });
-    distance_m += d; duration_s += t;
-  }
-  return { legs, totals: { dist: distance_m, dur: duration_s, distance_m, duration_s } };
-}
-async function buildRouteLegsOrEstimate(points){
-  try{
-    const res = await Promise.race([
-      buildRouteLegs(points), // funzione originale
-      sleep(6000).then(()=>{ throw new Error('osrm-timeout'); })
-    ]);
-    if(res && res.legs && res.totals) return res;
-    throw new Error('bad-osrm-response');
-  }catch(e){
-    console.warn('OSRM non disponibile/lento: uso stima locale (Haversine).', e);
-    return buildLocalLegs(points, 60);
-  }
-}
 </script>
 </body>
 </html>
