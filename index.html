@@ -2022,6 +2022,7 @@ function focusResultsSection(sel){
             const raw = $in().value.trim();
             if(!raw){ toastCenter('Incolla un GPX o apri un file'); return; }
             try{
+              await new Promise(r => setTimeout(r, 0)); // yield
               const {text, stats} = sanitizeGPX(raw);
               sanitizedText = text;
               sanitizedName = `gpx_sanitizzato_${nowStamp()}.gpx`;
