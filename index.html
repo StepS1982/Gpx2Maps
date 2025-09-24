@@ -720,6 +720,19 @@ const sleep = ms => new Promise(r=>setTimeout(r, ms));
       _toastShowNext();
     }
 
+    // Toast donazione/Amazon - mostra solo 1 volta per sessione (come About)
+    function maybeShowDonateToast() {
+      if (sessionStorage.getItem("donateToastShown")) return; // già mostrato in questa sessione
+      sessionStorage.setItem("donateToastShown", "1");
+      toastAction(
+        "Ti piace GPX2MAPS?",
+        "Offrimi un caffè ☕️",
+        "Offerte Amazon",
+        () => window.open(CONFIG.paypalDonateUrl, "_blank"),
+        () => window.open(CONFIG.amazonAffiliateUrl, "_blank")
+      );
+    }
+
     function toastClearAll(){
       _toastQ.length = 0;
       const box = document.getElementById('toastsCenter');
