@@ -2744,7 +2744,12 @@ function focusResultsSection(sel){
               let w = mem.get(k);
               if (!w) {
                 await throttlePerCell(300);
+            try {
             w = await fetchWeatherRetry(ordered[i].lat, ordered[i].lon);
+          } catch(e) {
+            console.warn('Weather failed for', ordered[i], e);
+            w = null;
+          }
                 if(!w || !w.hourly || !w.daily){ throw new Error('Meteo non disponibile'); }
                 mem.set(k, w);
               }
@@ -2936,15 +2941,16 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function fetchWeatherRetry(lat, lon, days=7){
   let attempt = 0;
-  while (attempt < 3){
+  while (attempt < 5){
     attempt++;
     try{
       const w = await fetchWeatherRetry(lat, lon, days);
       if (w && w.hourly && w.daily) return w;
       throw new Error('bad weather payload');
     }catch(e){
-      if (attempt < 3){
-        await sleep(attempt === 1 ? 400 : 1000);
+      if (attempt < 5){
+        const delay = attempt*500; // 500,1000,1500,2000...
+        await sleep(delay);
         continue;
       }
       throw e;
