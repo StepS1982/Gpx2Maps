@@ -721,16 +721,18 @@ const sleep = ms => new Promise(r=>setTimeout(r, ms));
     }
 
     // Toast donazione/Amazon - mostra solo 1 volta per sessione (come About)
-    function maybeShowDonateToast() {
-      if (sessionStorage.getItem("donateToastShown")) return; // già mostrato in questa sessione
-      sessionStorage.setItem("donateToastShown", "1");
-      toastAction(
-        "Ti piace GPX2MAPS?",
-        "Offrimi un caffè ☕️",
-        "Offerte Amazon",
-        () => window.open(CONFIG.paypalDonateUrl, "_blank"),
-        () => window.open(CONFIG.amazonAffiliateUrl, "_blank")
-      );
+    function maybeShowSupportToast() {
+      if (window._supportToastShown) return;
+      window._supportToastShown = true;
+      toastAction(`
+        <button class="closex" data-close aria-label="Chiudi">×</button>
+        <div><strong>Ti è utile GPX2MAPS?</strong></div>
+        <div class="row" style="justify-content:flex-end">
+          <button class="btn ghost" data-close>No, grazie</button>
+          <a class="btn" data-cta href="${CONFIG.paypalDonateUrl}" target="_blank" rel="noopener noreferrer">Dona</a>
+          <a class="btn secondary" data-cta href="${CONFIG.amazonAffiliateUrl}" target="_blank" rel="noopener">Offerte con Coupon Amazon</a>
+        </div>
+      `, 8000);
     }
 
     function toastClearAll(){
@@ -1181,15 +1183,7 @@ function focusResultsSection(sel){
       focusResultsSection('#tab-merge .out');
       showSmartFooter();
       nudgeDonate();
-      toastAction(`
-        <button class="closex" data-close aria-label="Chiudi">×</button>
-        <div><strong>Ti è utile GPX2MAPS?</strong></div>
-        <div class="row" style="justify-content:flex-end">
-          <button class="btn ghost" data-close>No, grazie</button>
-          <a class="btn" data-cta href="${CONFIG.paypalDonateUrl}" target="_blank" rel="noopener noreferrer">Dona</a>
-          <a class="btn secondary" data-cta href="${CONFIG.amazonAffiliateUrl}" target="_blank" rel="noopener">Offerte con Coupon Amazon</a>
-        </div>
-      `, 8000);
+      maybeShowDonateToast();
     }
     
     // Rileva se un segmento /maps/dir/ contiene POI/indirizzi "commerciali"
@@ -1633,15 +1627,7 @@ function focusResultsSection(sel){
           focusResultsSection('#tab-maps2gpx .out');
           showSmartFooter();
           nudgeDonate();
-          toastAction(`
-            <button class="closex" data-close aria-label="Chiudi">×</button>
-            <div><strong>Ti è utile GPX2MAPS?</strong></div>
-            <div class="row" style="justify-content:flex-end">
-              <button class="btn ghost" data-close>No, grazie</button>
-              <a class="btn" data-cta href="${CONFIG.paypalDonateUrl}" target="_blank" rel="noopener noreferrer">Dona</a>
-              <a class="btn secondary" data-cta href="${CONFIG.amazonAffiliateUrl}" target="_blank" rel="noopener">Offerte con Coupon Amazon</a>
-            </div>
-          `, 8000);
+          maybeShowDonateToast();
         }
     );
     
@@ -1753,15 +1739,7 @@ function focusResultsSection(sel){
       focusResultsSection('#tab-gpx2maps .out');
       showSmartFooter();
       nudgeDonate();
-      toastAction(`
-        <button class="closex" data-close aria-label="Chiudi">×</button>
-        <div><strong>Ti è utile GPX2MAPS?</strong></div>
-        <div class="row" style="justify-content:flex-end">
-          <button class="btn ghost" data-close>No, grazie</button>
-          <a class="btn" data-cta href="${CONFIG.paypalDonateUrl}" target="_blank" rel="noopener noreferrer">Dona</a>
-          <a class="btn secondary" data-cta href="${CONFIG.amazonAffiliateUrl}" target="_blank" rel="noopener">Offerte con Coupon Amazon</a>
-        </div>
-      `, 8000);
+      maybeShowDonateToast();
     }
         
     async function makeLinksFrom(points){
@@ -2915,15 +2893,7 @@ function focusResultsSection(sel){
             focusResultsSection('#tab-meteo .out');
             showSmartFooter();
             nudgeDonate();
-            toastAction(`
-            <button class="closex" data-close aria-label="Chiudi">×</button>
-            <div><strong>Ti è utile GPX2MAPS?</strong></div>
-            <div class="row" style="justify-content:flex-end">
-              <button class="btn ghost" data-close>No, grazie</button>
-              <a class="btn" data-cta href="${CONFIG.paypalDonateUrl}" target="_blank" rel="noopener noreferrer">Dona</a>
-              <a class="btn secondary" data-cta href="${CONFIG.amazonAffiliateUrl}" target="_blank" rel="noopener">Offerte con Coupon Amazon</a>
-            </div>
-          `, 8000);
+            maybeShowDonateToast();
           }catch(e){
             console.error(e);
             toastCenter('Errore: '+(e&&e.message?e.message:String(e)));
