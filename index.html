@@ -500,6 +500,13 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
   </div>
 
   <script>
+
+// == Pacing (anti-429)
+const WEATHER_DELAY_MS = 1200;   // ~1.2s tra richieste meteo
+const REVERSE_DELAY_MS = 300;    // 0.3s tra reverse geocode
+const GEOCODE_DELAY_MS = 250;    // 0.25s tra geocode freeform
+const sleep = ms => new Promise(r=>setTimeout(r, ms));
+
     /* === CONFIG senza object literal (no caratteri invisibili) === */
     const CONFIG = {};
     CONFIG.workerBase = "https://gpx2maps-worker.stefano-vitro.workers.dev";
@@ -2153,6 +2160,7 @@ function focusResultsSection(sel){
       const ordered = [], skipped = [], usedFallback = [];
       for(let i=0;i<ts.length;i++){
         $out.querySelector('.note').textContent = `Geocoding ${i+1}/${ts.length}...`;
+            if(i>0) await sleep(GEOCODE_DELAY_MS);
         let fixed = null;
         for (const poi of POI_FIX) {
           if (poi.match(ts[i])) {
@@ -2722,13 +2730,15 @@ function focusResultsSection(sel){
             // Label località (no coordinate nei file)
             const labels=[];
             for(let i=0;i<ordered.length;i++){
+            if(i>0) await sleep(WEATHER_DELAY_MS);
               $out.querySelector('.note').textContent = `Reverse ${i+1}/${ordered.length}...`;
-              labels.push(await reverseShortLocal(ordered[i].lat, ordered[i].lon));
+              if(i>0) await sleep(REVERSE_DELAY_MS);
+            labels.push(await reverseShortLocal(ordered[i].lat, ordered[i].lon));
             }
       
             // Distanze/tempi via OSRM
             $out.querySelector('.note').textContent = 'Calcolo distanze e tempi...';
-            const {legs, totals} = await buildRouteLegs(ordered);
+            const {legs, totals} = await buildRouteLegsOrEstimate(ordered);
       
             // Weather per ogni località (de-dupe in RAM su celle ~1 km)
             const wxRows = [];
@@ -2873,6 +2883,41 @@ function focusResultsSection(sel){
         }
     );
   })();
-  </script>
+  
+// ---- OSRM con timeout (6s) -> fallback locale (Haversine) ----
+function haversineMeters(a,b){
+  const R = 6371000; // m
+  const toRad = d => d*Math.PI/180;
+  const lat1 = +a.lat, lon1 = +a.lon, lat2 = +b.lat, lon2 = +b.lon;
+  const dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
+  const s1 = Math.sin(dLat/2), s2 = Math.sin(dLon/2);
+  const aa = s1*s1 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*s2*s2;
+  return 2*R*Math.asin(Math.min(1, Math.sqrt(aa)));
+}
+function buildLocalLegs(points, avgKmh=60){
+  const legs = [];
+  let distance_m = 0, duration_s = 0;
+  for(let i=1;i<points.length;i++){
+    const d = haversineMeters(points[i-1], points[i]);
+    const t = (d/1000)/avgKmh*3600;
+    legs.push({ dist:d, dur:t });
+    distance_m += d; duration_s += t;
+  }
+  return { legs, totals: { dist: distance_m, dur: duration_s, distance_m, duration_s } };
+}
+async function buildRouteLegsOrEstimate(points){
+  try{
+    const res = await Promise.race([
+      buildRouteLegs(points), // funzione originale
+      sleep(6000).then(()=>{ throw new Error('osrm-timeout'); })
+    ]);
+    if(res && res.legs && res.totals) return res;
+    throw new Error('bad-osrm-response');
+  }catch(e){
+    console.warn('OSRM non disponibile/lento: uso stima locale (Haversine).', e);
+    return buildLocalLegs(points, 60);
+  }
+}
+</script>
 </body>
 </html>
