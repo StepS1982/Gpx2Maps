@@ -2041,6 +2041,9 @@ function focusResultsSection(sel){
               $preW().hidden = false;
               $dlW().style.display = '';
               toastCenter('Sanitizzazione completata (LF + UTF-8)');
+              showSmartFooter();
+              nudgeDonate();
+              maybeShowSupportToast();
             }catch(e){
               console.error(e);
               toastCenter('Errore di parsing GPX: verifica il file');
