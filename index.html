@@ -2041,6 +2041,7 @@ function focusResultsSection(sel){
               $preW().hidden = false;
               $dlW().style.display = '';
               toastCenter('Sanitizzazione completata');
+              focusResultsSection('#tab-sanitizza .out');
               showSmartFooter();
               nudgeDonate();
               maybeShowSupportToast();
