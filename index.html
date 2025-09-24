@@ -2742,8 +2742,8 @@ function focusResultsSection(sel){
               const k = cellKey(ordered[i].lat, ordered[i].lon);
               let w = mem.get(k);
               if (!w) {
-                try{ w = await fetchWeatherCutoffRetry(ordered[i].lat, ordered[i].lon); }catch(e){ console.warn('Weather skipped:', ordered[i].lat, ordered[i].lon, e); w = null; }
-            if(!w || !w.hourly || !w.daily){ throw new Error('Meteo non disponibile'); }
+                w = await weatherOnce(ordered[i].lat, ordered[i].lon);
+                if(!w || !w.hourly || !w.daily){ throw new Error('Meteo non disponibile'); }
                 mem.set(k, w);
               }
             
@@ -2874,9 +2874,9 @@ function focusResultsSection(sel){
     );
   })();
   
-// === Rate limit globale meteo: 1 req/s con jitter + Retry/Backoff ===
+// === Meteo: chiamate seriali con timeout per tentativo (no-stall) ===
 let __wxLastTs = 0;
-async function throttlePerCell(baseMs=800){
+async function throttlePerCell(baseMs=900){
   const jitter = Math.floor(Math.random()*300); // 0..300ms
   const delayMs = baseMs + jitter;
   const now = Date.now();
@@ -2884,57 +2884,19 @@ async function throttlePerCell(baseMs=800){
   if (dt < delayMs) await new Promise(r=>setTimeout(r, delayMs - dt));
   __wxLastTs = Date.now();
 }
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-async function fetchWeatherRetry(lat, lon, days=7){
-  // 1 sola richiesta alla volta + spacing
-  await throttlePerCell(800);
-  let attempt = 0;
-  while (attempt < 4){
-    attempt++;
-    try{
-      const try{ w = await fetchWeatherCutoffRetry(lat, lon, days); }catch(e){ console.warn('Weather skipped:', lat, lon, days, e); w = null; }
-            if (w && w.hourly && w.daily) return w;
-      throw new Error('bad weather payload');
-    }catch(e){
-      const msg = String(e?.message || e);
-      const is429 = msg.includes('429') || msg.includes('Too Many Requests') || msg.includes('Daily API request limit exceeded');
-      if (attempt < 4){
-        const pause = is429 ? [1500, 3000, 5000][attempt-1] : [500, 1000, 1500][attempt-1];
-        await sleep(pause);
-        continue;
-      }
-      throw e;
-    }
-  }
-}
-
-// === Meteo: retry con CUT-OFF per evitare stalli ===
-async function fetchWeatherCutoffRetry(lat, lon, days=7, {attempts=3, perAttemptMs=6000, spacingMs=900} = {}){
-  // 1 sola richiesta alla volta + spacing con jitter (usa throttlePerCell esistente)
-  await throttlePerCell(spacingMs);
-
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
-  let attempt = 0;
-  while (attempt < attempts){
-    attempt++;
-    try{
-      const res = await Promise.race([
-        fetchWeather(lat, lon, days),                  // tua funzione esistente
-        sleep(perAttemptMs).then(()=>{ throw new Error('timeout') })
-      ]);
-      if (res && res.hourly && res.daily) return res;
-      throw new Error('bad weather payload');
-    }catch(e){
-      const msg = String(e?.message || e);
-      const is429 = msg.includes('429') || msg.includes('Too Many Requests') || msg.includes('Daily API request limit exceeded');
-      if (attempt < attempts){
-        // backoff leggero; se 429, pausa più lunga
-        await sleep(is429 ? 2500*attempt : 800*attempt);
-        continue;
-      }
-      // dopo tutti i tentativi: fallisce, il chiamante deciderà di skippare
-      throw e;
-    }
+async function weatherOnce(lat, lon, days=7, timeoutMs=6000){
+  await throttlePerCell(900);
+  const sleep = ms => new Promise(r=>setTimeout(r, ms));
+  try{
+    const res = await Promise.race([
+      fetchWeather(lat, lon, days),
+      sleep(timeoutMs).then(()=>{ throw new Error('timeout') })
+    ]);
+    if (res && res.hourly && res.daily) return res;
+    return null;
+  }catch(e){
+    console.warn('weatherOnce fail', lat, lon, e);
+    return null;
   }
 }
 </script>
