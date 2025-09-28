@@ -1,12 +1,9 @@
 <!doctype html>
 <html lang="it">
 <head>
-  <meta name="robots" content="noindex, nofollow">
-  <link rel="canonical" href="/index.html">
-
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- TEST BUILD --><title>GPX2MAPS Web-APP</title>
+  <title>GPX2MAPS Web-APP</title>
   <meta name="google-site-verification" content="Sn6U8QFAM6SWtcwZI100_ng2bAGE6a3eYRuwQMtC2Bc" />
   <link rel="canonical" href="https://gpx2maps.pages.dev/">
   <link rel="icon" href="/gpx2maps_icon_1024.png" sizes="any">
@@ -198,7 +195,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
               <div id="output"></div>
               <div class="row" style="margin-top:10px;">
                 <button id="btnDownloadAll" class="btn small" style="display:none;">Scarica .txt</button>
-                <button id="btnShare_btnDownloadAll" class="btn small">Condividi</button>
+                <button id="btnShare_btnDownloadAll" class="btn small" style="display:none">Condividi</button>
               </div>
             </div>
           </div>
@@ -248,7 +245,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
               <div class="row" id="dlRow" style="margin-top:10px;display:none;">
                 <button id="btnDownloadRTE" class="btn small">Scarica GPX Rotta</button>
                 <button id="btnDownloadTRK" class="btn small">Scarica GPX Traccia</button>
-                <button id="btnShare_btnDownloadTRK" class="btn small">Condividi</button>
+                <button id="btnShare_btnDownloadTRK" class="btn small" style="display:none">Condividi</button>
               </div>
             </div>
           </div>
@@ -287,7 +284,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
               <div id="output3"></div>
               <div class="row" style="margin-top:10px;">
                 <button id="btnDownloadAll3" class="btn small" style="display:none;">Scarica .txt</button>
-                <button id="btnShare_btnDownloadAll3" class="btn small">Condividi</button>
+                <button id="btnShare_btnDownloadAll3" class="btn small" style="display:none">Condividi</button>
               </div>
             </div>
           </div>
@@ -318,7 +315,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
               </details>
               <div class="row" id="dlRow4" style="margin-top:10px;display:none;">
                 <button id="btnDownloadSan" class="btn small">Scarica GPX sanitizzato</button>
-                <button id="btnShare_btnDownloadSan" class="btn small">Condividi</button>
+                <button id="btnShare_btnDownloadSan" class="btn small" style="display:none">Condividi</button>
               </div>
             </div>
           </div>
@@ -350,10 +347,8 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
             <div class="bd" id="meteoOut">
               <div class="note">Nessun file generato.</div>
               <div id="meteoFiles"></div>
-              <div class="row" style="margin-top:10px;">
-                <button id="btnShareMeteo" class="btn small">Condividi</button>
-              </div>
-            
+              <div class="row" style="margin-top:10px;"><button id="btnShareMeteo" class="btn small" style="display:none">Condividi</button></div>
+
             </div>
           </div>
         </div>
@@ -2370,7 +2365,7 @@ function focusResultsSection(sel){
           const fasce = ['Notte','Mattino','Pomeriggio','Sera'];
       
           // head
-          let H = `<!DOCTYPE html><html><head><meta charset="utf-8"><!-- TEST BUILD --><title>Meteo percorso</title>${style}</head><body>\n`;
+          let H = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Meteo percorso</title>${style}</head><body>\n`;
           H += `<h1>${xmlEscape(title)} (7 giorni, 4 fasce)</h1>\n`;
           H += `<div class='wrap'><table id='wx-table' class='wxgrid'>\n<thead><tr><th class='loccol' rowspan='2'>Localita'</th>`;
           for(let i=0;i<7;i++){
@@ -2434,7 +2429,7 @@ function focusResultsSection(sel){
   H.push('<html lang="it">');
   H.push('<head>');
   H.push('<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">');
-  H.push('<!-- TEST BUILD --><title>'+xmlEscape(title)+' (7 giorni, 4 fasce)</title>');
+  H.push('<title>'+xmlEscape(title)+' (7 giorni, 4 fasce)</title>');
   H.push('<style>');
   H.push('  :root{--fg:#111827;--muted:#6b7280;--bg:#fff;--border:#e5e7eb;--warn:#fff4cc;--bad:#ffe5e5;--btn:#0ea5e9;--btnText:#fff}');
   H.push('  *{box-sizing:border-box}');
@@ -2581,7 +2576,7 @@ function focusResultsSection(sel){
       </style>`;
     
       let H = `<!doctype html><html lang="it"><head><meta charset="utf-8">
-      <!-- TEST BUILD --><title>Info percorso</title>${css}</head><body>`;
+      <title>Info percorso</title>${css}</head><body>`;
     
       // Titolo + 2 righe richieste (identiche al TXT)
       const riga1 = `Percorso da: ${titolo.da} a: ${titolo.a}`;
@@ -2918,7 +2913,36 @@ function focusResultsSection(sel){
     );
   })();
 
-// ===== Condividi (Web Share API + fallback) =====
+// ===== Share buttons visibility helpers =====
+function showEl(id){ const el=document.getElementById(id); if(el) el.style.display=''; }
+function hideEl(id){ const el=document.getElementById(id); if(el) el.style.display='none'; }
+
+// Hide share on clean clicks
+(function(){
+  const cleanMap = {
+    'btnClearMerge': 'btnShare_btnDownloadAll',
+    'btnClearMaps2GPX': 'btnShare_btnDownloadTRK',
+    'btnClearGpx2Maps': 'btnShare_btnDownloadAll3',
+    'btnClearSan': 'btnShare_btnDownloadSan',
+    'btnClearMeteo': 'btnShareMeteo',
+  };
+  Object.entries(cleanMap).forEach(([cleanId,shareId])=>{
+    const b=document.getElementById(cleanId); if(b) b.addEventListener('click',()=>hideEl(shareId));
+  });
+})();
+
+// Show on success (hooks)
+(function(){
+  const _show = (sel, shareId) => {
+    const el = document.querySelector(sel);
+    if (!el) return;
+    // monkey-patch toastCenter or insert after known lines? We'll attach to specific places via MutationObserver fallback.
+    showEl(shareId);
+  };
+  // Conservative: call showEl at the end of known success flows via direct calls placed in code elsewhere
+})();
+
+// ===== Refined share payloads per tab =====
 async function sharePayload({title, text, url, files}={}){
   try{
     if (navigator.canShare && files && files.length && navigator.canShare({ files })){
@@ -2929,27 +2953,25 @@ async function sharePayload({title, text, url, files}={}){
       await navigator.share({ title, text, url });
       toastCenter('Condiviso ✅'); return;
     }
-  }catch(e){ /* utente ha annullato? prosegui fallback */ }
+  }catch(e){ /* user cancelled or not supported */ }
   const fallback = [text||'', url||''].filter(Boolean).join('\n');
   try{ await navigator.clipboard.writeText(fallback);
        toastCenter('Testo copiato negli appunti 📋'); }
-  catch{ toastCenter('Impossibile condividere automaticamente: copia/manuale.'); }
+  catch{ toastCenter('Impossibile condividere automaticamente: copia manuale.'); }
 }
 
-// ===== Wiring 'Condividi' per ciascun tab =====
-
-// TAB 1: Fusione Link
+// Tab 1: only URLs from #output
 (function(){
   const btn = document.getElementById('btnShare_btnDownloadAll');
   if(!btn) return;
   btn.addEventListener('click', async ()=>{
-    const out = document.getElementById('output');
-    const text = out ? out.innerText.trim() : '';
+    const links = Array.from(document.querySelectorAll('#output a[href^=\"http\"]')).map(a=>a.href);
+    const text = links.join('\\n');
     await sharePayload({ title:'Link uniti • GPX2MAPS', text });
   });
 })();
 
-// TAB 2: Maps → GPX
+// Tab 2: keep as-is (sharing GPX files)
 (function(){
   const btn = document.getElementById('btnShare_btnDownloadTRK');
   if(!btn) return;
@@ -2963,35 +2985,59 @@ async function sharePayload({title, text, url, files}={}){
   });
 })();
 
-// TAB 3: GPX → Maps
+// Tab 3: only URLs from #output3
 (function(){
   const btn = document.getElementById('btnShare_btnDownloadAll3');
   if(!btn) return;
   btn.addEventListener('click', async ()=>{
-    const out = document.getElementById('output3');
-    const text = out ? out.innerText.trim() : '';
+    const links = Array.from(document.querySelectorAll('#output3 a[href^=\"http\"]')).map(a=>a.href);
+    const text = links.join('\\n');
     await sharePayload({ title:'GPX → Maps • Risultati', text });
   });
 })();
 
-// TAB 4: Sanitizza GPX
+// Tab 4: share Sanitized GPX as file (prefer blob link)
 (function(){
   const btn = document.getElementById('btnShare_btnDownloadSan');
   if(!btn) return;
   btn.addEventListener('click', async ()=>{
-    const san = document.getElementById('gpxPreviewSan')?.innerText || '';
-    const files = san ? [ new File([san], `gpx_sanitizzato_${nowStamp()}.gpx`, { type: 'application/gpx+xml' }) ] : undefined;
+    const dl = document.getElementById('btnDownloadSan');
+    let files;
+    if (dl && dl.href && dl.href.startsWith('blob:')){
+      try{
+        const resp = await fetch(dl.href); const blob = await resp.blob();
+        files = [ new File([blob], dl.getAttribute('download') || `gpx_sanitizzato_${nowStamp()}.gpx`, { type: 'application/gpx+xml' }) ];
+      }catch{ /* fallback */ }
+    }
+    if (!files){
+      const san = document.getElementById('gpxPreviewSan')?.innerText || '';
+      if (san) files = [ new File([san], `gpx_sanitizzato_${nowStamp()}.gpx`, { type: 'application/gpx+xml' }) ];
+    }
     await sharePayload({ title:'GPX sanitizzato • GPX2MAPS', text:'File sanitizzato pronto', files });
   });
 })();
 
-// TAB 5: Meteo + Info percorso
+// Tab 5: share Meteo generated files (blob links), fallback to Maps URL
 (function(){
   const btn = document.getElementById('btnShareMeteo');
   if(!btn) return;
   btn.addEventListener('click', async ()=>{
-    const mapsUrl = document.getElementById('meteoInput')?.value.trim() || '';
-    await sharePayload({ title:'Meteo + Info percorso • GPX2MAPS', text:'Percorso e meteo', url: mapsUrl });
+    const fileLinks = Array.from(document.querySelectorAll('#meteoFiles a[href^=\"blob:\"]'));
+    const files = [];
+    for (const a of fileLinks){
+      try{
+        const resp = await fetch(a.href);
+        const blob = await resp.blob();
+        const name = a.getAttribute('download') || a.textContent.trim().replace(/\s+/g,'_');
+        files.push(new File([blob], name, { type: blob.type || 'text/plain' }));
+      }catch(e){/* skip */}
+    }
+    if (files.length){
+      await sharePayload({ title:'Meteo + Info percorso • GPX2MAPS', text:'File meteo e info generati', files });
+    }else{
+      const mapsUrl = document.getElementById('meteoInput')?.value.trim() || '';
+      await sharePayload({ title:'Meteo + Info percorso • GPX2MAPS', text:'Percorso', url: mapsUrl });
+    }
   });
 })();
 </script>
