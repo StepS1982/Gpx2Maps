@@ -509,6 +509,21 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
   </div>
 
   <script>
+// === GPX2MAPS Share helpers (early) ===
+window.showEl = function(id){ const el=document.getElementById(id); if(el) el.style.display=''; };
+window.hideEl = function(id){ const el=document.getElementById(id); if(el) el.style.display='none'; };
+window.sharePayload = async function({title, text, url, files}={}){
+  try{
+    if (navigator.canShare && files && files.length && navigator.canShare({ files })){
+      await navigator.share({ title, text, files }); toastCenter('Condiviso ✅'); return;
+    }
+    if (navigator.share){ await navigator.share({ title, text, url }); toastCenter('Condiviso ✅'); return; }
+  }catch(e){ /* user cancelled or unsupported */ }
+  const fallback = [text||'', url||''].filter(Boolean).join('\n');
+  try{ await navigator.clipboard.writeText(fallback); toastCenter('Testo copiato negli appunti 📋'); }
+  catch{ toastCenter('Impossibile condividere automaticamente: copia manuale.'); }
+};
+
 
 // == Pacing (anti-429)
 const WEATHER_DELAY_MS = 1200;   // ~1.2s tra richieste meteo
@@ -2961,13 +2976,18 @@ async function sharePayload({title, text, url, files}={}){
     const files = [];
     async function addFrom(id){
       const a = document.getElementById(id);
-      if (!a || !a.href) return;
-      try{
-        const resp = await fetch(a.href);
-        const blob = await resp.blob();
-        const name = a.getAttribute('download') || (id+'.gpx');
-        files.push(new File([blob], name, { type: 'application/gpx+xml' }));
-      }catch(e){}
+      if (a && a.href){
+        try{
+          const resp = await fetch(a.href); const blob = await resp.blob();
+          const name = a.getAttribute('download') || (id+'.gpx');
+          files.push(new File([blob], name, { type: 'application/gpx+xml' }));
+          return;
+        }catch(e){}
+      }
+      // fallback: try from preview textareas
+      const map = { 'btnDownloadTRK':'gpxPreviewTrk', 'btnDownloadRTE':'gpxPreviewRte' };
+      const taId = map[id]; const txt = document.getElementById(taId)?.value || document.getElementById(taId)?.innerText || '';
+      if (txt) files.push(new File([txt], (id.replace('btnDownload','gpx_').toLowerCase()+'.gpx'), { type: 'application/gpx+xml' }));
     }
     await addFrom('btnDownloadTRK');
     await addFrom('btnDownloadRTE');
@@ -3035,6 +3055,40 @@ async function sharePayload({title, text, url, files}={}){
         }
     );
   })();
+
+// === Show 'Condividi' when first result control appears (robust observers) ===
+(function(){
+  const visible = el => !!el && getComputedStyle(el).display !== 'none' && getComputedStyle(el).visibility !== 'hidden';
+  function whenVisible(selector, cb){
+    const el = document.querySelector(selector);
+    if (visible(el)) { cb(); return; }
+    const root = el ? el.parentElement : document;
+    const mo = new MutationObserver(()=>{ if (visible(document.querySelector(selector))) { try{ cb(); }finally{ mo.disconnect(); } } });
+    mo.observe(root, {childList:true, subtree:true, attributes:true, attributeFilter:['style','class']});
+  }
+
+  // Tab 1: first action button in results row (e.g., #btnCopy or #btnOpen)
+  whenVisible('#tab-merge .out .row .btn', ()=>showEl('btnShare_btnDownloadAll'));
+
+  // Tab 2: when either TRK or RTE download becomes visible
+  whenVisible('#btnDownloadTRK', ()=>showEl('btnShare_btnDownloadTRK'));
+  whenVisible('#btnDownloadRTE', ()=>showEl('btnShare_btnDownloadTRK'));
+
+  // Tab 3: first action button in results
+  whenVisible('#tab-gpx2maps .out .row .btn', ()=>showEl('btnShare_btnDownloadAll3'));
+
+  // Tab 4: download sanitized button
+  whenVisible('#btnDownloadSan', ()=>showEl('btnShare_btnDownloadSan'));
+
+  // Tab 5: when a file link appears in #meteoFiles
+  const filesBox = document.getElementById('meteoFiles');
+  if (filesBox){
+    const mo5 = new MutationObserver(()=>{
+      if (filesBox.querySelector('a[href^=\"blob:\"]')) showEl('btnShareMeteo');
+    });
+    mo5.observe(filesBox, {childList:true, subtree:true});
+  }
+})();
 </script>
 </body>
 </html>
