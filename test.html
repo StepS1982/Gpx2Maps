@@ -2997,71 +2997,80 @@ async function sharePayload({title, text, url, files}={}){
 </script>
 
 <script>
-// === Tab 1 (Fusione) — fix definitivo Condividi ===
+// === Tab 1 (Fusione) — Condividi: mostra se ci sono URL anche nel testo (no <a>) ===
 (function(){
   const TAB_SEL        = '#tab-merge';
-  const OUTPUT_SEL     = '#output';
-  const CLEAR_BTN_ID   = 'btnClear';
+  const OUTPUT_SEL     = '#output';                   // contenitore risultato fusione
+  const CLEAR_BTN_IDS  = ['btnClear','btnClearMerge']; // copriamo entrambe le varianti
   const SHARE_BTN_ID   = 'btnShare_btnDownloadAll';
 
+  // util
   function show(el){ if(el) el.style.display=''; }
   function hide(el){ if(el) el.style.display='none'; }
+  const hasHttpLinkText = (t) => /\bhttps?:\/\/\S+/i.test(t||'');
 
   const tab    = document.querySelector(TAB_SEL) || document.body;
-  let shareBtn = document.getElementById(SHARE_BTN_ID);
-  const out    = document.querySelector(OUTPUT_SEL) || tab.querySelector('.out') || tab;
+  let   out    = document.querySelector(OUTPUT_SEL) || tab.querySelector('.out') || tab;
+  let   share  = document.getElementById(SHARE_BTN_ID);
 
-  if (!shareBtn){
+  // se manca il bottone, crealo in coda ai pulsanti risultati
+  if (!share){
     const host = tab.querySelector('.out .row') || tab.querySelector('.out') || tab;
     const b = document.createElement('button');
-    b.id = SHARE_BTN_ID;
-    b.className = 'btn small';
-    b.textContent = 'Condividi';
-    b.style.display = 'none';
+    b.id = SHARE_BTN_ID; b.className = 'btn small'; b.textContent = 'Condividi'; b.style.display = 'none';
     host.appendChild(b);
-    shareBtn = b;
+    share = b;
   }
 
-  hide(shareBtn);
-
-  function hasLinks(){ return !!out.querySelector('a[href^="http"]'); }
-  function updateShareVisibility(){ if (!shareBtn) return; hasLinks() ? show(shareBtn) : hide(shareBtn); }
-
-  const mo = new MutationObserver(updateShareVisibility);
-  mo.observe(out, { childList:true, subtree:true, attributes:true, attributeFilter:['style','class'] });
-  setTimeout(updateShareVisibility, 0);
-
-  const clearBtn = document.getElementById(CLEAR_BTN_ID);
-  if (clearBtn){
-    clearBtn.addEventListener('click', ()=> hide(shareBtn), { capture:true });
+  // funzione che decide visibilità
+  function update(){
+    if (!share || !out) return;
+    const text = (out.innerText || out.textContent || '').trim();
+    const hasAnchors = !!out.querySelector('a[href^="http"]');
+    if (hasAnchors || hasHttpLinkText(text)) show(share); else hide(share);
   }
 
+  // osserva anche cambi di testo
+  const mo = new MutationObserver(update);
+  mo.observe(out, { childList:true, subtree:true, attributes:true, characterData:true });
+
+  // iniziale
+  setTimeout(update, 0);
+
+  // PULISCI -> nascondi
+  CLEAR_BTN_IDS.forEach(id=>{
+    const btn = document.getElementById(id);
+    if (btn) btn.addEventListener('click', ()=> hide(share), { capture:true });
+  });
+
+  // click Condividi -> prendi gli URL (da <a> o estratti dal testo), fallback a testo grezzo
   (document.getElementById('tab-merge') || document).addEventListener('click', async (ev)=>{
     if (!ev.target || ev.target.id !== SHARE_BTN_ID) return;
-    let text = '';
-    const links = Array.from(out.querySelectorAll('a[href^="http"]')).map(a=>a.href);
-    if (links.length) text = links.join('\\n');
-    else text = (out.innerText || out.textContent || '').trim();
 
-    if (!text){
-      if (typeof window.toastCenter === 'function') toastCenter('Niente da condividere');
-      return;
+    const anchors = Array.from(out.querySelectorAll('a[href^="http"]')).map(a=>a.href);
+    let payload = anchors.join('\n');
+
+    if (!payload){
+      const text = (out.innerText || out.textContent || '').trim();
+      const urls = (text.match(/\bhttps?:\/\/\S+/gi) || []);
+      payload = urls.length ? urls.join('\n') : text;
     }
+
+    if (!payload){ window.toastCenter && toastCenter('Niente da condividere'); return; }
 
     try{
       if (window.sharePayload){
-        await window.sharePayload({ title:'Link uniti • GPX2MAPS', text: text });
-        return;
-      }
-      if (navigator.share){
-        await navigator.share({ title:'Link uniti • GPX2MAPS', text });
+        await window.sharePayload({ title:'Link uniti • GPX2MAPS', text: payload });
+      }else if (navigator.share){
+        await navigator.share({ title:'Link uniti • GPX2MAPS', text: payload });
       }else{
-        await navigator.clipboard.writeText(text);
-        if (typeof window.toastCenter === 'function') toastCenter('Testo copiato negli appunti 📋');
+        await navigator.clipboard.writeText(payload);
+        window.toastCenter && toastCenter('Testo copiato negli appunti 📋');
       }
-    }catch(e){}
+    }catch(_){}
   }, { capture:true });
 })();
 </script>
+  
 </body>
 </html>
