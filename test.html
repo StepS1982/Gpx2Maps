@@ -2947,61 +2947,87 @@ function focusResultsSection(sel){
     );
   })();
 
-  // === Tab 1 (Fusione): Condividi visibilità e click ===
+  // === Tab 1 (Fusione) — Condividi che replica "Copia" ===
   (function(){
-    const TAB_SEL      = '#tab-merge';
-    const OUTPUT_SEL   = '#output';                    // dove compaiono i link
-    const CLEAR_BTN_ID = 'btnClear';                   // "Pulisci"
-    const SHARE_ID     = 'btnShare_btnDownloadAll';    // <-- ID che hai nel test.html
+    // ID/selector usati in Tab 1 (adattati al tuo file)
+    const TAB_SEL        = '#tab-merge';
+    const OUTPUT_SEL     = '#output'; // dove finiscono i link/testo della fusione
+    const COPY_BTN_ID    = 'btnCopy'; // id del tuo bottone "Copia" in Tab 1
+    const CLEAR_BTN_ID   = 'btnClear'; // id del tuo bottone "Pulisci" in Tab 1
+    const SHARE_BTN_ID   = 'btnShare_btnDownloadAll'; // id del bottone "Condividi"
   
-    // helper locali (no dipendenze da $)
-    function show(el){ if(el) el.style.display=''; }
-    function hide(el){ if(el) el.style.display='none'; }
+    const tab       = document.querySelector(TAB_SEL) || document.body;
+    const shareBtn  = document.getElementById(SHARE_BTN_ID);
+    const copyBtn   = document.getElementById(COPY_BTN_ID);
+    const outNode   = document.querySelector(OUTPUT_SEL) || tab;
   
-    const tab      = document.querySelector(TAB_SEL) || document.body;
-    const shareBtn = document.getElementById(SHARE_ID);
-    const outNode  = document.querySelector(OUTPUT_SEL) || tab;
+    if (!shareBtn) return; // se non c'è il bottone Condividi, non faccio nulla
   
-    if (!shareBtn) return; // niente bottone → niente gestione
+    // helper
+    const isVisible = el => !!el && getComputedStyle(el).display!=='none' && getComputedStyle(el).visibility!=='hidden';
+    const show = el => { if(el) el.style.display=''; };
+    const hide = el => { if(el) el.style.display='none'; };
   
-    // 1) nascondi su PULISCI
-    document.getElementById(CLEAR_BTN_ID)?.addEventListener('click', () => {
-      hide(shareBtn);
-    });
-  
-    // 2) mostra quando compaiono link veri
-    function evaluateShareVisibility(){
-      const hasLinks = !!outNode.querySelector('a[href^="http"]');
-      hasLinks ? show(shareBtn) : hide(shareBtn);
+    // 1) Sincronizza visibilità Condividi con "Copia" (stessa logica che vuoi)
+    function syncShareVisibility(){
+      if (copyBtn && isVisible(copyBtn)) show(shareBtn); else hide(shareBtn);
     }
+    syncShareVisibility();
   
-    const mo = new MutationObserver(evaluateShareVisibility);
-    mo.observe(outNode, { childList:true, subtree:true, attributes:true, attributeFilter:['style','class'] });
-    // valutazione iniziale
-    setTimeout(evaluateShareVisibility, 0);
+    // osserva cambi di visibilità su "Copia"
+    if (copyBtn){
+      const moCopy = new MutationObserver(syncShareVisibility);
+      moCopy.observe(copyBtn, { attributes:true, attributeFilter:['style','class'] });
+    }
+    // se cambia l'output (es. compaiono link dopo analisi), riesegui sync
+    const moOut = new MutationObserver(syncShareVisibility);
+    moOut.observe(outNode, { childList:true, subtree:true, attributes:true, attributeFilter:['style','class'] });
   
-    // 3) click su "Condividi"
-    tab.addEventListener('click', async (ev)=>{
-      if (ev.target && ev.target.id === SHARE_ID){
+    // 2) Pulisci → nascondi Condividi
+    document.getElementById(CLEAR_BTN_ID)?.addEventListener('click', () => hide(shareBtn));
+  
+    // 3) Click su "Condividi": usa lo stesso payload di "Copia" (se c'è), altrimenti fallback
+    shareBtn.addEventListener('click', async ()=>{
+      let text = '';
+  
+      // Se hai una funzione già usata da "Copia" per costruire il testo, riusala:
+      // Sostituisci buildMergeClipboardText con il nome reale se esiste (es. getMergeClipboardText, ecc.)
+      if (typeof window.buildMergeClipboardText === 'function') {
+        try { text = String(window.buildMergeClipboardText() || ''); } catch(e){}
+      }
+  
+      // Fallback 1: tutti i link http(s) dentro l'output (uno per riga)
+      if (!text) {
         const links = Array.from(outNode.querySelectorAll('a[href^="http"]')).map(a=>a.href);
-        if (!links.length){
-          window.toastCenter && toastCenter('Niente da condividere');
+        if (links.length) text = links.join('\n');
+      }
+  
+      // Fallback 2: testo grezzo dell'output
+      if (!text) {
+        text = (outNode.innerText || outNode.textContent || '').trim();
+      }
+  
+      if (!text){
+        window.toastCenter && toastCenter('Niente da condividere');
+        return;
+      }
+  
+      // Condivisione: Web Share API → altrimenti copia negli appunti
+      try{
+        if (navigator.share) {
+          await navigator.share({ text });
+          window.toastCenter && toastCenter('Condiviso ✅');
           return;
         }
-        // usa gli helper di share che hai già definito (sharePayload) oppure fallback
-        if (window.sharePayload) {
-          await window.sharePayload({ title:'Link uniti • GPX2MAPS', text: links.join('\n') });
-        } else {
-          try {
-            if (navigator.share) await navigator.share({ title:'Link uniti • GPX2MAPS', text: links.join('\n') });
-            else {
-              await navigator.clipboard.writeText(links.join('\n'));
-              window.toastCenter && toastCenter('Testo copiato negli appunti 📋');
-            }
-          } catch(e) {}
-        }
+      }catch(e){ /* utente ha annullato, continuo con fallback */ }
+  
+      try{
+        await navigator.clipboard.writeText(text);
+        window.toastCenter && toastCenter('Testo copiato negli appunti 📋');
+      }catch(e){
+        window.toastCenter && toastCenter('Impossibile condividere automaticamente');
       }
-    }, true);
+    });
   })();
 
 </script>
