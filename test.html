@@ -2947,75 +2947,280 @@ function focusResultsSection(sel){
     );
   })();
 
-  // === Tab 1 (Fusione): Share visibilità corretta + click funzionante ===
+  // ===================== GPX2MAPS • ShareManager (drop-in) =====================
+  // - Mostra il bottone "Condividi" SOLO quando c'è davvero output condivisibile.
+  // - Lo nasconde quando premi PULISCI nel tab.
+  // - Gestisce il click su "Condividi" e condivide davvero (Web Share o Clipboard).
+  //
+  // Funziona con questi default (puoi cambiare i selettori sotto se servisse):
+  //   TAB 1 (Fusione)     : container #tab-merge, output #output
+  //   TAB 2 (Maps->GPX)   : container #tab-maps2gpx, download #btnDownloadTRK / #btnDownloadRTE
+  //   TAB 3 (GPX->Maps)   : container #tab-gpx2maps, output #output3
+  //   TAB 4 (Sanitizza)   : container #tab-sanitizza, file via #btnDownloadSan o testo #gpxPreviewSan
+  //   TAB 5 (Meteo)       : container #tab-meteo, file list #meteoFiles (link blob:), fallback al campo input #meteoInput
+  //
+  // Bottoni "Condividi" attesi (UNO per tab, hidden all'avvio – se non esistono li crea):
+  //   #btnShareMerge, #btnShareMaps2GPX, #btnShareGpx2Maps, #btnShareSan, #btnShareMeteo
+  //
+  // Pulsanti "Pulisci" per tab (se esistono, li agganciamo):
+  //   #btnClear (tab1), #btnClearMaps2GPX (tab2), #btnClearGpx2Maps (tab3), #btnClearSan (tab4), #btnClearMeteo (tab5)
+  // ==============================================================================
+  
   (function(){
-    const SHARE_ID   = 'btnShare_btnDownloadAll';
-    const OUTPUT_SEL = '#output';           // << link reali stanno qui
-    const TAB_SEL    = '#tab-merge';        // contenitore del tab
-  
-    // 1) Nascondi su PULISCI
-    document.getElementById('btnClear')?.addEventListener('click', () => {
-      const btn = document.getElementById(SHARE_ID);
-      if (btn) btn.style.display = 'none';
-    });
-  
-    // 2) Mostra quando compaiono link veri nell’output
-    function evaluateShareVisibility(){
-      const hasLinks = !!document.querySelector(`${OUTPUT_SEL} a[href^="http"]`);
-      const btn = document.getElementById(SHARE_ID);
-      if (!btn) return;
-      btn.style.display = hasLinks ? '' : 'none';
-    }
-  
-    const outNode = document.querySelector(OUTPUT_SEL) || document.querySelector(`${TAB_SEL} .out`) || document.body;
-    const mo = new MutationObserver(() => evaluateShareVisibility());
-    mo.observe(outNode, { childList:true, subtree:true, attributes:true, attributeFilter:['style','class'] });
-  
-    // valutazione iniziale (nel caso i risultati siano già presenti)
-    setTimeout(evaluateShareVisibility, 0);
-  
-    // 3) Click su "Condividi" (delegato nel tab, in capture per robustezza)
-    const tab = document.querySelector(TAB_SEL) || document.body;
-    tab.addEventListener('click', async (ev)=>{
-      const t = ev.target;
-      if (t && t.id === SHARE_ID){
-        const links = Array.from(document.querySelectorAll(`${OUTPUT_SEL} a[href^="http"]`)).map(a => a.href);
-        if (!links.length){
-          window.toastCenter && toastCenter('Niente da condividere');
-          return;
+    // --- util ---
+    const $  = sel => document.querySelector(sel);
+    const $$ = sel => Array.from(document.querySelectorAll(sel));
+    const visible = el => !!el && getComputedStyle(el).display!=='none' && getComputedStyle(el).visibility!=='hidden';
+    function show(el){ if(el) el.style.display=''; }
+    function hide(el){ if(el) el.style.display='none'; }
+    async function sharePayload({title, text, url, files}={}){
+      try{
+        if (navigator.canShare && files && files.length && navigator.canShare({ files })){
+          await navigator.share({ title, text, files });
+          window.toastCenter && toastCenter('Condiviso ✅'); return;
         }
-        // usa gli helper globali già presenti nel file
-        await window.sharePayload?.({
-          title: 'Link uniti • GPX2MAPS',
-          text: links.join('\n')
-        });
+        if (navigator.share){
+          await navigator.share({ title, text, url });
+          window.toastCenter && toastCenter('Condiviso ✅'); return;
+        }
+      }catch(e){ /* user cancelled or unsupported */ }
+      const fallback = [text||'', url||''].filter(Boolean).join('\n');
+      if (fallback){
+        try { await navigator.clipboard.writeText(fallback);
+              window.toastCenter && toastCenter('Testo copiato negli appunti 📋'); }
+        catch { window.toastCenter && toastCenter('Impossibile condividere automaticamente: copia manuale.'); }
+      }else{
+        window.toastCenter && toastCenter('Niente da condividere');
       }
-    }, true);
-  })();
-
-  // Tab 1: Fusione
-  $('#btnShareMerge').addEventListener('click', async ()=>{
-    const out = $('#mergeOutput').textContent.trim();
-    if(!out){ toastCenter("Niente da condividere"); return; }
-    if(navigator.share){
-      try{ await navigator.share({ text: out }); }
-      catch(e){ console.warn("Share aborted", e); }
-    }else{
-      copyText(out);
-      toastCenter("Output copiato negli appunti");
     }
-  });
   
-  // mostra/nascondi il bottone
-  function renderOutputMerge(text){
-    $('#mergeOutput').textContent = text;
-    showEl('#btnShareMerge');   // <- mostra dopo successo
-  }
-  function resetMergeUI(){
-    $('#mergeOutput').textContent = '';
-    hideEl('#btnShareMerge');   // <- nascondi su pulisci
-  }
-    
+    // --- crea bottone share se manca ---
+    function ensureShareButton(id, whereSel){
+      let b = document.getElementById(id);
+      if (!b){
+        const where = $(whereSel);
+        if (!where) return null;
+        b = document.createElement('button');
+        b.id = id; b.className = 'btn small'; b.textContent = 'Condividi';
+        b.style.display = 'none';
+        // lo metto in coda alla prima .row della sezione risultati, se esiste
+        const row = where.querySelector('.row') || where;
+        row.appendChild(b);
+      }
+      return b;
+    }
+  
+    // ------- TAB 1: Fusione -------
+    const TAB1 = {
+      tabSel: '#tab-merge',
+      outputSel: '#output',
+      shareId: 'btnShareMerge',
+      clearSel: '#btnClear',
+      whereShare: '#tab-merge .out'
+    };
+    (function T1(){
+      const tab = $(TAB1.tabSel);
+      if (!tab) return;
+      const shareBtn = ensureShareButton(TAB1.shareId, TAB1.whereShare) || $(TAB1.shareId);
+      const outNode  = $(TAB1.outputSel) || tab.querySelector('.out') || tab;
+  
+      // Mostra se ci sono link reali
+      function evalT1(){
+        const hasLinks = !!outNode.querySelector('a[href^="http"]');
+        hasLinks ? show(shareBtn) : hide(shareBtn);
+      }
+      const mo = new MutationObserver(evalT1);
+      mo.observe(outNode, {childList:true, subtree:true, attributes:true, attributeFilter:['style','class']});
+      evalT1();
+  
+      // Pulisci -> nascondi
+      $(TAB1.clearSel)?.addEventListener('click', ()=> hide(shareBtn));
+  
+      // Click condividi
+      tab.addEventListener('click', async (ev)=>{
+        if (ev.target && ev.target.id === TAB1.shareId){
+          const links = $$(TAB1.outputSel+' a[href^="http"]').map(a=>a.href);
+          if (!links.length){ window.toastCenter && toastCenter('Niente da condividere'); return; }
+          await sharePayload({ title:'Link uniti • GPX2MAPS', text: links.join('\n') });
+        }
+      }, true);
+    })();
+  
+    // ------- TAB 2: Maps → GPX -------
+    const TAB2 = {
+      tabSel: '#tab-maps2gpx',
+      shareId: 'btnShareMaps2GPX',
+      clearSel: '#btnClearMaps2GPX',
+      whereShare: '#tab-maps2gpx .out',
+      dlTRK: '#btnDownloadTRK',
+      dlRTE: '#btnDownloadRTE',
+      prevTRK: '#gpxPreviewTrk',
+      prevRTE: '#gpxPreviewRte',
+    };
+    (async function T2(){
+      const tab = $(TAB2.tabSel);
+      if (!tab) return;
+      const shareBtn = ensureShareButton(TAB2.shareId, TAB2.whereShare) || $(TAB2.shareId);
+  
+      function evalT2(){
+        const trk = $(TAB2.dlTRK), rte = $(TAB2.dlRTE);
+        (visible(trk) || visible(rte)) ? show(shareBtn) : hide(shareBtn);
+      }
+      const mo = new MutationObserver(evalT2);
+      mo.observe(tab, {childList:true, subtree:true, attributes:true, attributeFilter:['style','class']});
+      evalT2();
+  
+      $(TAB2.clearSel)?.addEventListener('click', ()=> hide(shareBtn));
+  
+      tab.addEventListener('click', async (ev)=>{
+        if (ev.target && ev.target.id === TAB2.shareId){
+          const files = [];
+          async function addFrom(aSel, fallbackSel){
+            const a = $(aSel);
+            if (a && a.href){
+              try { const resp = await fetch(a.href); const blob = await resp.blob();
+                    const name = a.getAttribute('download') || (aSel.replace('#btnDownload','gpx_').toLowerCase()+'.gpx');
+                    files.push(new File([blob], name, { type:'application/gpx+xml' })); return; } catch(e){}
+            }
+            const txt = $(fallbackSel)?.value || $(fallbackSel)?.innerText || '';
+            if (txt) files.push(new File([txt], (aSel.replace('#btnDownload','gpx_').toLowerCase()+'.gpx'), { type:'application/gpx+xml' }));
+          }
+          await addFrom(TAB2.dlTRK, TAB2.prevTRK);
+          await addFrom(TAB2.dlRTE, TAB2.prevRTE);
+  
+          if (!files.length){ window.toastCenter && toastCenter('Niente da condividere'); return; }
+          await sharePayload({ title:'GPX generati • GPX2MAPS', text:'GPX creati', files });
+        }
+      }, true);
+    })();
+  
+    // ------- TAB 3: GPX → Maps -------
+    const TAB3 = {
+      tabSel: '#tab-gpx2maps',
+      outputSel: '#output3',
+      shareId: 'btnShareGpx2Maps',
+      clearSel: '#btnClearGpx2Maps',
+      whereShare: '#tab-gpx2maps .out'
+    };
+    (function T3(){
+      const tab = $(TAB3.tabSel);
+      if (!tab) return;
+      const shareBtn = ensureShareButton(TAB3.shareId, TAB3.whereShare) || $(TAB3.shareId);
+      const outNode  = $(TAB3.outputSel) || tab.querySelector('.out') || tab;
+  
+      function evalT3(){
+        const hasLinks = !!outNode.querySelector('a[href^="http"]');
+        hasLinks ? show(shareBtn) : hide(shareBtn);
+      }
+      const mo = new MutationObserver(evalT3);
+      mo.observe(outNode, {childList:true, subtree:true});
+      evalT3();
+  
+      $(TAB3.clearSel)?.addEventListener('click', ()=> hide(shareBtn));
+  
+      tab.addEventListener('click', async (ev)=>{
+        if (ev.target && ev.target.id === TAB3.shareId){
+          const links = $$(TAB3.outputSel+' a[href^="http"]').map(a=>a.href);
+          if (!links.length){ window.toastCenter && toastCenter('Niente da condividere'); return; }
+          await sharePayload({ title:'GPX → Maps • Risultati', text: links.join('\n') });
+        }
+      }, true);
+    })();
+  
+    // ------- TAB 4: Sanitizza -------
+    const TAB4 = {
+      tabSel: '#tab-sanitizza',
+      shareId: 'btnShareSan',
+      clearSel: '#btnClearSan',
+      whereShare: '#tab-sanitizza .out',
+      dlSan: '#btnDownloadSan',
+      prevSan: '#gpxPreviewSan'
+    };
+    (function T4(){
+      const tab = $(TAB4.tabSel);
+      if (!tab) return;
+      const shareBtn = ensureShareButton(TAB4.shareId, TAB4.whereShare) || $(TAB4.shareId);
+  
+      function evalT4(){
+        const dl = $(TAB4.dlSan);
+        const prev = $(TAB4.prevSan);
+        (visible(dl) || (prev && (prev.value||prev.innerText||'').trim().length>0)) ? show(shareBtn) : hide(shareBtn);
+      }
+      const mo = new MutationObserver(evalT4);
+      mo.observe(tab, {childList:true, subtree:true, attributes:true, attributeFilter:['style','class']});
+      evalT4();
+  
+      $(TAB4.clearSel)?.addEventListener('click', ()=> hide(shareBtn));
+  
+      tab.addEventListener('click', async (ev)=>{
+        if (ev.target && ev.target.id === TAB4.shareId){
+          let files;
+          const dl = $(TAB4.dlSan);
+          if (dl && dl.href && dl.href.startsWith('blob:')){
+            try { const resp = await fetch(dl.href); const blob = await resp.blob();
+                  files = [ new File([blob], dl.getAttribute('download') || `gpx_sanitizzato_${Date.now()}.gpx`, { type:'application/gpx+xml' }) ]; } catch(e){}
+          }
+          if (!files){
+            const txt = $(TAB4.prevSan)?.value || $(TAB4.prevSan)?.innerText || '';
+            if (txt) files = [ new File([txt], `gpx_sanitizzato_${Date.now()}.gpx`, { type:'application/gpx+xml' }) ];
+          }
+          if (!files){ window.toastCenter && toastCenter('Niente da condividere'); return; }
+          await sharePayload({ title:'GPX sanitizzato • GPX2MAPS', text:'File sanitizzato pronto', files });
+        }
+      }, true);
+    })();
+  
+    // ------- TAB 5: Meteo + Info -------
+    const TAB5 = {
+      tabSel: '#tab-meteo',
+      shareId: 'btnShareMeteo',
+      clearSel: '#btnClearMeteo',
+      whereShare: '#tab-meteo .out',
+      filesBox: '#meteoFiles',
+      mapsInput: '#meteoInput'
+    };
+    (function T5(){
+      const tab = $(TAB5.tabSel);
+      if (!tab) return;
+      const shareBtn = ensureShareButton(TAB5.shareId, TAB5.whereShare) || $(TAB5.shareId);
+      const filesBox = $(TAB5.filesBox);
+  
+      function evalT5(){
+        const hasFiles = !!(filesBox && filesBox.querySelector('a[href^="blob:"]'));
+        hasFiles ? show(shareBtn) : hide(shareBtn);
+      }
+      const mo = filesBox && new MutationObserver(evalT5);
+      if (mo) mo.observe(filesBox, {childList:true, subtree:true});
+      evalT5();
+  
+      $(TAB5.clearSel)?.addEventListener('click', ()=> hide(shareBtn));
+  
+      tab.addEventListener('click', async (ev)=>{
+        if (ev.target && ev.target.id === TAB5.shareId){
+          const fileLinks = $$('#meteoFiles a[href^="blob:"]');
+          const files = [];
+          for (const a of fileLinks){
+            try{
+              const resp = await fetch(a.href);
+              const blob = await resp.blob();
+              const name = a.getAttribute('download') || a.textContent.trim().replace(/\s+/g,'_');
+              files.push(new File([blob], name, { type: blob.type || 'text/plain' }));
+            }catch(e){}
+          }
+          if (files.length){
+            await sharePayload({ title:'Meteo + Info percorso • GPX2MAPS', text:'File meteo e info generati', files });
+          }else{
+            const mapsUrl = $(TAB5.mapsInput)?.value?.trim() || '';
+            if (!mapsUrl){ window.toastCenter && toastCenter('Niente da condividere'); return; }
+            await sharePayload({ title:'Meteo + Info percorso • GPX2MAPS', text:'Percorso', url: mapsUrl });
+          }
+        }
+      }, true);
+    })();
+  
+  })(); // end ShareManager
+  // ============================================================================
+
 </script>
 </body>
 </html>
