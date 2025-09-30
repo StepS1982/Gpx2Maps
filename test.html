@@ -2992,6 +2992,29 @@ function focusResultsSection(sel){
       }
     }, true);
   })();
+
+  // Tab 1: Fusione
+  $('#btnShareMerge').addEventListener('click', async ()=>{
+    const out = $('#mergeOutput').textContent.trim();
+    if(!out){ toastCenter("Niente da condividere"); return; }
+    if(navigator.share){
+      try{ await navigator.share({ text: out }); }
+      catch(e){ console.warn("Share aborted", e); }
+    }else{
+      copyText(out);
+      toastCenter("Output copiato negli appunti");
+    }
+  });
+  
+  // mostra/nascondi il bottone
+  function renderOutputMerge(text){
+    $('#mergeOutput').textContent = text;
+    showEl('#btnShareMerge');   // <- mostra dopo successo
+  }
+  function resetMergeUI(){
+    $('#mergeOutput').textContent = '';
+    hideEl('#btnShareMerge');   // <- nascondi su pulisci
+  }
     
 </script>
 </body>
