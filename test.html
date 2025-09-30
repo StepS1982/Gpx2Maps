@@ -6,7 +6,7 @@
 
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>GPX2MAPS Web-APP</title>
+  <!-- TEST BUILD --><title>GPX2MAPS Web-APP</title>
   <meta name="google-site-verification" content="Sn6U8QFAM6SWtcwZI100_ng2bAGE6a3eYRuwQMtC2Bc" />
   <link rel="canonical" href="https://gpx2maps.pages.dev/">
   <link rel="icon" href="/gpx2maps_icon_1024.png" sizes="any">
@@ -198,7 +198,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
               <div id="output"></div>
               <div class="row" style="margin-top:10px;">
                 <button id="btnDownloadAll" class="btn small" style="display:none;">Scarica .txt</button>
-                <button id="btnShare_btnDownloadAll" class="btn small" style="display:none">Condividi</button>
+                <button id="btnShare_btnDownloadAll" class="btn small">Condividi</button>
               </div>
             </div>
           </div>
@@ -248,7 +248,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
               <div class="row" id="dlRow" style="margin-top:10px;display:none;">
                 <button id="btnDownloadRTE" class="btn small">Scarica GPX Rotta</button>
                 <button id="btnDownloadTRK" class="btn small">Scarica GPX Traccia</button>
-                <button id="btnShare_btnDownloadTRK" class="btn small" style="display:none">Condividi</button>
+                <button id="btnShare_btnDownloadTRK" class="btn small">Condividi</button>
               </div>
             </div>
           </div>
@@ -287,7 +287,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
               <div id="output3"></div>
               <div class="row" style="margin-top:10px;">
                 <button id="btnDownloadAll3" class="btn small" style="display:none;">Scarica .txt</button>
-                <button id="btnShare_btnDownloadAll3" class="btn small" style="display:none">Condividi</button>
+                <button id="btnShare_btnDownloadAll3" class="btn small">Condividi</button>
               </div>
             </div>
           </div>
@@ -318,7 +318,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
               </details>
               <div class="row" id="dlRow4" style="margin-top:10px;display:none;">
                 <button id="btnDownloadSan" class="btn small">Scarica GPX sanitizzato</button>
-                <button id="btnShare_btnDownloadSan" class="btn small" style="display:none">Condividi</button>
+                <button id="btnShare_btnDownloadSan" class="btn small">Condividi</button>
               </div>
             </div>
           </div>
@@ -350,8 +350,10 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
             <div class="bd" id="meteoOut">
               <div class="note">Nessun file generato.</div>
               <div id="meteoFiles"></div>
-              <div class="row" style="margin-top:10px;"><button id="btnShareMeteo" class="btn small" style="display:none">Condividi</button></div>
-
+              <div class="row" style="margin-top:10px;">
+                <button id="btnShareMeteo" class="btn small">Condividi</button>
+              </div>
+            
             </div>
           </div>
         </div>
@@ -509,43 +511,12 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
   </div>
 
   <script>
-    // === GPX2MAPS Share helpers (una volta sola) ===
-    window.showEl = window.showEl || function(id){
-      const el = document.getElementById(id);
-      if (el) el.style.display = '';
-    };
-    window.hideEl = window.hideEl || function(id){
-      const el = document.getElementById(id);
-      if (el) el.style.display = 'none';
-    };
-    window.sharePayload = window.sharePayload || (async function({title, text, url, files} = {}){
-      try{
-        if (navigator.canShare && files && files.length && navigator.canShare({ files })){
-          await navigator.share({ title, text, files });
-          if (typeof toastCenter==='function') toastCenter('Condiviso ✅');
-          return;
-        }
-        if (navigator.share){
-          await navigator.share({ title, text, url });
-          if (typeof toastCenter==='function') toastCenter('Condiviso ✅');
-          return;
-        }
-      }catch(e){ /* utente ha annullato o non supportato */ }
-      const fallback = [text||'', url||''].filter(Boolean).join('\n');
-      try{
-        await navigator.clipboard.writeText(fallback);
-        if (typeof toastCenter==='function') toastCenter('Testo copiato negli appunti 📋');
-      }catch{
-        if (typeof toastCenter==='function') toastCenter('Impossibile condividere automaticamente: copia manuale.');
-      }
-    });
 
-
-    // == Pacing (anti-429)
-    const WEATHER_DELAY_MS = 1200;   // ~1.2s tra richieste meteo
-    const REVERSE_DELAY_MS = 300;    // 0.3s tra reverse geocode
-    const GEOCODE_DELAY_MS = 250;    // 0.25s tra geocode freeform
-    const sleep = ms => new Promise(r=>setTimeout(r, ms));
+// == Pacing (anti-429)
+const WEATHER_DELAY_MS = 1200;   // ~1.2s tra richieste meteo
+const REVERSE_DELAY_MS = 300;    // 0.3s tra reverse geocode
+const GEOCODE_DELAY_MS = 250;    // 0.25s tra geocode freeform
+const sleep = ms => new Promise(r=>setTimeout(r, ms));
 
     /* === CONFIG senza object literal (no caratteri invisibili) === */
     const CONFIG = {};
@@ -2399,7 +2370,7 @@ function focusResultsSection(sel){
           const fasce = ['Notte','Mattino','Pomeriggio','Sera'];
       
           // head
-          let H = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Meteo percorso</title>${style}</head><body>\n`;
+          let H = `<!DOCTYPE html><html><head><meta charset="utf-8"><!-- TEST BUILD --><title>Meteo percorso</title>${style}</head><body>\n`;
           H += `<h1>${xmlEscape(title)} (7 giorni, 4 fasce)</h1>\n`;
           H += `<div class='wrap'><table id='wx-table' class='wxgrid'>\n<thead><tr><th class='loccol' rowspan='2'>Localita'</th>`;
           for(let i=0;i<7;i++){
@@ -2463,7 +2434,7 @@ function focusResultsSection(sel){
   H.push('<html lang="it">');
   H.push('<head>');
   H.push('<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">');
-  H.push('<title>'+xmlEscape(title)+' (7 giorni, 4 fasce)</title>');
+  H.push('<!-- TEST BUILD --><title>'+xmlEscape(title)+' (7 giorni, 4 fasce)</title>');
   H.push('<style>');
   H.push('  :root{--fg:#111827;--muted:#6b7280;--bg:#fff;--border:#e5e7eb;--warn:#fff4cc;--bad:#ffe5e5;--btn:#0ea5e9;--btnText:#fff}');
   H.push('  *{box-sizing:border-box}');
@@ -2610,7 +2581,7 @@ function focusResultsSection(sel){
       </style>`;
     
       let H = `<!doctype html><html lang="it"><head><meta charset="utf-8">
-      <title>Info percorso</title>${css}</head><body>`;
+      <!-- TEST BUILD --><title>Info percorso</title>${css}</head><body>`;
     
       // Titolo + 2 righe richieste (identiche al TXT)
       const riga1 = `Percorso da: ${titolo.da} a: ${titolo.a}`;
@@ -2947,89 +2918,82 @@ function focusResultsSection(sel){
     );
   })();
 
-  // === Tab 1 (Fusione) — Condividi che replica "Copia" ===
-  (function(){
-    // ID/selector usati in Tab 1 (adattati al tuo file)
-    const TAB_SEL        = '#tab-merge';
-    const OUTPUT_SEL     = '#output'; // dove finiscono i link/testo della fusione
-    const COPY_BTN_ID    = 'btnCopy'; // id del tuo bottone "Copia" in Tab 1
-    const CLEAR_BTN_ID   = 'btnClear'; // id del tuo bottone "Pulisci" in Tab 1
-    const SHARE_BTN_ID   = 'btnShare_btnDownloadAll'; // id del bottone "Condividi"
-  
-    const tab       = document.querySelector(TAB_SEL) || document.body;
-    const shareBtn  = document.getElementById(SHARE_BTN_ID);
-    const copyBtn   = document.getElementById(COPY_BTN_ID);
-    const outNode   = document.querySelector(OUTPUT_SEL) || tab;
-  
-    if (!shareBtn) return; // se non c'è il bottone Condividi, non faccio nulla
-  
-    // helper
-    const isVisible = el => !!el && getComputedStyle(el).display!=='none' && getComputedStyle(el).visibility!=='hidden';
-    const show = el => { if(el) el.style.display=''; };
-    const hide = el => { if(el) el.style.display='none'; };
-  
-    // 1) Sincronizza visibilità Condividi con "Copia" (stessa logica che vuoi)
-    function syncShareVisibility(){
-      if (copyBtn && isVisible(copyBtn)) show(shareBtn); else hide(shareBtn);
+// ===== Condividi (Web Share API + fallback) =====
+async function sharePayload({title, text, url, files}={}){
+  try{
+    if (navigator.canShare && files && files.length && navigator.canShare({ files })){
+      await navigator.share({ title, text, files });
+      toastCenter('Condiviso ✅'); return;
     }
-    syncShareVisibility();
-  
-    // osserva cambi di visibilità su "Copia"
-    if (copyBtn){
-      const moCopy = new MutationObserver(syncShareVisibility);
-      moCopy.observe(copyBtn, { attributes:true, attributeFilter:['style','class'] });
+    if (navigator.share){
+      await navigator.share({ title, text, url });
+      toastCenter('Condiviso ✅'); return;
     }
-    // se cambia l'output (es. compaiono link dopo analisi), riesegui sync
-    const moOut = new MutationObserver(syncShareVisibility);
-    moOut.observe(outNode, { childList:true, subtree:true, attributes:true, attributeFilter:['style','class'] });
-  
-    // 2) Pulisci → nascondi Condividi
-    document.getElementById(CLEAR_BTN_ID)?.addEventListener('click', () => hide(shareBtn));
-  
-    // 3) Click su "Condividi": usa lo stesso payload di "Copia" (se c'è), altrimenti fallback
-    shareBtn.addEventListener('click', async ()=>{
-      let text = '';
-  
-      // Se hai una funzione già usata da "Copia" per costruire il testo, riusala:
-      // Sostituisci buildMergeClipboardText con il nome reale se esiste (es. getMergeClipboardText, ecc.)
-      if (typeof window.buildMergeClipboardText === 'function') {
-        try { text = String(window.buildMergeClipboardText() || ''); } catch(e){}
-      }
-  
-      // Fallback 1: tutti i link http(s) dentro l'output (uno per riga)
-      if (!text) {
-        const links = Array.from(outNode.querySelectorAll('a[href^="http"]')).map(a=>a.href);
-        if (links.length) text = links.join('\n');
-      }
-  
-      // Fallback 2: testo grezzo dell'output
-      if (!text) {
-        text = (outNode.innerText || outNode.textContent || '').trim();
-      }
-  
-      if (!text){
-        window.toastCenter && toastCenter('Niente da condividere');
-        return;
-      }
-  
-      // Condivisione: Web Share API → altrimenti copia negli appunti
-      try{
-        if (navigator.share) {
-          await navigator.share({ text });
-          window.toastCenter && toastCenter('Condiviso ✅');
-          return;
-        }
-      }catch(e){ /* utente ha annullato, continuo con fallback */ }
-  
-      try{
-        await navigator.clipboard.writeText(text);
-        window.toastCenter && toastCenter('Testo copiato negli appunti 📋');
-      }catch(e){
-        window.toastCenter && toastCenter('Impossibile condividere automaticamente');
-      }
-    });
-  })();
+  }catch(e){ /* utente ha annullato? prosegui fallback */ }
+  const fallback = [text||'', url||''].filter(Boolean).join('\n');
+  try{ await navigator.clipboard.writeText(fallback);
+       toastCenter('Testo copiato negli appunti 📋'); }
+  catch{ toastCenter('Impossibile condividere automaticamente: copia/manuale.'); }
+}
 
+// ===== Wiring 'Condividi' per ciascun tab =====
+
+// TAB 1: Fusione Link
+(function(){
+  const btn = document.getElementById('btnShare_btnDownloadAll');
+  if(!btn) return;
+  btn.addEventListener('click', async ()=>{
+    const out = document.getElementById('output');
+    const text = out ? out.innerText.trim() : '';
+    await sharePayload({ title:'Link uniti • GPX2MAPS', text });
+  });
+})();
+
+// TAB 2: Maps → GPX
+(function(){
+  const btn = document.getElementById('btnShare_btnDownloadTRK');
+  if(!btn) return;
+  btn.addEventListener('click', async ()=>{
+    const trk = document.getElementById('gpxPreviewTrk')?.innerText || '';
+    const rte = document.getElementById('gpxPreviewRte')?.innerText || '';
+    const files = [];
+    if (trk) files.push(new File([trk], `gpx_traccia_${nowStamp()}.gpx`, { type: 'application/gpx+xml' }));
+    if (rte) files.push(new File([rte], `gpx_rotta_${nowStamp()}.gpx`, { type: 'application/gpx+xml' }));
+    await sharePayload({ title:'GPX generati • GPX2MAPS', text:'GPX creati', files });
+  });
+})();
+
+// TAB 3: GPX → Maps
+(function(){
+  const btn = document.getElementById('btnShare_btnDownloadAll3');
+  if(!btn) return;
+  btn.addEventListener('click', async ()=>{
+    const out = document.getElementById('output3');
+    const text = out ? out.innerText.trim() : '';
+    await sharePayload({ title:'GPX → Maps • Risultati', text });
+  });
+})();
+
+// TAB 4: Sanitizza GPX
+(function(){
+  const btn = document.getElementById('btnShare_btnDownloadSan');
+  if(!btn) return;
+  btn.addEventListener('click', async ()=>{
+    const san = document.getElementById('gpxPreviewSan')?.innerText || '';
+    const files = san ? [ new File([san], `gpx_sanitizzato_${nowStamp()}.gpx`, { type: 'application/gpx+xml' }) ] : undefined;
+    await sharePayload({ title:'GPX sanitizzato • GPX2MAPS', text:'File sanitizzato pronto', files });
+  });
+})();
+
+// TAB 5: Meteo + Info percorso
+(function(){
+  const btn = document.getElementById('btnShareMeteo');
+  if(!btn) return;
+  btn.addEventListener('click', async ()=>{
+    const mapsUrl = document.getElementById('meteoInput')?.value.trim() || '';
+    await sharePayload({ title:'Meteo + Info percorso • GPX2MAPS', text:'Percorso e meteo', url: mapsUrl });
+  });
+})();
 </script>
 </body>
 </html>
