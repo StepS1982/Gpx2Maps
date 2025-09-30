@@ -2947,40 +2947,45 @@ function focusResultsSection(sel){
     );
   })();
 
-  // === Tab 1 (Fusione): mostra/nascondi Condividi in base ai link e condividi davvero ===
+  // === Tab 1 (Fusione): Share visibilità corretta + click funzionante ===
   (function(){
-    const SHARE_ID = 'btnShare_btnDownloadAll';
-    const OUTPUT_SEL = '#tab-merge .out'; // contenitore dei link risultanti della fusione
+    const SHARE_ID   = 'btnShare_btnDownloadAll';
+    const OUTPUT_SEL = '#output';           // << link reali stanno qui
+    const TAB_SEL    = '#tab-merge';        // contenitore del tab
   
-    // Nascondi su "PULISCI"
-    document.getElementById('btnClearMerge')?.addEventListener('click', () => {
-      hideEl(SHARE_ID);
+    // 1) Nascondi su PULISCI
+    document.getElementById('btnClear')?.addEventListener('click', () => {
+      const btn = document.getElementById(SHARE_ID);
+      if (btn) btn.style.display = 'none';
     });
   
-    // Funzione che decide se mostrare il bottone in base alla presenza di link veri
+    // 2) Mostra quando compaiono link veri nell’output
     function evaluateShareVisibility(){
       const hasLinks = !!document.querySelector(`${OUTPUT_SEL} a[href^="http"]`);
-      if (hasLinks) showEl(SHARE_ID); else hideEl(SHARE_ID);
+      const btn = document.getElementById(SHARE_ID);
+      if (!btn) return;
+      btn.style.display = hasLinks ? '' : 'none';
     }
   
-    // Osserva SOLO l'output: il bottone si accende quando compaiono link
-    const out = document.querySelector('#tab-merge .out') || document.body;
+    const outNode = document.querySelector(OUTPUT_SEL) || document.querySelector(`${TAB_SEL} .out`) || document.body;
     const mo = new MutationObserver(() => evaluateShareVisibility());
-    mo.observe(out, {childList:true, subtree:true});
-    // Valuta anche subito all’avvio
-    evaluateShareVisibility();
+    mo.observe(outNode, { childList:true, subtree:true, attributes:true, attributeFilter:['style','class'] });
   
-    // Click sul bottone "Condividi" (delegato dentro il tab, con capture per essere sicuri)
-    const tab = document.getElementById('tab-merge') || document.body;
+    // valutazione iniziale (nel caso i risultati siano già presenti)
+    setTimeout(evaluateShareVisibility, 0);
+  
+    // 3) Click su "Condividi" (delegato nel tab, in capture per robustezza)
+    const tab = document.querySelector(TAB_SEL) || document.body;
     tab.addEventListener('click', async (ev)=>{
       const t = ev.target;
       if (t && t.id === SHARE_ID){
-        const links = Array.from(document.querySelectorAll(`${OUTPUT_SEL} a[href^="http"]`)).map(a=>a.href);
+        const links = Array.from(document.querySelectorAll(`${OUTPUT_SEL} a[href^="http"]`)).map(a => a.href);
         if (!links.length){
-          if (typeof toastCenter==='function') toastCenter('Niente da condividere');
+          window.toastCenter && toastCenter('Niente da condividere');
           return;
         }
-        await sharePayload({
+        // usa gli helper globali già presenti nel file
+        await window.sharePayload?.({
           title: 'Link uniti • GPX2MAPS',
           text: links.join('\n')
         });
