@@ -2920,34 +2920,35 @@ function focusResultsSection(sel){
 
 // ===== Condividi (solo Web Share). Successo reale, annullo silenzioso =====
 async function sharePayload({ title, text, url, files } = {}) {
-  try {
-    const canShareFiles =
-      files && files.length && navigator.canShare && navigator.canShare({ files });
+  // 1) support check chiaro (no eccezioni inutili)
+  const canShareFiles = files && files.length && navigator.canShare && navigator.canShare({ files });
+  const hasWebShare   = typeof navigator.share === 'function';
 
+  if (!canShareFiles && !hasWebShare) {
+    toastCenter && toastCenter('Condivisione non supportata su questo dispositivo');
+    return false;
+  }
+
+  try {
     if (canShareFiles) {
       await navigator.share({ title, text, files });
       toastCenter && toastCenter('Condiviso ✅');
       return true;
     }
-
-    if (navigator.share) {
-      await navigator.share({ title, text, url });
-      toastCenter && toastCenter('Condiviso ✅');
-      return true;
-    }
-
-    // Web Share non disponibile
-    toastCenter && toastCenter('Condivisione non supportata su questo dispositivo');
-    return false;
+    // testo/url
+    await navigator.share({ title, text, url });
+    toastCenter && toastCenter('Condiviso ✅');
+    return true;
 
   } catch (e) {
-    // Utente ha annullato: nessun toast di successo
-    const msg = (e && (e.name || '')).toLowerCase() + ' ' + (e && e.message || '');
-    if (msg.includes('abort') || msg.includes('cancel')) {
-      // opzionale: toastCenter && toastCenter('Condivisione annullata');
+    // Utente ha annullato? (ESC/chiudi dialog)
+    const name = (e && e.name || '').toLowerCase();
+    const msg  = (e && e.message || '').toLowerCase();
+    if (name.includes('abort') || msg.includes('abort') || msg.includes('cancel') || msg.includes('dismiss')) {
+      // annullo = silenzio
       return false;
     }
-    // Errore reale
+    // altro errore reale
     toastCenter && toastCenter('Impossibile condividere');
     return false;
   }
