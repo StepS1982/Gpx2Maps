@@ -2918,23 +2918,36 @@ function focusResultsSection(sel){
     );
   })();
 
-// ===== Condividi (solo Web Share; niente clipboard) =====
+// ===== Condividi (solo Web Share). Successo reale, annullo silenzioso =====
 async function sharePayload({ title, text, url, files } = {}) {
   try {
-    if (navigator.canShare && files && files.length && navigator.canShare({ files })) {
+    const canShareFiles =
+      files && files.length && navigator.canShare && navigator.canShare({ files });
+
+    if (canShareFiles) {
       await navigator.share({ title, text, files });
       toastCenter && toastCenter('Condiviso ✅');
       return true;
     }
+
     if (navigator.share) {
-      // Alcuni browser preferiscono solo text; altri accettano anche url
       await navigator.share({ title, text, url });
       toastCenter && toastCenter('Condiviso ✅');
       return true;
     }
+
+    // Web Share non disponibile
     toastCenter && toastCenter('Condivisione non supportata su questo dispositivo');
     return false;
-  } catch (_) {
+
+  } catch (e) {
+    // Utente ha annullato: nessun toast di successo
+    const msg = (e && (e.name || '')).toLowerCase() + ' ' + (e && e.message || '');
+    if (msg.includes('abort') || msg.includes('cancel')) {
+      // opzionale: toastCenter && toastCenter('Condivisione annullata');
+      return false;
+    }
+    // Errore reale
     toastCenter && toastCenter('Impossibile condividere');
     return false;
   }
