@@ -3043,7 +3043,7 @@ async function sharePayload({title, text, url, files}={}){
     if (btn) btn.addEventListener('click', ()=> hide(share), { capture:true });
   });
 
-  // click Condividi -> prendi gli URL (da <a> o estratti dal testo), fallback a testo grezzo
+  // click Condividi -> URL (da <a> o estratti dal testo). NESSUN fallback.
   (document.getElementById('tab-merge') || document).addEventListener('click', async (ev)=>{
     if (!ev.target || ev.target.id !== SHARE_BTN_ID) return;
 
@@ -3056,18 +3056,25 @@ async function sharePayload({title, text, url, files}={}){
       payload = urls.length ? urls.join('\n') : text;
     }
 
-    if (!payload){ window.toastCenter && toastCenter('Niente da condividere'); return; }
+    if (!payload){
+      window.toastCenter && toastCenter('Niente da condividere');
+      return;
+    }
 
     try{
       if (window.sharePayload){
         await window.sharePayload({ title:'Link uniti • GPX2MAPS', text: payload });
-      }else if (navigator.share){
-        await navigator.share({ title:'Link uniti • GPX2MAPS', text: payload });
-      }else{
-        await navigator.clipboard.writeText(payload);
-        window.toastCenter && toastCenter('Testo copiato negli appunti 📋');
+        return;
       }
-    }catch(_){}
+      if (navigator.share){
+        await navigator.share({ title:'Link uniti • GPX2MAPS', text: payload });
+        return;
+      }
+      // se arrivo qui, niente supporto alla condivisione nativa
+      window.toastCenter && toastCenter('Condivisione non supportata su questo dispositivo');
+    }catch(_){
+      window.toastCenter && toastCenter('Impossibile condividere');
+    }
   }, { capture:true });
 })();
 </script>
