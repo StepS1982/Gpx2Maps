@@ -2918,7 +2918,7 @@ function focusResultsSection(sel){
     );
   })();
 
-// ===== Condividi (solo Web Share). Successo reale, annullo silenzioso =====
+// ===== Condividi (solo Web Share) — messaggio neutro all'apertura, silenzio su annullo =====
 async function sharePayload({ title, text, url, files } = {}) {
   const canShareFiles = files && files.length && navigator.canShare && navigator.canShare({ files });
   const hasWebShare   = typeof navigator.share === 'function';
@@ -2929,18 +2929,20 @@ async function sharePayload({ title, text, url, files } = {}) {
   }
 
   try {
+    // Messaggio neutro immediato: l’utente decide poi se completare o annullare
+    toastCenter && toastCenter('Apro la schermata di condivisione…');
+
     if (canShareFiles) {
       await navigator.share({ title, text, files });
-      toastCenter && toastCenter('Condiviso ✅');
-      return true;
+      return true; // nessun toast: potrebbe anche essere stato annullato
     }
+
     await navigator.share({ title, text, url });
-    toastCenter && toastCenter('Condiviso ✅');
-    return true;
+    return true;   // nessun toast finale
 
   } catch (e) {
     const blob = ((e && e.name) + ' ' + (e && e.message)).toLowerCase();
-    // annullo utente (ESC/chiudi): nessun toast
+    // annullo utente (ESC/chiudi): silenzio totale
     if (/abort|cancel|dismiss|close/.test(blob)) return false;
     // errore reale
     toastCenter && toastCenter('Impossibile condividere');
