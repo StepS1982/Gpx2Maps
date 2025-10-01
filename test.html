@@ -2918,33 +2918,43 @@ function focusResultsSection(sel){
     );
   })();
 
-// ===== Condividi (solo Web Share) — file-first, controllo supporto PRIMA, annullo silenzioso =====
+// ===== Condividi (solo Web Share) — 1 file preferito, controllo PRIMA, annullo silenzioso =====
 async function sharePayload({ title, text, url, files } = {}) {
   const wantsFiles  = !!(files && files.length);
   const hasWebShare = typeof navigator.share === 'function';
 
-  // Web Share assente del tutto
   if (!hasWebShare) {
     toastCenter && toastCenter('Condivisione non supportata su questo dispositivo');
     return false;
   }
 
-  // Se ci chiedono file: richiedi esplicitamente canShare e verifica PRIMA di aprire qualcosa
+  // Se chiedono file: riduci a 1 file (molti Chrome Android falliscono con più di 1)
+  let fileToShare = null;
   if (wantsFiles) {
-    if (!(navigator.canShare && navigator.canShare({ files }))) {
+    // prendi il primo file
+    fileToShare = files[0];
+    // se ha MIME "strano", rimpacchetta con text/xml (più compatibile)
+    if (fileToShare && fileToShare.type && !/^text\/xml$/i.test(fileToShare.type)) {
+      try {
+        const txt = await fileToShare.text();
+        fileToShare = new File([txt], fileToShare.name, { type: 'text/xml' });
+      } catch {}
+    }
+
+    // Verifica *PRIMA* senza toast
+    if (!(navigator.canShare && navigator.canShare({ files: [fileToShare] }))) {
       toastCenter && toastCenter('Condivisione file non supportata su questo dispositivo');
       return false;
     }
   }
 
   try {
-    // A questo punto sappiamo che è supportato: messaggio neutro e poi share
+    // Solo qui, quando davvero stiamo per aprire la share
     toastCenter && toastCenter('Apro la schermata di condivisione…');
 
-    if (wantsFiles) {
-      // Alcuni browser preferiscono avere anche un piccolo text insieme ai files
-      await navigator.share({ title, text: text || 'GPX2MAPS', files });
-      return true; // silenzio se l'utente annulla
+    if (fileToShare) {
+      await navigator.share({ title, text: text || 'GPX2MAPS', files: [fileToShare] });
+      return true; // annullo = silenzio nel catch
     }
 
     await navigator.share({ title, text, url });
@@ -2953,6 +2963,13 @@ async function sharePayload({ title, text, url, files } = {}) {
   } catch (e) {
     const s = ((e && e.name) + ' ' + (e && e.message || '')).toLowerCase();
     if (/abort|cancel|dismiss|close/.test(s)) return false; // annullo utente: nessun toast
+
+    // errori tipici su Chrome quando "dice sì" ma poi non condivide i file
+    if (/notallowed|notsupported|typeerror|data not serializable|unknown error/.test(s)) {
+      toastCenter && toastCenter('Condivisione file non supportata su questo dispositivo');
+      return false;
+    }
+
     toastCenter && toastCenter('Impossibile condividere');
     return false;
   }
@@ -3070,116 +3087,52 @@ async function sharePayload({ title, text, url, files } = {}) {
 }, { capture:true });
 })();
 
-// === TAB 2: Google Maps → GPX — Condividi FILE reali (robusto: a[href], blob:, data:, <pre>) ===
+// === TAB 2: Google Maps → GPX — Condividi (1 file: TRK > RTE, MIME text/xml) ===
 (function(){
   const tab      = document.getElementById('tab-maps2gpx');
   const btnShare = document.getElementById('btnShare_btnDownloadTRK');
   const btnClear = document.getElementById('btnClear2');
   if (!tab || !btnShare) return;
 
-  // --- util ---
   const nowStamp = () => {
     const d=new Date(),p=n=>String(n).padStart(2,'0');
     return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
   };
 
-  function looksLikeGpx(txt){
-    if (!txt) return false;
-    const s = txt.slice(0, 2000).toLowerCase();
-    return s.includes('<gpx') && (s.includes('<trk') || s.includes('<rte') || s.includes('<wpt'));
+  // helper per leggere dai <pre> (le anteprime sono sempre presenti quando i download ci sono)
+  const preTrk = document.getElementById('gpxPreviewTrk');
+  const preRte = document.getElementById('gpxPreviewRte');
+
+  function getTrkText(){ return (preTrk?.innerText || preTrk?.textContent || '').trim(); }
+  function getRteText(){ return (preRte?.innerText || preRte?.textContent || '').trim(); }
+
+  // visibilità: mostra "Condividi" quando i <pre> sono riempiti
+  function updateShareVisibility(){
+    const has = !!getTrkText() || !!getRteText();
+    btnShare.style.display = has ? '' : 'none';
   }
-
-  function decodeDataUrl(href){
-    const comma = href.indexOf(',');
-    if (comma < 0) return '';
-    const meta = href.slice(0, comma);
-    const data = href.slice(comma + 1);
-    const isB64 = /;base64/i.test(meta);
-    try { return isB64 ? atob(data) : decodeURIComponent(data); } catch { return ''; }
-  }
-
-  async function fetchHrefText(href){
-    if (!href) return '';
-    try{
-      if (href.startsWith('data:')) return decodeDataUrl(href);
-      if (href.startsWith('blob:') || href.startsWith('http')) {
-        const r = await fetch(href, { cache:'no-store' });
-        if (!r.ok) return '';
-        return await r.text();
-      }
-    }catch(_){}
-    return '';
-  }
-
-  // Estrai tutti i GPX possibili dal tab 2 (RTE/TRK) in questa priorità:
-  // 1) a[download][href] (blob: o data:)
-  // 2) <pre> nell’area risultati (anche dentro <details>)
-  async function collectGpxTexts(){
-    const texts = [];
-
-    // 1) anchor download
-    const anchors = Array.from(tab.querySelectorAll('a[download][href]'));
-    for (const a of anchors){
-      const href = a.getAttribute('href') || '';
-      const txt = await fetchHrefText(href);
-      if (looksLikeGpx(txt)) texts.push(txt);
-    }
-
-    // 2) pre (se ancora niente o per completezza)
-    if (texts.length === 0){
-      const pres = Array.from(tab.querySelectorAll('pre'));
-      for (const pre of pres){
-        const txt = (pre.textContent || pre.innerText || '').trim();
-        if (looksLikeGpx(txt)) texts.push(txt);
-      }
-    }
-
-    // dedupe basilare (stesso contenuto)
-    const uniq = [];
-    const seen = new Set();
-    for (const t of texts){
-      const key = t.length + ':' + t.slice(0,200);
-      if (!seen.has(key)){ seen.add(key); uniq.push(t); }
-    }
-    return uniq;
-  }
-
-  // visibilità del bottone: appare quando c’è almeno un a[download] o almeno un <pre> GPX
-  async function updateShareVisibility(){
-    // check rapido: se c’è una row download visibile, mostralo; altrimenti guardiamo il contenuto
-    const hasDownload = tab.querySelector('a[download]') !== null;
-    if (hasDownload) { btnShare.style.display = ''; return; }
-
-    // fallback: controllo se ci sono <pre> che contengono GPX
-    const pres = Array.from(tab.querySelectorAll('pre'));
-    const anyGpx = pres.some(pre => looksLikeGpx((pre.textContent || pre.innerText || '').trim()));
-    btnShare.style.display = anyGpx ? '' : 'none';
-  }
-
-  // iniziale e osservazione cambi
   updateShareVisibility();
-  const mo = new MutationObserver(() => { updateShareVisibility(); });
-  mo.observe(tab, { childList:true, subtree:true, attributes:true, attributeFilter:['href','style','hidden','open'] });
 
-  // pulisci => nascondi
+  const mo = new MutationObserver(updateShareVisibility);
+  preTrk && mo.observe(preTrk, { childList:true, characterData:true, subtree:true });
+  preRte && mo.observe(preRte, { childList:true, characterData:true, subtree:true });
+
   btnClear && btnClear.addEventListener('click', ()=>{ btnShare.style.display='none'; }, { capture:true });
 
-  // click condividi
+  // click condividi → scegli TRK, se non c'è usa RTE
   btnShare.addEventListener('click', async ()=>{
-    // Guard anti-doppio
     if (window.__shareClickTab2) return;
     window.__shareClickTab2 = true;
     try{
-      const texts = await collectGpxTexts();  // 1 o 2 GPX
-      if (!texts.length){ toastCenter && toastCenter('Niente da condividere'); return; }
+      let txt = getTrkText();
+      let name = `gpx_traccia_${nowStamp()}.gpx`;
+      if (!txt) { txt = getRteText(); name = `gpx_rotta_${nowStamp()}.gpx`; }
 
-      const files = texts.map((txt, i) => new File(
-        [txt],
-        `gpx_${i===0?'prima':'seconda'}_${nowStamp()}.gpx`,
-        { type: 'application/octet-stream' }
-      ));
+      if (!txt) { toastCenter && toastCenter('Niente da condividere'); return; }
 
-      await sharePayload({ title:'GPX generati • GPX2MAPS', files });
+      const file = new File([txt], name, { type: 'text/xml' });
+
+      await sharePayload({ title:'GPX generato • GPX2MAPS', text: 'GPX2MAPS', files: [file] });
 
     } finally {
       window.__shareClickTab2 = false;
