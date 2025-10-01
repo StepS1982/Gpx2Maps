@@ -3044,7 +3044,8 @@ async function sharePayload({ title, text, url, files } = {}) {
 
   // click Condividi -> URL (da <a> o estratti dal testo). Nessun fallback extra: decide sharePayload.
 (document.getElementById('tab-merge') || document).addEventListener('click', async (ev)=>{
-  if (!ev.target || ev.target.id !== SHARE_BTN_ID) return;
+  const hit = ev.target && ev.target.closest && ev.target.closest('#' + SHARE_BTN_ID);
+  if (!hit) return;
 
   // Guard per evitare doppi handler / doppio toast
   if (window.__shareClickTab1) return;
