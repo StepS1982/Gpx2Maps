@@ -3066,84 +3066,52 @@ async function sharePayload({ title, text, url, files } = {}) {
 }, { capture:true });
 })();
 
-// === TAB 2: Google Maps → GPX — Condividi FILE reali (blob: o data:) ===
+// === TAB 2: Google Maps → GPX — Condividi FILE reali (da anteprime) ===
 (function(){
-  const dlRow   = document.getElementById('dlRow');
-  const btnRTE  = document.getElementById('btnDownloadRTE');
-  const btnTRK  = document.getElementById('btnDownloadTRK');
-  const btnShare= document.getElementById('btnShare_btnDownloadTRK');
-  const btnClear= document.getElementById('btnClear2');
+  const dlRow    = document.getElementById('dlRow');                   // row dei pulsanti Download
+  const btnShare = document.getElementById('btnShare_btnDownloadTRK'); // bottone "Condividi"
+  const btnClear = document.getElementById('btnClear2');               // "Pulisci"
+  const preRte   = document.getElementById('gpxPreviewRte');           // anteprima RTE
+  const preTrk   = document.getElementById('gpxPreviewTrk');           // anteprima TRK
+  const wrapRte  = document.getElementById('previewWrapRte');          // <details> RTE (hidden toggled)
+  const wrapTrk  = document.getElementById('previewWrapTrk');          // <details> TRK
 
   if(!btnShare) return;
 
-  // util ↓
+  // util timestamp
   const nowStamp = () => {
     const d=new Date(),p=n=>String(n).padStart(2,'0');
     return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
   };
 
-  function textFromDataUrl(href){
-    if(!href || !href.startsWith('data:')) return '';
-    const comma = href.indexOf(',');
-    if (comma < 0) return '';
-    const meta = href.slice(0, comma);
-    const data = href.slice(comma+1);
-    const isB64 = /;base64/i.test(meta);
-    try { return isB64 ? atob(data) : decodeURIComponent(data); }
-    catch { return ''; }
-  }
-
-  async function textFromBlobUrl(href){
-    try{
-      const r = await fetch(href, { cache:'no-store' });
-      if(!r.ok) return '';
-      return await r.text();
-    }catch{ return ''; }
-  }
-
-  // mostra/nascondi Condividi in modo coerente
+  // mostra "Condividi" quando c'è output (dlRow visibile)
   function updateShareVisibility(){
-    const hasRte = !!(btnRTE && btnRTE.getAttribute('href'));
-    const hasTrk = !!(btnTRK && btnTRK.getAttribute('href'));
-    btnShare.style.display = (dlRow && dlRow.style.display !== 'none' && (hasRte || hasTrk)) ? '' : 'none';
+    const rowVisible = !!dlRow && dlRow.style.display !== 'none';
+    btnShare.style.display = rowVisible ? '' : 'none';
   }
-  // iniziale e dopo ogni mutazione della row
   updateShareVisibility();
+
+  // osserva cambi di visibilità di dlRow (display) e dei <details> preview
   const mo = new MutationObserver(updateShareVisibility);
   dlRow && mo.observe(dlRow, { attributes:true, attributeFilter:['style','hidden'] });
+  wrapRte && mo.observe(wrapRte, { attributes:true, attributeFilter:['hidden','open'] });
+  wrapTrk && mo.observe(wrapTrk, { attributes:true, attributeFilter:['hidden','open'] });
 
-  // pulisci → nascondi
+  // Pulisci -> nascondi
   btnClear && btnClear.addEventListener('click', ()=>{ btnShare.style.display='none'; }, {capture:true});
 
+  // Click Condividi -> crea File dai <pre> (anteprime complete), poi sharePayload (file-first)
   btnShare.addEventListener('click', async ()=>{
-    // 1) prova dai bottoni download (preferibile)
-    const rteHref = btnRTE?.getAttribute('href') || '';
-    const trkHref = btnTRK?.getAttribute('href') || '';
-
-    // estrazione testo dei file
-    let rteTxt = '';
-    let trkTxt = '';
-
-    if (rteHref.startsWith('blob:')) rteTxt = await textFromBlobUrl(rteHref);
-    else if (rteHref.startsWith('data:')) rteTxt = textFromDataUrl(rteHref);
-
-    if (trkHref.startsWith('blob:')) trkTxt = await textFromBlobUrl(trkHref);
-    else if (trkHref.startsWith('data:')) trkTxt = textFromDataUrl(trkHref);
-
-    // 2) se per qualche motivo i download non hanno href, fallback alle preview
-    if (!rteTxt) rteTxt = (document.getElementById('gpxPreviewRte')?.innerText || '').trim();
-    if (!trkTxt) trkTxt = (document.getElementById('gpxPreviewTrk')?.innerText || '').trim();
+    const rteTxt = (preRte?.innerText || '').trim();
+    const trkTxt = (preTrk?.innerText || '').trim();
 
     const files = [];
     if (rteTxt) files.push(new File([rteTxt], `gpx_rotta_${nowStamp()}.gpx`,  { type: 'application/octet-stream' }));
     if (trkTxt) files.push(new File([trkTxt], `gpx_traccia_${nowStamp()}.gpx`, { type: 'application/octet-stream' }));
 
-    if (!files.length){
-      toastCenter && toastCenter('Niente da condividere');
-      return;
-    }
+    if (!files.length) { toastCenter && toastCenter('Niente da condividere'); return; }
 
-    // 3) condividi SOLO file (niente testo/URL), messaggio neutro già in sharePayload
+    // condivisione SOLO file (niente fallback), messaggio neutro in sharePayload
     await sharePayload({ title:'GPX generati • GPX2MAPS', files });
   });
 })();
