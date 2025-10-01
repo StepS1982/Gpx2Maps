@@ -2918,19 +2918,26 @@ function focusResultsSection(sel){
     );
   })();
 
-// ===== Condividi (Web Share API + fallback) =====
-async function sharePayload({title, text, url, files}={}){
-  try{
-    if (navigator.canShare && files && files.length && navigator.canShare({ files })){
+// ===== Condividi (solo Web Share; niente clipboard) =====
+async function sharePayload({ title, text, url, files } = {}) {
+  try {
+    if (navigator.canShare && files && files.length && navigator.canShare({ files })) {
       await navigator.share({ title, text, files });
-      toastCenter('Condiviso ✅'); return;
+      toastCenter && toastCenter('Condiviso ✅');
+      return true;
     }
-    if (navigator.share){
+    if (navigator.share) {
+      // Alcuni browser preferiscono solo text; altri accettano anche url
       await navigator.share({ title, text, url });
-      toastCenter('Condiviso ✅'); return;
+      toastCenter && toastCenter('Condiviso ✅');
+      return true;
     }
-  }catch(e){ /* utente ha annullato? prosegui fallback */ }
-  const fallback = [text||'', url||''].filter(Boolean).join('\n');
+    toastCenter && toastCenter('Condivisione non supportata su questo dispositivo');
+    return false;
+  } catch (_) {
+    toastCenter && toastCenter('Impossibile condividere');
+    return false;
+  }
 }
 
 // ===== Wiring 'Condividi' per ciascun tab =====
