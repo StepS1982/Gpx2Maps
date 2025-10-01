@@ -2918,37 +2918,41 @@ function focusResultsSection(sel){
     );
   })();
 
-// ===== Condividi (solo Web Share) — file-first, messaggio neutro, annullo silenzioso =====
+// ===== Condividi (solo Web Share) — file-first, controllo supporto PRIMA, annullo silenzioso =====
 async function sharePayload({ title, text, url, files } = {}) {
-  const wantsFiles   = !!(files && files.length);
-  const hasWebShare  = typeof navigator.share === 'function';
+  const wantsFiles  = !!(files && files.length);
+  const hasWebShare = typeof navigator.share === 'function';
 
+  // Web Share assente del tutto
   if (!hasWebShare) {
     toastCenter && toastCenter('Condivisione non supportata su questo dispositivo');
     return false;
   }
 
+  // Se ci chiedono file: richiedi esplicitamente canShare e verifica PRIMA di aprire qualcosa
+  if (wantsFiles) {
+    if (!(navigator.canShare && navigator.canShare({ files }))) {
+      toastCenter && toastCenter('Condivisione file non supportata su questo dispositivo');
+      return false;
+    }
+  }
+
   try {
-    // Messaggio neutro immediato: l’utente poi conferma o annulla
+    // A questo punto sappiamo che è supportato: messaggio neutro e poi share
     toastCenter && toastCenter('Apro la schermata di condivisione…');
 
     if (wantsFiles) {
-      // se il browser espone canShare, verifichiamo i file
-      if (navigator.canShare && !navigator.canShare({ files })) {
-        toastCenter && toastCenter('Condivisione file non supportata su questo dispositivo');
-        return false;
-      }
-      await navigator.share({ title, files });
-      return true; // nessun toast finale: potrebbe aver annullato
+      // Alcuni browser preferiscono avere anche un piccolo text insieme ai files
+      await navigator.share({ title, text: text || 'GPX2MAPS', files });
+      return true; // silenzio se l'utente annulla
     }
 
-    // solo testo/url
     await navigator.share({ title, text, url });
     return true;
 
   } catch (e) {
-    const blob = ((e && e.name) + ' ' + (e && e.message)).toLowerCase();
-    if (/abort|cancel|dismiss|close/.test(blob)) return false; // annullo = silenzio
+    const s = ((e && e.name) + ' ' + (e && e.message || '')).toLowerCase();
+    if (/abort|cancel|dismiss|close/.test(s)) return false; // annullo utente: nessun toast
     toastCenter && toastCenter('Impossibile condividere');
     return false;
   }
