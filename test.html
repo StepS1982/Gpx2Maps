@@ -2931,9 +2931,6 @@ async function sharePayload({title, text, url, files}={}){
     }
   }catch(e){ /* utente ha annullato? prosegui fallback */ }
   const fallback = [text||'', url||''].filter(Boolean).join('\n');
-  try{ await navigator.clipboard.writeText(fallback);
-       toastCenter('Testo copiato negli appunti 📋'); }
-  catch{ toastCenter('Impossibile condividere automaticamente: copia/manuale.'); }
 }
 
 // ===== Wiring 'Condividi' per ciascun tab =====
