@@ -2918,7 +2918,7 @@ function focusResultsSection(sel){
     );
   })();
 
-// ===== Condividi (solo Web Share) — 1 file, retry MIME, annullo silenzioso =====
+// ===== Condividi (solo Web Share) — 1 file, pre-scan MIME, toast una sola volta, annullo silenzioso =====
 async function sharePayload({ title, text, url, files } = {}) {
   const wantsFiles  = !!(files && files.length);
   const hasWebShare = typeof navigator.share === 'function';
@@ -2928,51 +2928,83 @@ async function sharePayload({ title, text, url, files } = {}) {
     return false;
   }
 
-  // Condivisione di FILE: usa 1 file e prova MIME compatibili in sequenza
+  // --- Condivisione FILE ---
   if (wantsFiles) {
+    // 1 file: TRK > RTE scelto a monte
     let original = files[0];
-    // leggi il testo una volta sola
-    let data = '';
-    try { data = await original.text(); } catch {_}
+    if (!original) {
+      toastCenter && toastCenter('Niente da condividere');
+      return false;
+    }
 
+    // leggo il contenuto una volta sola
+    let data = '';
+    try { data = await original.text(); } catch { data = ''; }
+    if (!data) {
+      toastCenter && toastCenter('Niente da condividere');
+      return false;
+    }
+
+    // candidati MIME in ordine di preferenza
     const candidates = [
-      { type: 'application/gpx+xml', name: original.name },
-      { type: 'text/xml',            name: original.name.replace(/\.gpx$/i, '.gpx') },
-      { type: 'application/octet-stream', name: original.name.replace(/\.gpx$/i, '.gpx') },
+      { type: 'application/gpx+xml',        name: original.name },
+      { type: 'text/xml',                   name: original.name.replace(/\.gpx$/i, '.gpx') },
+      { type: 'application/octet-stream',   name: original.name.replace(/\.gpx$/i, '.gpx') },
     ];
 
-    for (const cand of candidates) {
-      const f = new File([data], cand.name, { type: cand.type });
-
-      // se canShare esiste, filtriamo le combinazioni che sicuramente non passano
-      if (navigator.canShare && !navigator.canShare({ files: [f] })) {
-        continue;
+    // Pre-scan: scegliamo la PRIMA combinazione che risulta condivisibile (se canShare è disponibile)
+    let plan = [];
+    for (const c of candidates) {
+      const f = new File([data], c.name, { type: c.type });
+      if (navigator.canShare) {
+        if (navigator.canShare({ files: [f] })) plan.push(f);
+      } else {
+        // se canShare non esiste (alcuni UA), proviamo comunque in quest’ordine
+        plan.push(f);
       }
+    }
 
+    if (!plan.length) {
+      toastCenter && toastCenter('Condivisione file non supportata su questo dispositivo');
+      return false;
+    }
+
+    // Mostra il messaggio neutro UNA SOLA VOLTA prima del primo tentativo reale
+    let shownToast = false;
+
+    // Prova in sequenza i file pianificati (MIME diversi)
+    for (let i = 0; i < plan.length; i++) {
+      const f = plan[i];
       try {
-        // solo ora mostriamo il toast neutro: stiamo per aprire realmente la share
-        toastCenter && toastCenter('Apro la schermata di condivisione…');
+        if (!shownToast) {
+          toastCenter && toastCenter('Apro la schermata di condivisione…');
+          shownToast = true;
+        }
         await navigator.share({ title, text: text || 'GPX2MAPS', files: [f] });
-        return true; // annullo utente gestito sotto
+        return true; // annullo utente gestito nel catch con silenzio
       } catch (e) {
         const s = ((e && e.name) + ' ' + (e && e.message || '')).toLowerCase();
-        if (/abort|cancel|dismiss|close/.test(s)) return false; // annullo: silenzio
-        // se è un errore "tecnico", proviamo il prossimo MIME
+        // annullo utente = ESC/indietro → silenzio assoluto
+        if (/abort|cancel|dismiss|close/.test(s)) return false;
+
+        // errori “tecnici” → prova MIME successivo
         if (/notsupported|notallowed|typeerror|data not serializable|unknown error/.test(s)) {
+          // tenta prossimo
           continue;
         }
-        // altro errore reale → fermiamo
+
+        // errore non atteso → mostralo come impossibile
         toastCenter && toastCenter('Impossibile condividere');
         return false;
       }
     }
 
-    // se siamo qui, nessun MIME è andato
+    // se li abbiamo provati tutti: non supportato
     toastCenter && toastCenter('Condivisione file non supportata su questo dispositivo');
     return false;
   }
 
-  // Condivisione di testo/url
+  // --- Condivisione solo testo/url ---
   try {
     toastCenter && toastCenter('Apro la schermata di condivisione…');
     await navigator.share({ title, text, url });
