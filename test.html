@@ -2975,6 +2975,7 @@ async function sharePayload({ title, text, url, files } = {}) {
     // Prova in sequenza i file pianificati (MIME diversi)
     for (let i = 0; i < plan.length; i++) {
       const f = plan[i];
+      console.debug('[share] trying MIME', f.type, f.name);
       try {
         if (!shownToast) {
           toastCenter && toastCenter('Apro la schermata di condivisione…');
@@ -2984,6 +2985,7 @@ async function sharePayload({ title, text, url, files } = {}) {
         return true; // annullo utente gestito nel catch con silenzio
       } catch (e) {
         const s = ((e && e.name) + ' ' + (e && e.message || '')).toLowerCase();
+        console.error('WebShare error:', e && e.name, e && e.message);
         // annullo utente = ESC/indietro → silenzio assoluto
         if (/abort|cancel|dismiss|close/.test(s)) return false;
 
