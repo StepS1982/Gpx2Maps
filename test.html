@@ -3129,31 +3129,75 @@ async function sharePayload({ title, text, url, files } = {}) {
 
   btnClear && btnClear.addEventListener('click', ()=>{ btnShare.style.display='none'; }, { capture:true });
 
-  // click Condividi → scegli 1 file: TRK, altrimenti RTE (MIME iniziale = application/gpx+xml)
+    // click Condividi → scegli 1 file: TRK, altrimenti RTE
   btnShare.addEventListener('click', async ()=>{
     if (window.__shareClickTab2) return;
     window.__shareClickTab2 = true;
     try{
-      const trkTxt = (document.getElementById('gpxPreviewTrk')?.innerText || '').trim();
-      const rteTxt = (document.getElementById('gpxPreviewRte')?.innerText || '').trim();
-  
-      let txt = trkTxt || rteTxt;
-      let name = trkTxt ? `gpx_traccia_${nowStamp()}.gpx` : `gpx_rotta_${nowStamp()}.gpx`;
-  
+      // 1) Leggi dai <pre> usando anche textContent (innerText fallisce se hidden)
+      const preTrkEl = document.getElementById('gpxPreviewTrk');
+      const preRteEl = document.getElementById('gpxPreviewRte');
+
+      const trkTxtPre = (preTrkEl?.textContent || preTrkEl?.innerText || '').trim();
+      const rteTxtPre = (preRteEl?.textContent || preRteEl?.innerText || '').trim();
+
+      let txt  = trkTxtPre || rteTxtPre;
+      let name = trkTxtPre ? `gpx_traccia_${nowStamp()}.gpx`
+                           : `gpx_rotta_${nowStamp()}.gpx`;
+
+      // 2) Se ancora vuoto, prova dai pulsanti download (href = blob:/data:)
+      if (!txt) {
+        const aTrk = document.getElementById('btnDownloadTRK');
+        const aRte = document.getElementById('btnDownloadRTE');
+
+        const trkHref = aTrk?.getAttribute('href') || '';
+        const rteHref = aRte?.getAttribute('href') || '';
+
+        const decodeDataUrl = (href)=>{
+          const i = href.indexOf(',');
+          if (i < 0) return '';
+          const meta = href.slice(0,i), data = href.slice(i+1);
+          const b64 = /;base64/i.test(meta);
+          try { return b64 ? atob(data) : decodeURIComponent(data); } catch { return ''; }
+        };
+        const fetchHrefText = async (href)=>{
+          if (!href) return '';
+          try{
+            if (href.startsWith('data:')) return decodeDataUrl(href);
+            if (href.startsWith('blob:') || href.startsWith('http')) {
+              const r = await fetch(href, { cache:'no-store' });
+              if (!r.ok) return '';
+              return await r.text();
+            }
+          }catch{}
+          return '';
+        };
+
+        const trkTxtHref = trkHref ? await fetchHrefText(trkHref) : '';
+        const rteTxtHref = rteHref ? await fetchHrefText(rteHref) : '';
+
+        if (trkTxtHref || rteTxtHref) {
+          txt  = trkTxtHref || rteTxtHref;
+          name = trkTxtHref ? `gpx_traccia_${nowStamp()}.gpx`
+                            : `gpx_rotta_${nowStamp()}.gpx`;
+        }
+      }
+
       if (!txt) { toastCenter && toastCenter('Niente da condividere'); return; }
-  
+
+      // 3) Un SOLO file (TRK>If not RTE). MIME iniziale: application/gpx+xml (lo gestisce sharePayload con retry)
       const file = new File([txt], name, { type: 'application/gpx+xml' });
-  
+
       await sharePayload({
         title: 'GPX generato • GPX2MAPS',
         text:  'GPX2MAPS',
         files: [file]
       });
-  
+
     } finally {
       window.__shareClickTab2 = false;
     }
-  })
+  });
 })();
     
 </script> 
