@@ -2957,6 +2957,7 @@ async function sharePayload({ title, text, url, files } = {}) {
       return true;
     } catch (e) {
       const s = ((e && e.name) + ' ' + (e && e.message || '')).toLowerCase();
+      console.error('WebShare error (Android):', e && e.name, e && e.message);
       if (/abort|cancel|dismiss|close/.test(s)) return false; // annullo utente: silenzio
       // altri errori (permessi/UA quirks)
       toastCenter && toastCenter('Condivisione file non supportata su questo dispositivo');
@@ -2970,6 +2971,7 @@ async function sharePayload({ title, text, url, files } = {}) {
     return true;
   } catch (e) {
     const s = ((e && e.name) + ' ' + (e && e.message || '')).toLowerCase();
+    console.error('WebShare error (Android):', e && e.name, e && e.message);
     if (/abort|cancel|dismiss|close/.test(s)) return false;
     toastCenter && toastCenter('Impossibile condividere');
     return false;
