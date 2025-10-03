@@ -2,11 +2,9 @@
 <html lang="it">
 <head>
   <meta name="robots" content="noindex, nofollow">
-  <link rel="canonical" href="/index.html">
-
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- TEST BUILD --><title>GPX2MAPS Web-APP</title>
+  <title>GPX2MAPS Web-APP</title>
   <meta name="google-site-verification" content="Sn6U8QFAM6SWtcwZI100_ng2bAGE6a3eYRuwQMtC2Bc" />
   <link rel="canonical" href="https://gpx2maps.pages.dev/">
   <link rel="icon" href="/gpx2maps_icon_1024.png" sizes="any">
@@ -2369,7 +2367,7 @@ function focusResultsSection(sel){
           const fasce = ['Notte','Mattino','Pomeriggio','Sera'];
       
           // head
-          let H = `<!DOCTYPE html><html><head><meta charset="utf-8"><!-- TEST BUILD --><title>Meteo percorso</title>${style}</head><body>\n`;
+          let H = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Meteo percorso</title>${style}</head><body>\n`;
           H += `<h1>${xmlEscape(title)} (7 giorni, 4 fasce)</h1>\n`;
           H += `<div class='wrap'><table id='wx-table' class='wxgrid'>\n<thead><tr><th class='loccol' rowspan='2'>Localita'</th>`;
           for(let i=0;i<7;i++){
@@ -2433,7 +2431,7 @@ function focusResultsSection(sel){
   H.push('<html lang="it">');
   H.push('<head>');
   H.push('<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">');
-  H.push('<!-- TEST BUILD --><title>'+xmlEscape(title)+' (7 giorni, 4 fasce)</title>');
+  H.push('<title>'+xmlEscape(title)+' (7 giorni, 4 fasce)</title>');
   H.push('<style>');
   H.push('  :root{--fg:#111827;--muted:#6b7280;--bg:#fff;--border:#e5e7eb;--warn:#fff4cc;--bad:#ffe5e5;--btn:#0ea5e9;--btnText:#fff}');
   H.push('  *{box-sizing:border-box}');
@@ -2580,7 +2578,7 @@ function focusResultsSection(sel){
       </style>`;
     
       let H = `<!doctype html><html lang="it"><head><meta charset="utf-8">
-      <!-- TEST BUILD --><title>Info percorso</title>${css}</head><body>`;
+      <title>Info percorso</title>${css}</head><body>`;
     
       // Titolo + 2 righe richieste (identiche al TXT)
       const riga1 = `Percorso da: ${titolo.da} a: ${titolo.a}`;
