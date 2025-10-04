@@ -3321,11 +3321,6 @@ async function sharePayloadTextOnly(text) {
       const btn = document.getElementById('btnGenMeteo');
       if (btn) btn.click();
   
-    }catch(e){
-      console.error(e);
-      toastCenter && toastCenter('Errore nella lettura del GPX');
-    }finally{
-      try{ fileInput.value = ''; }catch{}
     }
   });
 })();
