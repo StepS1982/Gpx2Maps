@@ -3120,7 +3120,7 @@ async function sharePayloadTextOnly(text) {
   shareBtn?.addEventListener('click', async ()=>{
     const url = (txtInput.value || '').trim();
     if (!url){ toastCenter && toastCenter('Niente da condividere'); return; }
-    await sharePayload({ title:'Meteo • Link Google Maps', text:url, url });
+    await sharePayloadTextOnly(url);
   });
 
   // PULISCI → nascondi Condividi e reset flag
