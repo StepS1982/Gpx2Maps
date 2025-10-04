@@ -3211,7 +3211,6 @@ async function sharePayloadTextOnly(text) {
     btnClear?.click();
 
     try{
-      /* procedura nuova
       const text = await f.text();
       const g = parseGPX(text);
       let pts = pickPointsPriority(g);
@@ -3225,14 +3224,14 @@ async function sharePayloadTextOnly(text) {
       pts = downsampleMax24KeepEnds(pts);
       // costruisci URL
       const url = buildMapsDirURL(pts);
-      */ // procedura vecchia clone del tab 3
+      /* procedura vecchia clone del tab 3
       const text = await f.text();
       const url = gpxToMapsLink(text, { forceOptimized:true });
       if (!url) {
         toastCenter && toastCenter('GPX non valido o nessun punto utile');
         return;
       }
-
+      */
       // inject nel campo del Meteo e mostra Share
       txtInput.value = url;
       fromGpx = true;
