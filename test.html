@@ -3086,7 +3086,7 @@ async function sharePayloadTextOnly(text) {
         return;
       }
 
-      await sharePayload({ title:'GPX → Maps • Risultati', text: payload });
+      await sharePayloadTextOnly(payload);
     } finally {
       window.__shareClickTab3 = false;
     }
