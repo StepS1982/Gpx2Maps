@@ -3234,6 +3234,17 @@ async function sharePayloadTextOnly(text) {
       // se vuoi auto-focussare i risultati del tab 5:
       // focusResultsSection('#tab-meteo .out');
 
+      // === Auto-trigger: appena viene caricato un GPX → click automatico su "Genera Meteo"
+      const meteoInput = document.getElementById('meteoGpxFile');
+      if (meteoInput) {
+        meteoInput.addEventListener('change', ()=>{
+          const btn = document.getElementById('btnGenMeteo');
+          if(btn && meteoInput.files.length > 0){
+            btn.click();
+          }
+        });
+      }
+
     }catch(e){
       console.error(e);
       toastCenter && toastCenter('Errore nella lettura del GPX');
@@ -3241,18 +3252,7 @@ async function sharePayloadTextOnly(text) {
       // reset input file per consentire ricarichi dello stesso file
       try{ fileInput.value = ''; }catch{}
     }
-    // === Auto-trigger: appena viene caricato un GPX → click automatico su "Genera Meteo"
-    const meteoInput = document.getElementById('meteoGpxFile');
-    if (meteoInput) {
-      meteoInput.addEventListener('change', ()=>{
-        const btn = document.getElementById('btnGenMeteo');
-        if(btn && meteoInput.files.length > 0){
-          btn.click();
-        }
-      });
-    }
   });
-
 })();
 
 </script> 
