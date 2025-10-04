@@ -3169,23 +3169,13 @@ async function sharePayloadTextOnly(text) {
 
   // === Wrapper "auto" per GPX→Maps (TRK→RTE→WPT) con ottimizzazione a 25 ===
   function gpxToMapsLinkAuto(xml){
-    // se esiste una versione “smart” della tua funzione, provala prima
-    try{
-      if (typeof gpxToMapsLink === 'function') {
-        // Se la tua implementazione accetta preferenze, prova a passarle
-        const url = gpxToMapsLink(xml, { forceOptimized:true, prefer:'auto' });
-        if (url) return url;
-      }
-    }catch(_){ /* fallback interno */ }
-  
-    // Fallback interno: parser + dedupe + campionamento + /maps/dir
-    const g = parseGPX(xml);                // usa i tuoi helper già presenti in Tab 5
-    let pts = pickPointsPriority(g);        // TRK → RTE → WPT
-    if (!pts || !pts.length) return '';
-  
-    pts = dedupeAdjacent(pts);
-    pts = downsampleMax24KeepEnds(pts);     // 24 “veri” → totale 25 con il primo segmento vuoto
-    return buildMapsDirURL(pts);
+    if (typeof gpxToMapsLink === 'function') {
+      // passa le stesse opzioni del Tab 3
+      const url = gpxToMapsLink(xml, { forceOptimized:true, prefer:'auto' });
+      // ritorna subito: niente fallback che ricostruisce il link “a mano”
+      return url || '';
+    }
+    return '';
   }
 
   function parseGPX(xml){
