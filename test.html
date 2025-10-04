@@ -336,6 +336,12 @@ Funziona anche con le coordinate di latitudine e longitudine
 NOTA BENE: Per avere la certezza assoluta di leggere precisamente i punti da un link google maps, sarebbe meglio che per ogni località cercata e messa come tappa su Maps, si prendesse con il mouse quel punto e lo si spostasse leggermente in avanti o indietro sul percorso della mappa.
 Con questa strategia, Maps trasformerà la località come coordinate e non come 'nome punto', per avere una precisione al 100%"></textarea>
           <div class="row" style="margin-top:12px;">
+            <input id="meteoGpxFile" type="file" accept=".gpx,application/gpx+xml" />
+            <small class="muted" style="margin-left:8px">
+              Oppure carica un GPX: useremo la traccia se presente (altrimenti rotta o waypoint).
+            </small>
+          </div>
+          <div class="row" style="margin-top:12px;">
             <button id="btnGenMeteo" class="btn">Genera Meteo + Info percorso</button>
             <button id="btnClearMeteo" class="btn ghost">Pulisci</button>
           </div>
@@ -3091,6 +3097,106 @@ async function sharePayloadTextOnly(text) {
       window.__shareClickTab3 = false;
     }
   }, { capture:true });
+})();
+
+// === TAB 5 — Upload GPX → Maps → Meteo (auto) ===
+(function(){
+  const $file = document.getElementById('meteoGpxFile');
+  const $in   = document.getElementById('meteoInput');     // link/maps o lista
+  const $btnGo= document.getElementById('btnGenMeteo');    // pulsante già esistente
+  const $btnCl= document.getElementById('btnClearMeteo');  // pulsante pulisci
+  if (!$file || !$in || !$btnGo) return;
+
+  // Helpers
+  const fmt6 = (x)=> (+x).toFixed(6);
+  const eq6  = (a,b)=> fmt6(a)===fmt6(b);
+  function dedupeAdjacent(arr){
+    const out=[]; let prev=null;
+    for(const p of arr){
+      if(!prev || !eq6(prev.lat,p.lat) || !eq6(prev.lon,p.lon)){ out.push(p); prev=p; }
+    }
+    return out;
+  }
+  function optimizeTo25(points){
+    const MAX=25;
+    if(points.length<=MAX) return points;
+    const keep=[points[0]];
+    const need = MAX-2; // tra primo e ultimo
+    for(let i=1;i<=need;i++){
+      const t = i/(need+1);
+      const idx = Math.round(t*(points.length-1));
+      keep.push(points[idx]);
+    }
+    keep.push(points.at(-1));
+    return keep;
+  }
+  function mapsDirUrlFromPoints(points){
+    // // = prima posizione vuota (“tua posizione”)
+    const seg = points.map(p => `${fmt6(p.lat)},${fmt6(p.lon)}`).join('/');
+    return `https://www.google.com/maps/dir//${seg}`;
+  }
+
+  // Parser GPX con priorità TRK → RTE → WPT
+  function parseGpxPoints(gpxText){
+    let doc;
+    try{
+      doc = new DOMParser().parseFromString(gpxText, 'application/xml');
+    }catch(_){ return []; }
+    if(!doc || doc.getElementsByTagName('parsererror').length) return [];
+
+    const pick = (tag) => Array.from(doc.getElementsByTagName(tag));
+
+    const trkpts = pick('trkpt').map(n=>({lat: +n.getAttribute('lat'), lon: +n.getAttribute('lon') }))
+                        .filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
+    if (trkpts.length) return trkpts;
+
+    const rtepts = pick('rtept').map(n=>({lat: +n.getAttribute('lat'), lon: +n.getAttribute('lon') }))
+                        .filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
+    if (rtepts.length) return rtepts;
+
+    const wpts = pick('wpt').map(n=>({lat: +n.getAttribute('lat'), lon: +n.getAttribute('lon') }))
+                      .filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
+    return wpts;
+  }
+
+  async function handleFile(file){
+    try{
+      // 1) auto “Pulisci” come richiesto
+      if ($btnCl) $btnCl.click();
+
+      // 2) leggi testo GPX
+      const text = await file.text();
+
+      // 3) estrai punti (priorità TRK→RTE→WPT)
+      let pts = parseGpxPoints(text);
+      if (!pts.length){ toastCenter('GPX senza punti utili'); return; }
+
+      // 4) normalizza: de-dupe adiacente e max 25
+      pts = dedupeAdjacent(pts);
+      pts = optimizeTo25(pts);
+
+      // 5) costruisci link Maps con “//” in testa
+      const url = mapsDirUrlFromPoints(pts);
+
+      // 6) scrivi l’URL nel campo del meteo e lancia il calcolo
+      $in.value = url;
+      toastCenter('Inserisci la prima posizione di partenza, per esempio la tua città dove abiti');
+      // scatta l’handler standard già testato (geocode → OSRM → meteo)
+      $btnGo.click();
+
+    }catch(e){
+      console.error(e);
+      toastCenter('Errore durante la lettura del GPX');
+    }
+  }
+
+  $file.addEventListener('change', async (ev)=>{
+    const f = ev.target.files && ev.target.files[0];
+    if(!f) return;
+    await handleFile(f);
+    // reset input file per permettere stesso file di nuovo
+    ev.target.value = '';
+  });
 })();
 
 </script> 
