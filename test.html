@@ -3167,6 +3167,27 @@ async function sharePayloadTextOnly(text) {
     return 'https://www.google.com/maps/dir/' + segs.join('/');
   }
 
+  // === Wrapper "auto" per GPX→Maps (TRK→RTE→WPT) con ottimizzazione a 25 ===
+  function gpxToMapsLinkAuto(xml){
+    // se esiste una versione “smart” della tua funzione, provala prima
+    try{
+      if (typeof gpxToMapsLink === 'function') {
+        // Se la tua implementazione accetta preferenze, prova a passarle
+        const url = gpxToMapsLink(xml, { forceOptimized:true, prefer:'auto' });
+        if (url) return url;
+      }
+    }catch(_){ /* fallback interno */ }
+  
+    // Fallback interno: parser + dedupe + campionamento + /maps/dir
+    const g = parseGPX(xml);                // usa i tuoi helper già presenti in Tab 5
+    let pts = pickPointsPriority(g);        // TRK → RTE → WPT
+    if (!pts || !pts.length) return '';
+  
+    pts = dedupeAdjacent(pts);
+    pts = downsampleMax24KeepEnds(pts);     // 24 “veri” → totale 25 con il primo segmento vuoto
+    return buildMapsDirURL(pts);
+  }
+
   function parseGPX(xml){
     const doc = new DOMParser().parseFromString(xml, 'application/xml');
     // se c’è un parsererror, torna vuoto
@@ -3205,47 +3226,38 @@ async function sharePayloadTextOnly(text) {
   /* 3) Upload GPX → genera link Maps (clonato dalla logica Tab 3) */
   fileInput.addEventListener('change', async ()=>{
     const f = fileInput.files && fileInput.files[0];
-    if (!f){ return; }
-
-    // auto “Pulisci” come richiesto
+    if (!f) return;
+  
+    // Pulisci UI
     btnClear?.click();
-
+    await new Promise(r => setTimeout(r, 100)); // evita race col clear
+  
     try{
-      const text = await f.text();
-      const g = parseGPX(text);
-      let pts = pickPointsPriority(g);
-      if (!pts.length){
-        toastCenter && toastCenter('GPX privo di punti utili (TRK/RTE/WPT)');
+      const xml = await f.text();
+  
+      // Usa la wrapper auto, non la funzione “UI-driven”
+      const url = gpxToMapsLinkAuto(xml);
+      if (!url){
+        toastCenter && toastCenter('GPX non valido o nessun punto utile (TRK/RTE/WPT)');
         return;
       }
-      // dedupe adiacente
-      pts = dedupeAdjacent(pts);
-      // limita a 24 (il 25° è il primo vuoto “//”)
-      pts = downsampleMax24KeepEnds(pts);
-      // costruisci URL
-      const url = buildMapsDirURL(pts);
-      /* procedura vecchia clone del tab 3
-      const text = await f.text();
-      const url = gpxToMapsLink(text, { forceOptimized:true });
-      if (!url) {
-        toastCenter && toastCenter('GPX non valido o nessun punto utile');
-        return;
-      }
-      */
-      // inject nel campo del Meteo e mostra Share
+  
+      // Popola input Meteo e mostra bottone “Condividi link Maps”
       txtInput.value = url;
+      txtInput.dispatchEvent(new Event('input', { bubbles:true }));
       fromGpx = true;
-      shareBtn.style.display = '';
-
+      if (shareBtn) shareBtn.style.display = '';
+  
       toastCenter && toastCenter('Link Maps generato dal GPX');
-      // se vuoi auto-focussare i risultati del tab 5:
-      // focusResultsSection('#tab-meteo .out');
-
+  
+      // Auto-avvio calcolo Meteo
+      const btn = document.getElementById('btnGenMeteo');
+      if (btn) btn.click();
+  
     }catch(e){
       console.error(e);
       toastCenter && toastCenter('Errore nella lettura del GPX');
     }finally{
-      // reset input file per consentire ricarichi dello stesso file
       try{ fileInput.value = ''; }catch{}
     }
   });
