@@ -3244,6 +3244,19 @@ async function sharePayloadTextOnly(text) {
   });
 })();
 
+// === Auto-trigger: appena viene caricato un GPX → click automatico su "Genera Meteo"
+(function(){
+  const meteoInput = document.getElementById('meteoGpxFile');
+  if (meteoInput) {
+    meteoInput.addEventListener('change', ()=>{
+      const btn = document.getElementById('btnGenMeteo');
+      if(btn && meteoInput.files.length > 0){
+        btn.click();
+      }
+    });
+  }
+})();
+
 </script> 
 </body>
 </html>
