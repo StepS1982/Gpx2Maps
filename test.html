@@ -2915,33 +2915,27 @@ function focusResultsSection(sel){
     );
   })();
 
-// ===== Condividi SOLO testo/url (per Tab 1 e Tab 3). Niente file. =====
-async function sharePayload({ title, text, url } = {}) {
+// ===== Condividi SOLO TESTO (evita che il browser appiccichi l'URL della pagina) =====
+async function sharePayloadTextOnly(text) {
   const hasWebShare = typeof navigator.share === 'function';
+  const payload = (text || '').trim();
 
+  if (!payload) {
+    toastCenter && toastCenter('Niente da condividere');
+    return false;
+  }
   if (!hasWebShare) {
     toastCenter && toastCenter('Condivisione non supportata su questo dispositivo');
     return false;
   }
 
-  const payload = {
-    title: title || 'GPX2MAPS',
-    text: (text || '').trim(),
-    url:  (url || '').trim()
-  };
-
-  if (!payload.text && !payload.url) {
-    toastCenter && toastCenter('Niente da condividere');
-    return false;
-  }
-
   try {
-    await navigator.share(payload);
-    // niente toast finale: l’utente potrebbe aver annullato
-    return true;
+    // Passiamo SOLO { text }, niente title/url = niente URL della pagina.
+    await navigator.share({ text: payload });
+    return true; // silenzio su annullo
   } catch (e) {
     const s = ((e?.name) + ' ' + (e?.message || '')).toLowerCase();
-    if (/abort|cancel|dismiss|close/.test(s)) return false; // ESC/indietro → silenzio
+    if (/abort|cancel|dismiss|close/.test(s)) return false;
     toastCenter && toastCenter('Impossibile condividere');
     return false;
   }
@@ -3019,7 +3013,7 @@ async function sharePayload({ title, text, url } = {}) {
       return;
     }
 
-    await sharePayload({ title:'Link uniti • GPX2MAPS', text: payload });
+    await sharePayloadTextOnly(payload);
 
   } finally {
     window.__shareClickTab1 = false;
