@@ -3222,16 +3222,28 @@ async function sharePayloadTextOnly(text) {
     try{
       const xml = await f.text();
 
-      // Richiama la funzione del Tab 3 (deve esistere nel file)
-      const url = (typeof gpxToMapsLink === 'function')
-        ? gpxToMapsLink(xml, { forceOptimized:true, prefer:'auto' })
-        : '';
-
+      // --- genera URL usando ESATTAMENTE la funzione del Tab 3, con attesa/compat ---
+      // prova prima con gpxToMapsLinkAuto (se esiste), poi con gpxToMapsLink in entrambe
+      // le firme, e riprova per ~600ms se la funzione non è ancora caricata.
+      async function resolveMapsUrlFromGpx(xml){
+        function c1(){ try{ return (window.gpxToMapsLinkAuto ? window.gpxToMapsLinkAuto(xml) : '') || ''; }catch(_){ return ''; } }
+        function c2(){ try{ return (typeof gpxToMapsLink==='function' ? (gpxToMapsLink(xml, { forceOptimized:true }) || '') : ''); }catch(_){ return ''; } }
+        function c3(){ try{ return (typeof gpxToMapsLink==='function' ? (gpxToMapsLink(xml, { forceOptimized:true, prefer:'auto' }) || '') : ''); }catch(_){ return ''; } }
+      
+        let url = c1() || c2() || c3();
+        for (let i=0; !url && i<12; i++) { // ~600ms di attesa in totale
+          await new Promise(r=>setTimeout(r, 50));
+          url = c1() || c2() || c3();
+        }
+        return url;
+      }
+      
+      const url = await resolveMapsUrlFromGpx(xml);
       if (!url){
         toastCenter && toastCenter('GPX non valido o nessun punto utile');
         return;
       }
-
+      
       // Scrivi il link nella textarea del Meteo
       txtInput.value = url;
       // dispatch input per eventuali listener che si aggiornano su input
