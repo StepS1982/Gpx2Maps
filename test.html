@@ -121,6 +121,22 @@
       color:#433800;
       border-color:#e7d767;
     }
+    /* Barra azioni Tab 5 su una sola riga */
+    #tab-meteo .actions-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: nowrap;          /* niente a capo */
+      margin-top: 8px;
+    }
+    /* evita che il file input spacchi la riga */
+    #tab-meteo .actions-line input[type="file"] {
+      max-width: 380px;           /* regola a piacere */
+    }
+    /* su schermi molto piccoli consenti il wrap */
+    @media (max-width: 480px){
+      #tab-meteo .actions-line { flex-wrap: wrap; }
+    }
   </style>
 </head>
 <body>
@@ -3302,6 +3318,38 @@ window.gpxToMapsLink_Tab3Auto = function gpxToMapsLink_Tab3Auto(xml) {
     }
   });
 })();
+    (function(){
+      const tab   = document.getElementById('tab-meteo');
+      const file  = document.getElementById('meteoGpxFile');
+      const gen   = document.getElementById('btnGenMeteo');
+      const clear = document.getElementById('btnClearMeteo');
+      if (!tab || !file || !gen || !clear) return;
+    
+      // crea la riga orizzontale
+      const line = document.createElement('div');
+      line.className = 'row actions-line';
+    
+      // dove inserirla: usa il contenitore dove oggi vivono i controlli
+      const host = file.parentElement; // va benissimo anche se era su una "row"
+      host.insertBefore(line, file);   // metti la linea al posto giusto
+    
+      // sposta i 3 controlli dentro la riga, nell'ordine desiderato
+      line.appendChild(file);
+    
+      // elimina eventuali <br> o spazi forti tra i controlli originali
+      function stripBreaks(fromEl, untilEl){
+        let n = fromEl.nextSibling;
+        while (n && n !== untilEl){
+          const rm = n;
+          n = n.nextSibling;
+          if (rm.nodeType === 3 || (rm.nodeType === 1 && rm.tagName === 'BR')) rm.remove();
+        }
+      }
+      stripBreaks(file, gen);
+      line.appendChild(gen);
+      stripBreaks(gen, clear);
+      line.appendChild(clear);
+    })();
 </script> 
 </body>
 </html>
