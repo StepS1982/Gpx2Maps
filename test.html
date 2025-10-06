@@ -3141,6 +3141,27 @@ window.gpxToMapsLink_Tab3Auto = function gpxToMapsLink_Tab3Auto(xml) {
     shareBtn = row.querySelector('#btnShareMeteoLink');
   }
 
+  // Nascondi inizialmente
+  shareBtn.style.display = 'none';
+  
+  // Click "Condividi link Maps" → condividi SOLO il link presente nella textarea
+  shareBtn.addEventListener('click', async ()=>{
+    const url = (txtInput.value || '').trim();
+    if (!url) { toastCenter && toastCenter('Niente da condividere'); return; }
+    if (window.__shareClickTab5) return;         // anti-doppio
+    window.__shareClickTab5 = true;
+    try {
+      await sharePayloadTextOnly(url);            // usa la tua share SOLO TESTO
+    } finally {
+      window.__shareClickTab5 = false;
+    }
+  });
+  
+  // PULISCI → nascondi il bottone
+  btnClear?.addEventListener('click', ()=>{
+    shareBtn.style.display = 'none';
+  }, { capture:true });
+
   // ------- helper headless: parse + dedupe + sample + build URL (clone Tab3) -------
   const bankers6 = (typeof window.bankers6 === 'function')
     ? window.bankers6
