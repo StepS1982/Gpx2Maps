@@ -2944,89 +2944,7 @@ async function sharePayloadTextOnly(text) {
 
 /* GPX -> Maps (headless): TRK > RTE > WPT, dedupe adiacente, ottimizza a 25 totali
    (24 punti + primo segmento vuoto “//”), rounding a 6 decimali */
-(function(){
-  // Se esiste già un round “banker’s 6” del Tab 3, riusalo; altrimenti toFixed(6)
-  const fmt6 = (typeof window.bankers6 === 'function')
-    ? (n)=>window.bankers6(n)
-    : (n)=>Number(n).toFixed(6);
 
-  function parseGPXAll(xml){
-    const doc = new DOMParser().parseFromString(xml, 'application/xml');
-    if (doc.querySelector('parsererror')) return {trk:[], rte:[], wpt:[]};
-
-    const trk=[], rte=[], wpt=[];
-
-    doc.querySelectorAll('trk trkseg trkpt').forEach(pt=>{
-      const lat = parseFloat(pt.getAttribute('lat'));
-      const lon = parseFloat(pt.getAttribute('lon'));
-      if (isFinite(lat) && isFinite(lon)) trk.push([lat,lon]);
-    });
-
-    doc.querySelectorAll('rte rtept').forEach(pt=>{
-      const lat = parseFloat(pt.getAttribute('lat'));
-      const lon = parseFloat(pt.getAttribute('lon'));
-      if (isFinite(lat) && isFinite(lon)) rte.push([lat,lon]);
-    });
-
-    doc.querySelectorAll('wpt').forEach(pt=>{
-      const lat = parseFloat(pt.getAttribute('lat'));
-      const lon = parseFloat(pt.getAttribute('lon'));
-      if (isFinite(lat) && isFinite(lon)) wpt.push([lat,lon]);
-    });
-
-    return {trk, rte, wpt};
-  }
-
-  function pickPriority(g){             // TRK → RTE → WPT
-    if (g.trk && g.trk.length) return g.trk;
-    if (g.rte && g.rte.length) return g.rte;
-    return g.wpt || [];
-  }
-
-  function dedupeAdjacent(points){      // dedupe adiacente con rounding a 6 dec
-    const out=[]; let prev='';
-    for (const [la,lo] of points){
-      const cur = fmt6(la)+','+fmt6(lo);
-      if (cur!==prev) out.push([la,lo]), prev=cur;
-    }
-    return out;
-  }
-
-  // Uniforme con estremi fissati: restituisce al massimo "max" punti.
-  // Per ottenere 25 punti totali su Google, usa max=24 (poi aggiungiamo “//”)
-  function sampleKeepEnds(points, max){
-    if (points.length<=max) return points.slice();
-    const head=points[0], tail=points[points.length-1];
-    const innerNeed = max-2;
-    const inner = points.slice(1, -1);
-    const chosen=[];
-    for (let i=0;i<innerNeed;i++){
-      const idx = Math.round((i+1)*inner.length/(innerNeed+1))-1;
-      chosen.push(inner[Math.max(0, Math.min(idx, inner.length-1))]);
-    }
-    return [head, ...chosen, tail];
-  }
-
-  function buildMapsDirURL(coords){
-    const segs=['']; // primo vuoto = “LA TUA POSIZIONE”
-    for (const [lat,lon] of coords){
-      segs.push(`${fmt6(lat)},${fmt6(lon)}`);
-    }
-    return 'https://www.google.com/maps/dir/'+segs.join('/');
-  }
-
-  // ====== QUI: funzione globale che userai dal Tab 5 ======
-  window.gpxToMapsLinkAuto = function gpxToMapsLinkAuto(xml){
-    const g = parseGPXAll(xml);
-    let pts = pickPriority(g);
-    if (!pts || !pts.length) return '';
-
-    pts = dedupeAdjacent(pts);
-    pts = sampleKeepEnds(pts, 24); // 24 + primo vuoto = 25 totali
-
-    return buildMapsDirURL(pts);
-  };
-})();
 
 // ===== Wiring 'Condividi' per ciascun tab =====
 
@@ -3215,54 +3133,40 @@ async function sharePayloadTextOnly(text) {
   fileInput.addEventListener('change', async ()=>{
     const f = fileInput.files && fileInput.files[0];
     if (!f) return;
-
-    // pulisci prima (evita race con roba precedente)
+  
     btnClear?.click();
-
+  
     try{
       const xml = await f.text();
-
-      // --- genera URL usando ESATTAMENTE la funzione del Tab 3, con attesa/compat ---
-      // prova prima con gpxToMapsLinkAuto (se esiste), poi con gpxToMapsLink in entrambe
-      // le firme, e riprova per ~600ms se la funzione non è ancora caricata.
-      async function resolveMapsUrlFromGpx(xml){
-        function c1(){ try{ return (window.gpxToMapsLinkAuto ? window.gpxToMapsLinkAuto(xml) : '') || ''; }catch(_){ return ''; } }
-        function c2(){ try{ return (typeof gpxToMapsLink==='function' ? (gpxToMapsLink(xml, { forceOptimized:true }) || '') : ''); }catch(_){ return ''; } }
-        function c3(){ try{ return (typeof gpxToMapsLink==='function' ? (gpxToMapsLink(xml, { forceOptimized:true, prefer:'auto' }) || '') : ''); }catch(_){ return ''; } }
-      
-        let url = c1() || c2() || c3();
-        for (let i=0; !url && i<12; i++) { // ~600ms di attesa in totale
-          await new Promise(r=>setTimeout(r, 50));
-          url = c1() || c2() || c3();
-        }
-        return url;
-      }
-      
-      const url = await resolveMapsUrlFromGpx(xml);
+  
+      // aspetta al massimo ~600ms che gpxToMapsLink del Tab 3 sia definita
+      const waitFor = (cond, tries=12, delay=50) =>
+        new Promise(async (res)=>{ for (let i=0;i<tries;i++){ if (cond()) break; await new Promise(r=>setTimeout(r,delay)); } res(); });
+  
+      await waitFor(()=> typeof window.gpxToMapsLink === 'function');
+  
+      const url = (typeof window.gpxToMapsLink==='function')
+        ? window.gpxToMapsLink(xml, { forceOptimized:true, prefer:'auto' })
+        : '';
+  
       if (!url){
         toastCenter && toastCenter('GPX non valido o nessun punto utile');
         return;
       }
-      
-      // Scrivi il link nella textarea del Meteo
+  
       txtInput.value = url;
-      // dispatch input per eventuali listener che si aggiornano su input
       txtInput.dispatchEvent(new Event('input', { bubbles:true }));
-
-      // Mostra “Condividi link Maps”
+  
       shareBtn.style.display = '';
       toastCenter && toastCenter('Link Maps generato dal GPX');
-
-      // AUTO-START: avvia subito “Genera Meteo”
+  
       const btn = document.getElementById('btnGenMeteo');
-      // yield 1 frame così la textarea è già aggiornata
       requestAnimationFrame(()=>{ btn && btn.click(); });
-
+  
     }catch(e){
       console.error(e);
       toastCenter && toastCenter('Errore nella lettura del GPX');
     }finally{
-      // consenti ricarico dello stesso file
       try{ fileInput.value = ''; }catch{}
     }
   });
