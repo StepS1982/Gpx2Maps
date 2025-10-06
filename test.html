@@ -121,14 +121,6 @@
       color:#433800;
       border-color:#e7d767;
     }
-    /* Barra azioni Tab 5 su una sola riga */
-    #tab-meteo .btnline {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      flex-wrap: nowrap;        /* mai a capo */
-    }
-    #tab-meteo .btnline .btn { white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -3309,30 +3301,6 @@ window.gpxToMapsLink_Tab3Auto = function gpxToMapsLink_Tab3Auto(xml) {
       try { fileInput.value = ''; } catch {}
     }
   });
-})();
-(function(){
-  const tab = document.getElementById('tab-meteo');
-  const gen = document.getElementById('btnGenMeteo');
-  const clr = document.getElementById('btnClearMeteo');
-  if (!tab || !gen || !clr) return;
-
-  // Crea un contenitore orizzontale e inseriscilo prima del primo bottone
-  const wrap = document.createElement('div');
-  wrap.className = 'row btnline';
-
-  const firstParent = gen.parentElement;
-  firstParent.insertBefore(wrap, gen);
-
-  // Sposta i bottoni dentro al contenitore
-  wrap.appendChild(gen);
-
-  // rimuovi eventuali <br> o spazi “forti” tra i bottoni
-  let n = gen.nextSibling;
-  while (n && (n.nodeType === 3 || (n.nodeType === 1 && n.tagName === 'BR'))) {
-    const toRemove = n; n = n.nextSibling; toRemove.remove();
-  }
-
-  wrap.appendChild(clr);
 })();
 </script> 
 </body>
