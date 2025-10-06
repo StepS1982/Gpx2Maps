@@ -3098,6 +3098,29 @@ async function sharePayloadTextOnly(text) {
   }, { capture:true });
 })();
 
+// === Headless clone del Tab 3: TRK → RTE → WPT, stessi helper/rounding, cap 25 ===
+// Requisiti: parseGPXText, partsFromPoints, optimizeTo25 devono essere già definiti (Tab 3).
+// → Sono quelli che costruiscono i token con blank iniziale e fanno il campionamento identico.
+window.gpxToMapsLink_Tab3Auto = function gpxToMapsLink_Tab3Auto(xml) {
+  try {
+    // parsing con rounding/fmt6s come Tab 3
+    const g = parseGPXText(xml);     // ← Tab 3: parse GPX, lat/lon già arrotondati
+    // priorità: TRK → RTE → WPT (come richiesto)
+    const pts = (g.trk && g.trk.length) ? g.trk
+              : (g.rte && g.rte.length) ? g.rte
+              : (g.wpt || []);
+    if (!pts.length) return '';
+
+    // costruzione token e dedupe adiacente (identici al Tab 3)
+    let parts = partsFromPoints(pts); // ['','lat,lon', ...] con blank iniziale
+    if (parts.length > 25) parts = optimizeTo25(parts); // stesso sampler del Tab 3
+
+    return 'https://www.google.com/maps/dir/' + parts.join('/');
+  } catch {
+    return '';
+  }
+};
+
 /* === TAB 5: Upload GPX → genera link Maps (auto: TRK→RTE→WPT, max 25 punti) === */
 (function(){
   const fileInput = document.getElementById('meteoGpxFile');
@@ -3222,36 +3245,39 @@ async function sharePayloadTextOnly(text) {
     const f = fileInput.files && fileInput.files[0];
     if (!f) return;
 
-    // pulizia preventiva (evita race con output precedente)
+    // pulisci prima
     btnClear?.click();
-
-    try{
-      const xml = await f.text();
-      const url = await resolveMapsUrlFromGpx(xml);
-
-      if (!url){
+    
+    try {
+      const xml = await (fileInput.files && fileInput.files[0] ? fileInput.files[0].text() : Promise.resolve(''));
+    
+      // 100% clone Tab 3, auto-priority + cap 25
+      const url = (typeof window.gpxToMapsLink_Tab3Auto === 'function')
+        ? window.gpxToMapsLink_Tab3Auto(xml)
+        : '';
+    
+      if (!url) {
         toastCenter && toastCenter('GPX non valido o nessun punto utile');
         return;
       }
-
-      // scrivi il link nel campo del Meteo
+    
+      // Scrivi nella textarea e notifica eventuali listener
       txtInput.value = url;
       txtInput.dispatchEvent(new Event('input', { bubbles:true }));
-
-      // mostra il bottone “Condividi link Maps”
-      if (shareBtn) shareBtn.style.display = '';
-
+    
+      // Mostra “Condividi link Maps”
+      shareBtn.style.display = '';
       toastCenter && toastCenter('Link Maps generato dal GPX');
-
-      // auto-avvia “Genera Meteo”
+    
+      // Auto-start del meteo (dopo 1 frame per evitare race)
       const btn = document.getElementById('btnGenMeteo');
       requestAnimationFrame(()=>{ btn && btn.click(); });
-
-    }catch(e){
+    
+    } catch (e) {
       console.error(e);
       toastCenter && toastCenter('Errore nella lettura del GPX');
-    }finally{
-      try{ fileInput.value = ''; }catch{}
+    } finally {
+      try { fileInput.value = ''; } catch {}
     }
   });
 })();
