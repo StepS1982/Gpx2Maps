@@ -3158,16 +3158,6 @@ window.gpxToMapsLink_Tab3Auto = function gpxToMapsLink_Tab3Auto(xml) {
     }
   }, { capture: true });
   
-  // 3) Nel tuo handler esistente su "change", aggiungi lock/unlock
-  fileInput.addEventListener('change', async () => {
-    const f = fileInput.files && fileInput.files[0];
-    if (!f) return;
-  
-    // 🔒 lock anti-race
-    if (meteoBusy) return;
-    meteoBusy = true;
-    fileInput.disabled = true;
-
   if (!fileInput || !txtInput || !outBox) return;
 
   // assicurati che il bottone Condividi link Maps esista (come da tua logica attuale)
@@ -3304,6 +3294,11 @@ window.gpxToMapsLink_Tab3Auto = function gpxToMapsLink_Tab3Auto(xml) {
   fileInput.addEventListener('change', async ()=>{
     const f = fileInput.files && fileInput.files[0];
     if (!f) return;
+
+    // 🔒 lock anti-race
+    if (meteoBusy) return;
+    meteoBusy = true;
+    fileInput.disabled = true;
 
     // pulisci prima
     btnClear?.click();
