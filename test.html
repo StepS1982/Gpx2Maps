@@ -3141,6 +3141,32 @@ window.gpxToMapsLink_Tab3Auto = function gpxToMapsLink_Tab3Auto(xml) {
   const btnClear  = document.getElementById('btnClearMeteo');
   const outBox    = document.querySelector('#tab-meteo .out .bd') || document.getElementById('meteoOut');
   let   shareBtn  = document.getElementById('btnShareMeteoLink');
+  let meteoBusy = false;
+
+  // 1) PULISCI SUBITO quando l’utente preme "Scegli file" (prima che apra la dialog)
+  fileInput.addEventListener('pointerdown', () => {
+    // usa capture per arrivare prima di altri listener
+    btnClear?.click();
+  }, { capture: true });
+  
+  // 2) Se è già in corso un’elaborazione, impedisci di riaprire la dialog
+  fileInput.addEventListener('click', (ev) => {
+    if (meteoBusy) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      toastCenter && toastCenter('Attendi: elaborazione in corso…');
+    }
+  }, { capture: true });
+  
+  // 3) Nel tuo handler esistente su "change", aggiungi lock/unlock
+  fileInput.addEventListener('change', async () => {
+    const f = fileInput.files && fileInput.files[0];
+    if (!f) return;
+  
+    // 🔒 lock anti-race
+    if (meteoBusy) return;
+    meteoBusy = true;
+    fileInput.disabled = true;
 
   if (!fileInput || !txtInput || !outBox) return;
 
@@ -3312,6 +3338,8 @@ window.gpxToMapsLink_Tab3Auto = function gpxToMapsLink_Tab3Auto(xml) {
       toastCenter && toastCenter('Errore nella lettura del GPX');
     } finally {
       try { fileInput.value = ''; } catch {}
+      fileInput.disabled = false;
+      meteoBusy = false;
     }
   });
 })();
