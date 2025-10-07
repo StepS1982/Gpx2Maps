@@ -3315,102 +3315,37 @@ window.gpxToMapsLink_Tab3Auto = function gpxToMapsLink_Tab3Auto(xml) {
     }
   });
 })();
-    // === Util comune: decora input file con "Carica GPX" e wiring clear+auto-go ===
     (function(){
-      function decorateFileInput(fileInput, labelText='Carica GPX'){
-        if (!fileInput || fileInput.dataset._decorated) return;
-        fileInput.dataset._decorated = '1';
+      const tab   = document.getElementById('tab-meteo');
+      const file  = document.getElementById('meteoGpxFile');
+      const gen   = document.getElementById('btnGenMeteo');
+      const clear = document.getElementById('btnClearMeteo');
+      if (!tab || !file || !gen || !clear) return;
     
-        // crea label-bottone
-        const id = fileInput.id || ('gpxfile_' + Math.random().toString(36).slice(2));
-        fileInput.id = id;
+      // crea la riga orizzontale
+      const line = document.createElement('div');
+      line.className = 'row actions-line';
     
-        const label = document.createElement('label');
-        label.setAttribute('for', id);
-        label.className = 'btn';
-        label.textContent = labelText;
+      // dove inserirla: usa il contenitore dove oggi vivono i controlli
+      const host = file.parentElement; // va benissimo anche se era su una "row"
+      host.insertBefore(line, file);   // metti la linea al posto giusto
     
-        // avvolgi input+label
-        const wrap = document.createElement('span');
-        wrap.className = 'file-btn-wrap';
-        fileInput.parentNode.insertBefore(wrap, fileInput);
-        wrap.appendChild(fileInput);
-        wrap.appendChild(label);
+      // sposta i 3 controlli dentro la riga, nell'ordine desiderato
+      line.appendChild(file);
     
-        // nascondi visivamente l'input ma lascialo accessibile
-        fileInput.style.position = 'absolute';
-        fileInput.style.width = '1px';
-        fileInput.style.height = '1px';
-        fileInput.style.padding = '0';
-        fileInput.style.margin = '-1px';
-        fileInput.style.overflow = 'hidden';
-        fileInput.style.clip = 'rect(0 0 0 0)';
-        fileInput.style.whiteSpace = 'nowrap';
-        fileInput.style.border = '0';
+      // elimina eventuali <br> o spazi forti tra i controlli originali
+      function stripBreaks(fromEl, untilEl){
+        let n = fromEl.nextSibling;
+        while (n && n !== untilEl){
+          const rm = n;
+          n = n.nextSibling;
+          if (rm.nodeType === 3 || (rm.nodeType === 1 && rm.tagName === 'BR')) rm.remove();
+        }
       }
-    
-      function setupTabUpload(opts){
-        const {
-          tabSel,                       // es. '#tab-gpx2maps'
-          fileSel = 'input[type="file"][accept*=".gpx"]',
-          clearSel = '',                // id/selector pulsante "Pulisci"
-          goSel = '',                   // id/selector pulsante "Analizza/Elabora"
-          labelText = 'Carica GPX'
-        } = opts || {};
-        const tab = document.querySelector(tabSel);
-        if (!tab) return;
-    
-        const fileInput = tab.querySelector(fileSel);
-        if (!fileInput) return;
-    
-        decorateFileInput(fileInput, labelText);
-    
-        const clearBtn = clearSel ? tab.querySelector(clearSel) : null;
-        const goBtn    = goSel    ? tab.querySelector(goSel)    : null;
-    
-        // 1) PRIMA di aprire il dialog: pulisci subito
-        fileInput.addEventListener('click', ()=>{
-          clearBtn && clearBtn.click();
-        });
-    
-        // 2) DOPO l'upload: auto-premi il bottone di elaborazione
-        fileInput.addEventListener('change', ()=>{
-          if (fileInput.files && fileInput.files.length > 0){
-            goBtn && goBtn.click();
-          }
-        });
-      }
-    
-      // === TAB 3: GPX → Maps
-      setupTabUpload({
-        tabSel:   '#tab-gpx2maps',
-        // prende l'unico file input .gpx del tab
-        fileSel:  'input[type="file"][accept*=".gpx"]',
-        // varianti note del tuo "Pulisci"
-        clearSel: '#btnClear3, #btnClearGPX2Maps, [data-action="clear"]',
-        // varianti possibili del tuo "Analizza GPX"
-        goSel:    '#btnAnalyzeGPX, #btnAnalyze3, #btnConvert3, [data-action="analyze-gpx"]',
-        labelText:'Carica GPX'
-      });
-    
-      // === TAB 4: Sanitizza GPX
-      setupTabUpload({
-        tabSel:   '#tab-sanitize, #tab-san, #tab4', // includo alias comuni
-        fileSel:  'input[type="file"][accept*=".gpx"]',
-        clearSel: '#btnClearSan, #btnClear4, [data-action="clear"]',
-        // pulsante "Sanitizza GPX"
-        goSel:    '#btnSanitizza, #btnSanitize, #btnSan, [data-action="sanitize-gpx"]',
-        labelText:'Carica GPX'
-      });
-    
-      // === TAB 5: Meteo + Info percorso (già auto-start, qui solo clear PRIMA e label)
-      setupTabUpload({
-        tabSel:   '#tab-meteo',
-        fileSel:  '#meteoGpxFile',
-        clearSel: '#btnClearMeteo',
-        goSel:    '#btnGenMeteo',  // auto-premi anche qui per coerenza
-        labelText:'Carica GPX'
-      });
+      stripBreaks(file, gen);
+      line.appendChild(gen);
+      stripBreaks(gen, clear);
+      line.appendChild(clear);
     })();
 </script> 
 </body>
