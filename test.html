@@ -3315,79 +3315,133 @@ window.gpxToMapsLink_Tab3Auto = function gpxToMapsLink_Tab3Auto(xml) {
     }
   });
 })();
-    <!-- Auto-clean + auto-run su upload per Tab 3 / 4 / 5 -->
+    // ---- helper: disable/enable set ----
+    async function disableWhile(elsOrSelectors, task){
+      const els = (elsOrSelectors || [])
+        .map(s => (typeof s === 'string' ? document.querySelector(s) : s))
+        .filter(Boolean);
+      els.forEach(el => el.disabled = true);
+      try { return await task(); }
+      finally { els.forEach(el => el.disabled = false); }
+    }
+    
+    // ========== TAB 3: GPX → Maps (carica+analizza auto, pulizia prima) ==========
     (function(){
-      // Utility: trova un bottone dentro un contenitore per testo visibile
-      function findButtonByText(root, regex){
-        const nodes = root.querySelectorAll('button, a, input[type="button"], input[type="submit"]');
-        for (const n of nodes){
-          const t = (n.innerText || n.textContent || n.value || '').trim();
-          if (regex.test(t)) return n;
-        }
-        return null;
+      const tab = document.querySelector('#tab-gpx2maps');
+      if (!tab || window.__wiredTab3Upload) return;
+      window.__wiredTab3Upload = true;
+    
+      // prova a trovare input file e pulsanti noti
+      const fileInput = tab.querySelector('input[type="file"][accept*=".gpx"], #gpxFile3, #gpxInput3');
+      const btnClear  = tab.querySelector('#btnClear3, #btnClearGPX2Maps');
+      const btnAnalyze= tab.querySelector('#btnAnalyzeGPX, #btnAnalyzeGpx, [data-role="analyze-gpx"]');
+    
+      if (!fileInput || !btnAnalyze) return;
+    
+      // bottone custom "Carica GPX"
+      let custom = tab.querySelector('#btnUploadGpx3');
+      if (!custom){
+        custom = document.createElement('button');
+        custom.id = 'btnUploadGpx3';
+        custom.type = 'button';
+        custom.className = 'btn small';
+        custom.textContent = 'Carica GPX';
+        // inseriscilo accanto al vero input e nascondi l’input nativo
+        fileInput.style.display = 'none';
+        fileInput.parentNode.insertBefore(custom, fileInput);
       }
     
-      // ===== TAB 3: GPX → Maps =====
-      (function(){
-        const tab = document.getElementById('tab-gpx2maps');
-        if (!tab) return;
+      // click: PULISCI → apri file picker
+      custom.addEventListener('click', ()=>{
+        btnClear && btnClear.click();
+        // apri il picker dopo un tick, così la UI è già pulita
+        setTimeout(()=> fileInput.click(), 0);
+      });
     
-        const file = tab.querySelector('input[type="file"][accept*=".gpx"]');
-        if (!file) return;
+      // change: auto-analizza
+      fileInput.addEventListener('change', async (ev)=>{
+        const f = ev.target.files && ev.target.files[0];
+        if (!f) return;
     
-        file.addEventListener('click', ()=> {
-          // Pulisci SUBITO prima che l’utente scelga il file
-          const btnClear = findButtonByText(tab, /^\s*pulisci\s*$/i);
+        await disableWhile([custom, btnAnalyze], async ()=>{
+          // (ridiamo una pulita per sicurezza, non toccare l'input)
           btnClear && btnClear.click();
-        }, { capture:true });
-    
-        file.addEventListener('change', ()=> {
-          if (!file.files || !file.files.length) return;
-          // Dopo la selezione, avvia “Analizza GPX”
-          const btnAnalyze = findButtonByText(tab, /analizza\s*gpx/i);
-          if (btnAnalyze){
-            // minimo yield per far arrivare l’evento change alla UI
-            requestAnimationFrame(()=> btnAnalyze.click());
-          }
+          // qui l’handler nativo di "Analizza GPX" leggerà proprio questo input
+          btnAnalyze.click();
         });
-      })();
     
-      // ===== TAB 4: Sanitizza GPX =====
-      (function(){
-        const tab = document.getElementById('tab-sanitize');
-        if (!tab) return;
+        // consenti ri-caricare lo stesso file
+        try{ fileInput.value = ''; }catch{}
+      });
+    })();
     
-        const file = tab.querySelector('input[type="file"][accept*=".gpx"]');
-        if (!file) return;
+    // ========== TAB 4: Sanitizza GPX (carica+sanitizza auto, pulizia prima) ==========
+    (function(){
+      const tab = document.querySelector('#tab-sanitize');
+      if (!tab || window.__wiredTab4Upload) return;
+      window.__wiredTab4Upload = true;
     
-        file.addEventListener('click', ()=> {
-          const btnClear = findButtonByText(tab, /^\s*pulisci\s*$/i);
+      const fileInput = tab.querySelector('input[type="file"][accept*=".gpx"], #gpxFile4, #gpxInput4');
+      const btnClear  = tab.querySelector('#btnClearSan, #btnClear4, #btnClearSanitize');
+      const btnSan    = tab.querySelector('#btnSanitizza, #btnSanitize, [data-role="sanitize-gpx"]');
+    
+      if (!fileInput || !btnSan) return;
+    
+      let custom = tab.querySelector('#btnUploadGpx4');
+      if (!custom){
+        custom = document.createElement('button');
+        custom.id = 'btnUploadGpx4';
+        custom.type = 'button';
+        custom.className = 'btn small';
+        custom.textContent = 'Carica GPX';
+        fileInput.style.display = 'none';
+        fileInput.parentNode.insertBefore(custom, fileInput);
+      }
+    
+      custom.addEventListener('click', ()=>{
+        btnClear && btnClear.click();
+        setTimeout(()=> fileInput.click(), 0);
+      });
+    
+      fileInput.addEventListener('change', async (ev)=>{
+        const f = ev.target.files && ev.target.files[0];
+        if (!f) return;
+    
+        await disableWhile([custom, btnSan], async ()=>{
           btnClear && btnClear.click();
-        }, { capture:true });
-    
-        file.addEventListener('change', ()=> {
-          if (!file.files || !file.files.length) return;
-          const btnSanitize = findButtonByText(tab, /sanitizza\s*gpx/i);
-          if (btnSanitize){
-            requestAnimationFrame(()=> btnSanitize.click());
-          }
+          btnSan.click();
         });
-      })();
+        try{ fileInput.value = ''; }catch{}
+      });
+    })();
     
-      // ===== TAB 5: Meteo + Info percorso =====
-      // (Hai già l’auto-start; aggiungo solo la pulizia PRIMA del file picker)
-      (function(){
-        const tab = document.getElementById('tab-meteo');
-        if (!tab) return;
+    // ========== TAB 5: Meteo + Info percorso (solo rinomina + pulizia PRIMA) ==========
+    (function(){
+      const tab = document.querySelector('#tab-meteo');
+      if (!tab || window.__wiredTab5Upload) return;
+      window.__wiredTab5Upload = true;
     
-        const file = tab.querySelector('input[type="file"][accept*=".gpx"]');
-        if (!file) return;
+      const fileInput = tab.querySelector('#meteoGpxFile, input[type="file"][accept*=".gpx"]');
+      const btnClear  = tab.querySelector('#btnClearMeteo');
     
-        file.addEventListener('click', ()=> {
-          const btnClear = findButtonByText(tab, /^\s*pulisci\s*$/i);
-          btnClear && btnClear.click();
-        }, { capture:true });
-      })();
+      if (!fileInput) return;
+    
+      let custom = tab.querySelector('#btnUploadGpx5');
+      if (!custom){
+        custom = document.createElement('button');
+        custom.id = 'btnUploadGpx5';
+        custom.type = 'button';
+        custom.className = 'btn small';
+        custom.textContent = 'Carica GPX';
+        fileInput.style.display = 'none';
+        fileInput.parentNode.insertBefore(custom, fileInput);
+      }
+    
+      // Qui NON auto-clicchiamo “Genera Meteo”: lo fai già nel tuo change handler.
+      custom.addEventListener('click', ()=>{
+        btnClear && btnClear.click();
+        setTimeout(()=> fileInput.click(), 0);
+      });
     })();
 </script> 
 </body>
