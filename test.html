@@ -3134,27 +3134,6 @@ window.gpxToMapsLink_Tab3Auto = function gpxToMapsLink_Tab3Auto(xml) {
   }
 };
 
-/* TAB 5 – pre-clear immediato + lock anti-race */
-(function () {
-  const fileInput = document.getElementById('meteoGpxFile');
-  const btnClear  = document.getElementById('btnClearMeteo');
-  if (!fileInput || !btnClear) return;
-
-  // 1) Pulisci SUBITO quando l’utente preme "Scegli file" (prima che si apra la dialog)
-  fileInput.addEventListener('pointerdown', () => {
-    btnClear.click();
-  }, { capture: true });
-
-  // 2) Se è disabilitato (elaborazione in corso), non riaprire la dialog
-  fileInput.addEventListener('click', (ev) => {
-    if (fileInput.disabled) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      window.toastCenter && toastCenter('Attendi: elaborazione in corso…');
-    }
-  }, { capture: true });
-})();
-
 /* === TAB 5: Upload GPX → genera link Maps (auto: TRK→RTE→WPT, max 25 punti) === */
 (function(){
   const fileInput = document.getElementById('meteoGpxFile');
@@ -3300,8 +3279,6 @@ window.gpxToMapsLink_Tab3Auto = function gpxToMapsLink_Tab3Auto(xml) {
     const f = fileInput.files && fileInput.files[0];
     if (!f) return;
 
-    fileInput.disabled = true;
-
     // pulisci prima
     btnClear?.click();
     
@@ -3335,7 +3312,6 @@ window.gpxToMapsLink_Tab3Auto = function gpxToMapsLink_Tab3Auto(xml) {
       toastCenter && toastCenter('Errore nella lettura del GPX');
     } finally {
       try { fileInput.value = ''; } catch {}
-      fileInput.disabled = false;
     }
   });
 })();
