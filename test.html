@@ -3111,6 +3111,29 @@ async function sharePayloadTextOnly(text) {
   }, { capture:true });
 })();
 
+// === Tab 3: "Scegli file" → pulisci subito (come premere Pulisci) ===
+(function(){
+  const tab       = document.getElementById('tab-gpx2maps');
+  if (!tab) return;
+
+  // prendi l’input file del Tab 3 e il suo bottone Pulisci
+  const fileInput = tab.querySelector('input[type="file"]');
+  const btnClear  = document.getElementById('btnClear3') || document.getElementById('btnClearGPX2Maps');
+
+  if (!fileInput || !btnClear) return;
+
+  // 1) appena l’utente preme "Scegli file" → fai pulizia prima di aprire la dialog
+  fileInput.addEventListener('pointerdown', () => {
+    btnClear.click();
+  }, { capture: true });
+
+  // 2) safety: al momento della selezione (change) ripeti la pulizia prima di processare
+  //    (in capture così avviene prima di eventuali altri handler)
+  fileInput.addEventListener('change', () => {
+    btnClear.click();
+  }, { capture: true });
+})();
+
 // === Headless clone del Tab 3: TRK → RTE → WPT, stessi helper/rounding, cap 25 ===
 // Requisiti: parseGPXText, partsFromPoints, optimizeTo25 devono essere già definiti (Tab 3).
 // → Sono quelli che costruiscono i token con blank iniziale e fanno il campionamento identico.
