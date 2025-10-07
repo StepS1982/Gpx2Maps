@@ -3139,6 +3139,35 @@ async function sharePayloadTextOnly(text) {
   fileInput.addEventListener('touchstart',  preClear, { capture: true });
 })();
 
+// === Tab 3: auto–premi "Analizza GPX" dopo la scelta del file ===
+(function(){
+  const tab        = document.getElementById('tab-gpx2maps');
+  if (!tab) return;
+
+  const fileInput  = tab.querySelector('input[type="file"]');
+  // ⬇️ METTI l'ID reale del tuo bottone "Analizza GPX"
+  const btnAnalyze = document.getElementById('btnParseGPX');
+  if (!fileInput || !btnAnalyze) return;
+
+  // evita doppi click automatici se l'utente ricarica lo stesso file al volo
+  let lastAutoAt = 0;
+
+  fileInput.addEventListener('change', ()=>{
+    // se non c'è davvero un file, esci
+    if (!fileInput.files || fileInput.files.length === 0) return;
+
+    const now = Date.now();
+    if (now - lastAutoAt < 300) return; // guard anti–spam
+    lastAutoAt = now;
+
+    // lascia che eventuali handler interni leggano il file, poi clicca
+    requestAnimationFrame(()=> {
+      // un ulteriore micro–delay evita condizioni di gara con altri listener "change"
+      setTimeout(()=> { btnAnalyze.click(); }, 0);
+    });
+  }, { capture:false });
+})();
+
 // === Headless clone del Tab 3: TRK → RTE → WPT, stessi helper/rounding, cap 25 ===
 // Requisiti: parseGPXText, partsFromPoints, optimizeTo25 devono essere già definiti (Tab 3).
 // → Sono quelli che costruiscono i token con blank iniziale e fanno il campionamento identico.
