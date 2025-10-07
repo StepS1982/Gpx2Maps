@@ -3136,7 +3136,8 @@ async function sharePayloadTextOnly(text) {
   // Pulisci prima che si apra la dialog (non tocchiamo CHANGE!)
   fileInput.addEventListener('pointerdown', preClear, { capture: true });
   fileInput.addEventListener('mousedown',   preClear, { capture: true });
-  fileInput.addEventListener('touchstart',  preClear, { capture: true });
+  fileInput.addEventListener('pointerdown', preClear, { capture: true });
+  fileInput.addEventListener('touchstart',  preClear, { capture: true, passive: true });
 })();
 
 // === Tab 3: auto–premi "Analizza GPX" dopo la scelta del file ===
