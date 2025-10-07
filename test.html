@@ -3202,6 +3202,28 @@ window.gpxToMapsLink_Tab3Auto = function gpxToMapsLink_Tab3Auto(xml) {
 
   if (!fileInput || !txtInput || !outBox) return;
 
+  // ——— Tab 5: pulisci PRIMA di aprire la dialog file ———
+  {
+    // evitiamo più clear mentre la dialog è aperta
+    let firedForThisOpen = false;
+  
+    const preClear = () => {
+      if (firedForThisOpen) return;
+      firedForThisOpen = true;
+  
+      // fai la stessa pulizia del bottone "Pulisci"
+      btnClear && btnClear.click();
+  
+      // se l'utente chiude la dialog senza scegliere, resetta il flag dopo un po'
+      setTimeout(() => { firedForThisOpen = false; }, 2000);
+    };
+  
+    // pulisci *prima* che il browser apra la dialog di scelta file
+    fileInput.addEventListener('pointerdown', preClear, { capture: true });
+    fileInput.addEventListener('mousedown',   preClear, { capture: true });
+    fileInput.addEventListener('touchstart',  preClear, { capture: true, passive: true });
+  }
+
   // assicurati che il bottone Condividi link Maps esista (come da tua logica attuale)
   if (!shareBtn){
     const row = document.createElement('div');
