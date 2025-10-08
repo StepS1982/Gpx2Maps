@@ -3192,12 +3192,11 @@ window.gpxToMapsLink_Tab3Auto = function gpxToMapsLink_Tab3Auto(xml) {
   }
 };
 
-// === Tab 4: "Scegli file" → pulisci PRIMA della dialog + auto–click "Sanitizza GPX" ===
+<!-- === Tab 4: "Scegli file" → pulisci PRIMA della dialog + auto–click "Sanitizza GPX" === -->
 (function(){
-  // ⬇️ METTI QUI GLI ID REALI DEL TAB 4, se diversi:
-  const fileInput  = document.getElementById('sanitizeFile');   // input type="file" del Tab 4
-  const btnClear   = document.getElementById('btnClear4');  // bottone "Pulisci" del Tab 4
-  const btnSanitize= document.getElementById('btnSanitize');  // bottone "Sanitizza GPX" del Tab 4
+  const fileInput   = document.getElementById('sanitizeFile');   // input type="file" del Tab 4
+  const btnClear    = document.getElementById('btnClear4');      // bottone "Pulisci"
+  const btnSanitize = document.getElementById('btnSanitize');    // bottone "Sanitizza GPX"
   if (!fileInput || !btnClear || !btnSanitize) return;
 
   // 1) PULIZIA PRIMA DI APRIRE LA DIALOG
@@ -3206,24 +3205,42 @@ window.gpxToMapsLink_Tab3Auto = function gpxToMapsLink_Tab3Auto(xml) {
     if (firedForThisOpen) return;
     firedForThisOpen = true;
     btnClear.click();
-
-    // reset se l’utente chiude la dialog senza scegliere
+    // safety reset se l’utente chiude la dialog senza scegliere
     setTimeout(()=>{ firedForThisOpen = false; }, 2000);
   };
   fileInput.addEventListener('pointerdown', preClear, { capture:true });
   fileInput.addEventListener('mousedown',   preClear, { capture:true });
   fileInput.addEventListener('touchstart',  preClear, { capture:true, passive:true });
 
-  // 2) DOPO LA SCELTA DEL FILE → AUTO "Sanitizza GPX"
+  // 2) DOPO LA SCELTA DEL FILE → AUTO "Sanitizza GPX" QUANDO LA TEXTAREA È PIENA
   let lastAutoAt = 0;
   fileInput.addEventListener('change', ()=>{
+    // reset del guard di apertura
+    firedForThisOpen = false;
+
     if (!fileInput.files || fileInput.files.length === 0) return;
+
     const now = Date.now();
     if (now - lastAutoAt < 300) return; // piccolo guard anti-doppio
     lastAutoAt = now;
 
-    // lascia leggere il file agli altri listener, poi click
-    requestAnimationFrame(()=> setTimeout(()=> btnSanitize.click(), 0));
+    const inEl = document.getElementById('sanitizeInput'); // tua textarea
+    const start = performance.now();
+
+    (function waitForText(){
+      const hasText = !!(inEl && inEl.value && inEl.value.trim().length > 0);
+      if (hasText) {
+        // lascia un micro-tick ai listener, poi clicca
+        requestAnimationFrame(()=> setTimeout(()=> btnSanitize.click(), 0));
+        return;
+      }
+      if (performance.now() - start > 1500) {
+        // timeout: clicchiamo comunque (come comportamento attuale)
+        requestAnimationFrame(()=> setTimeout(()=> btnSanitize.click(), 0));
+        return;
+      }
+      setTimeout(waitForText, 50);
+    })();
   }, { capture:false });
 })();
 
