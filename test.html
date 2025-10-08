@@ -3192,6 +3192,41 @@ window.gpxToMapsLink_Tab3Auto = function gpxToMapsLink_Tab3Auto(xml) {
   }
 };
 
+// === Tab 4: "Scegli file" → pulisci PRIMA della dialog + auto–click "Sanitizza GPX" ===
+(function(){
+  // ⬇️ METTI QUI GLI ID REALI DEL TAB 4, se diversi:
+  const fileInput  = document.getElementById('sanitizeFile');   // input type="file" del Tab 4
+  const btnClear   = document.getElementById('btnClear4');  // bottone "Pulisci" del Tab 4
+  const btnSanitize= document.getElementById('btnSanitize');  // bottone "Sanitizza GPX" del Tab 4
+  if (!fileInput || !btnClear || !btnSanitize) return;
+
+  // 1) PULIZIA PRIMA DI APRIRE LA DIALOG
+  let firedForThisOpen = false;
+  const preClear = () => {
+    if (firedForThisOpen) return;
+    firedForThisOpen = true;
+    btnClear.click();
+
+    // reset se l’utente chiude la dialog senza scegliere
+    setTimeout(()=>{ firedForThisOpen = false; }, 2000);
+  };
+  fileInput.addEventListener('pointerdown', preClear, { capture:true });
+  fileInput.addEventListener('mousedown',   preClear, { capture:true });
+  fileInput.addEventListener('touchstart',  preClear, { capture:true, passive:true });
+
+  // 2) DOPO LA SCELTA DEL FILE → AUTO "Sanitizza GPX"
+  let lastAutoAt = 0;
+  fileInput.addEventListener('change', ()=>{
+    if (!fileInput.files || fileInput.files.length === 0) return;
+    const now = Date.now();
+    if (now - lastAutoAt < 300) return; // piccolo guard anti-doppio
+    lastAutoAt = now;
+
+    // lascia leggere il file agli altri listener, poi click
+    requestAnimationFrame(()=> setTimeout(()=> btnSanitize.click(), 0));
+  }, { capture:false });
+})();
+
 /* === TAB 5: Upload GPX → genera link Maps (auto: TRK→RTE→WPT, max 25 punti) === */
 (function(){
   const fileInput = document.getElementById('meteoGpxFile');
