@@ -20,7 +20,7 @@ Google Maps ha limiti stretti sui punti della rotta: GPX2MAPS aiuta a unirli/ott
 - **Maps → GPX**: genera due file (RTE e TRK) + WPT; nomi e encoding puliti.
 - **GPX → Maps**: crea uno o più link navigabili dai punti del tuo GPX.
 - **Sanitizza**: rounding a 6 decimali, rimozione duplicati adiacenti, output LF/UTF-8.
-- **Meteo**: tabella 7×4 con condizioni e min/max per ogni località. File generati: HTML/TXT/CSV. Gli ultimi due formati servono per i tempi e le distanze totali e parziali tra le varie località dell'itinerario.
+- **Meteo**: tabella 7×4 con condizioni e min/max per ogni località. File generati: HTML/TXT/CSV. Gli ultimi due formati servono per i tempi e le distanze totali e parziali tra le varie località dell'itinerario. Meteo estraibile sia da link Google Maps che anche da GPX. E' possibile avere il meteo anche solo scrivendo le località una sotto l'altra.
 
 ## Come si usa
 1. Apri https://gpx2maps.pages.dev/
