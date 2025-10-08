@@ -3,9 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://gpx2maps.pages.dev/">
   <title>GPX2MAPS Web-APP</title>
   <meta name="google-site-verification" content="Sn6U8QFAM6SWtcwZI100_ng2bAGE6a3eYRuwQMtC2Bc" />
-  <link rel="canonical" href="https://gpx2maps.pages.dev/">
   <link rel="icon" href="/gpx2maps_icon_1024.png" sizes="any">
   <meta name="description" content="Software per gestire al 100% itinerari con Google Maps in modalità navigabile">
   <meta property="og:locale" content="it_IT">
@@ -120,6 +121,22 @@
       color:#433800;
       border-color:#e7d767;
     }
+    /* Barra azioni Tab 5 su una sola riga */
+    #tab-meteo .actions-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: nowrap;          /* niente a capo */
+      margin-top: 8px;
+    }
+    /* evita che il file input spacchi la riga */
+    #tab-meteo .actions-line input[type="file"] {
+      max-width: 380px;           /* regola a piacere */
+    }
+    /* su schermi molto piccoli consenti il wrap */
+    @media (max-width: 480px){
+      #tab-meteo .actions-line { flex-wrap: wrap; }
+    }
   </style>
 </head>
 <body>
@@ -195,6 +212,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
               <div id="output"></div>
               <div class="row" style="margin-top:10px;">
                 <button id="btnDownloadAll" class="btn small" style="display:none;">Scarica .txt</button>
+                <button id="btnShare_btnDownloadAll" class="btn small">Condividi</button>
               </div>
             </div>
           </div>
@@ -282,6 +300,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
               <div id="output3"></div>
               <div class="row" style="margin-top:10px;">
                 <button id="btnDownloadAll3" class="btn small" style="display:none;">Scarica .txt</button>
+                <button id="btnShare_btnDownloadAll3" class="btn small">Condividi</button>
               </div>
             </div>
           </div>
@@ -331,6 +350,9 @@ chiavari genova
 Funziona anche con le coordinate di latitudine e longitudine
 NOTA BENE: Per avere la certezza assoluta di leggere precisamente i punti da un link google maps, sarebbe meglio che per ogni località cercata e messa come tappa su Maps, si prendesse con il mouse quel punto e lo si spostasse leggermente in avanti o indietro sul percorso della mappa.
 Con questa strategia, Maps trasformerà la località come coordinate e non come 'nome punto', per avere una precisione al 100%"></textarea>
+          <div class="row" style="margin-top:12px;">
+            <input id="meteoGpxFile" type="file" accept=".gpx,application/gpx+xml" />
+          </div>
           <div class="row" style="margin-top:12px;">
             <button id="btnGenMeteo" class="btn">Genera Meteo + Info percorso</button>
             <button id="btnClearMeteo" class="btn ghost">Pulisci</button>
@@ -2134,7 +2156,7 @@ function focusResultsSection(sel){
         let parts = seg.split('/');
         // se il primo è vuoto => chiedi località
         if(parts[0]===''){
-          const first = window.prompt('Il link ha la prima posizione vuota. Inserisci la prima località in formato città e provincia per esteso anche in minuscolo. Esempio: arluno milano:','');
+          const first = window.prompt('Inserisci la prima posizione di partenza, per esempio la città dove abiti. Usa il formato città e provincia per esteso anche in minuscolo. Esempio: arluno milano:','');
           if(!first) throw new Error('Operazione annullata: prima località mancante');
           parts[0] = encodeURIComponent(first).replace(/%20/g,'+');
         }
@@ -2906,6 +2928,557 @@ function focusResultsSection(sel){
         }
     );
   })();
-</script>
+
+// ===== Condividi SOLO TESTO (evita che il browser appiccichi l'URL della pagina) =====
+async function sharePayloadTextOnly(text) {
+  const hasWebShare = typeof navigator.share === 'function';
+  const payload = (text || '').trim();
+
+  if (!payload) {
+    toastCenter && toastCenter('Niente da condividere');
+    return false;
+  }
+  if (!hasWebShare) {
+    toastCenter && toastCenter('Condivisione non supportata su questo dispositivo');
+    return false;
+  }
+
+  try {
+    // Passiamo SOLO { text }, niente title/url = niente URL della pagina.
+    await navigator.share({ text: payload });
+    return true; // silenzio su annullo
+  } catch (e) {
+    const s = ((e?.name) + ' ' + (e?.message || '')).toLowerCase();
+    if (/abort|cancel|dismiss|close/.test(s)) return false;
+    toastCenter && toastCenter('Impossibile condividere');
+    return false;
+  }
+}
+
+/* GPX -> Maps (headless): TRK > RTE > WPT, dedupe adiacente, ottimizza a 25 totali
+   (24 punti + primo segmento vuoto “//”), rounding a 6 decimali */
+
+
+// ===== Wiring 'Condividi' per ciascun tab =====
+
+// === Tab 1 (Fusione) — Condividi: mostra se ci sono URL anche nel testo (no <a>) ===
+(function(){
+  const TAB_SEL        = '#tab-merge';
+  const OUTPUT_SEL     = '#output';                   // contenitore risultato fusione
+  const CLEAR_BTN_IDS  = ['btnClear','btnClearMerge']; // copriamo entrambe le varianti
+  const SHARE_BTN_ID   = 'btnShare_btnDownloadAll';
+
+  // util
+  function show(el){ if(el) el.style.display=''; }
+  function hide(el){ if(el) el.style.display='none'; }
+  const hasHttpLinkText = (t) => /\bhttps?:\/\/\S+/i.test(t||'');
+
+  const tab    = document.querySelector(TAB_SEL) || document.body;
+  let   out    = document.querySelector(OUTPUT_SEL) || tab.querySelector('.out') || tab;
+  let   share  = document.getElementById(SHARE_BTN_ID);
+
+  // se manca il bottone, crealo in coda ai pulsanti risultati
+  if (!share){
+    const host = tab.querySelector('.out .row') || tab.querySelector('.out') || tab;
+    const b = document.createElement('button');
+    b.id = SHARE_BTN_ID; b.className = 'btn small'; b.textContent = 'Condividi'; b.style.display = 'none';
+    host.appendChild(b);
+    share = b;
+  }
+
+  // funzione che decide visibilità
+  function update(){
+    if (!share || !out) return;
+    const text = (out.innerText || out.textContent || '').trim();
+    const hasAnchors = !!out.querySelector('a[href^="http"]');
+    if (hasAnchors || hasHttpLinkText(text)) show(share); else hide(share);
+  }
+
+  // osserva anche cambi di testo
+  const mo = new MutationObserver(update);
+  mo.observe(out, { childList:true, subtree:true, attributes:true, characterData:true });
+
+  // iniziale
+  setTimeout(update, 0);
+
+  // PULISCI -> nascondi
+  CLEAR_BTN_IDS.forEach(id=>{
+    const btn = document.getElementById(id);
+    if (btn) btn.addEventListener('click', ()=> hide(share), { capture:true });
+  });
+
+  // click Condividi -> URL (da <a> o estratti dal testo). Nessun fallback extra: decide sharePayload.
+(document.getElementById('tab-merge') || document).addEventListener('click', async (ev)=>{
+  const hit = ev.target && ev.target.closest && ev.target.closest('#' + SHARE_BTN_ID);
+  if (!hit) return;
+
+  // Guard per evitare doppi handler / doppio toast
+  if (window.__shareClickTab1) return;
+  window.__shareClickTab1 = true;
+
+  try {
+    const anchors = Array.from(out.querySelectorAll('a[href^="http"]')).map(a=>a.href);
+    let payload = anchors.join('\n');
+
+    if (!payload){
+      const text = (out.innerText || out.textContent || '').trim();
+      const urls = (text.match(/\bhttps?:\/\/\S+/gi) || []);
+      payload = urls.length ? urls.join('\n') : text;
+    }
+
+    if (!payload){
+      window.toastCenter && toastCenter('Niente da condividere');
+      return;
+    }
+
+    await sharePayloadTextOnly(payload);
+
+  } finally {
+    window.__shareClickTab1 = false;
+  }
+}, { capture:true });
+})();
+
+// === Tab 3 (GPX → Maps) — Condividi: mostra solo se ci sono link/URL nell'output ===
+(function(){
+  const TAB_SEL        = '#tab-gpx2maps';
+  const OUTPUT_SEL     = '#output3';
+  const SHARE_BTN_ID   = 'btnShare_btnDownloadAll3';
+  const CLEAR_BTN_IDS  = ['btnClear3','btnClearGPX2Maps']; // copriamo varianti/naming
+
+  // util
+  const show   = el => { if (el) el.style.display = ''; };
+  const hide   = el => { if (el) el.style.display = 'none'; };
+  const hasHttpLinkText = (t) => /\bhttps?:\/\/\S+/i.test(t||'');
+
+  const tab   = document.querySelector(TAB_SEL) || document.body;
+  const out   = document.querySelector(OUTPUT_SEL) || tab.querySelector('.out') || tab;
+  const share = document.getElementById(SHARE_BTN_ID);
+
+  if (!out || !share) return;
+
+  // nascondi inizialmente il bottone (uniformità con Tab 1)
+  hide(share);
+
+  // decide visibilità: se ci sono <a href="http..."> o testo con http/https
+  function update(){
+    const text = (out.innerText || out.textContent || '').trim();
+    const hasAnchors = !!out.querySelector('a[href^="http"]');
+    (hasAnchors || hasHttpLinkText(text)) ? show(share) : hide(share);
+  }
+
+  // osserva cambi (DOM e attributi) nell'area output
+  const mo = new MutationObserver(update);
+  mo.observe(out, { childList:true, subtree:true, attributes:true, characterData:true });
+
+  // check iniziale
+  setTimeout(update, 0);
+
+  // PULISCI -> nascondi
+  CLEAR_BTN_IDS.forEach(id=>{
+    const btn = document.getElementById(id);
+    if (btn) btn.addEventListener('click', ()=> hide(share), { capture:true });
+  });
+
+  // Click "Condividi": raccogli link (da <a>) o http nel testo, altrimenti tutto il testo
+  tab.addEventListener('click', async (ev)=>{
+    const hit = ev.target && ev.target.closest && ev.target.closest('#' + SHARE_BTN_ID);
+    if (!hit) return;
+
+    // guard anti-doppio
+    if (window.__shareClickTab3) return;
+    window.__shareClickTab3 = true;
+
+    try{
+      const anchors = Array.from(out.querySelectorAll('a[href^="http"]')).map(a=>a.href);
+      let payload = anchors.join('\n');
+
+      if (!payload){
+        const text = (out.innerText || out.textContent || '').trim();
+        const urls = (text.match(/\bhttps?:\/\/\S+/gi) || []);
+        payload = urls.length ? urls.join('\n') : text;
+      }
+
+      if (!payload){
+        window.toastCenter && toastCenter('Niente da condividere');
+        return;
+      }
+
+      await sharePayloadTextOnly(payload);
+    } finally {
+      window.__shareClickTab3 = false;
+    }
+  }, { capture:true });
+})();
+
+// === Tab 3: "Scegli file" → pulisci PRIMA di aprire la dialog (niente clear su change) ===
+(function(){
+  const tab       = document.getElementById('tab-gpx2maps');
+  if (!tab) return;
+
+  const fileInput = tab.querySelector('input[type="file"]');
+  const btnClear  = document.getElementById('btnClear3') || document.getElementById('btnClearGPX2Maps');
+  if (!fileInput || !btnClear) return;
+
+  // Guard per non sparare più clear mentre la dialog è aperta
+  let firedForThisOpen = false;
+  const preClear = () => {
+    if (firedForThisOpen) return;
+    firedForThisOpen = true;
+    btnClear.click();
+    // reset il flag al prossimo "change" o quando la dialog viene chiusa senza scelta
+    const reset = () => { firedForThisOpen = false; fileInput.removeEventListener('change', reset, true); };
+    fileInput.addEventListener('change', reset, true);
+    // in caso l’utente chiuda la dialog senza scegliere, rimettiamo a posto dopo un tick
+    setTimeout(()=>{ if (firedForThisOpen) firedForThisOpen = false; }, 2000);
+  };
+
+  // Pulisci prima che si apra la dialog (non tocchiamo CHANGE!)
+  fileInput.addEventListener('pointerdown', preClear, { capture: true });
+  fileInput.addEventListener('mousedown',   preClear, { capture: true });
+  fileInput.addEventListener('pointerdown', preClear, { capture: true });
+  fileInput.addEventListener('touchstart',  preClear, { capture: true, passive: true });
+})();
+
+// === Tab 3: auto–premi "Analizza GPX" dopo la scelta del file ===
+(function(){
+  const tab        = document.getElementById('tab-gpx2maps');
+  if (!tab) return;
+
+  const fileInput  = tab.querySelector('input[type="file"]');
+  // ⬇️ METTI l'ID reale del tuo bottone "Analizza GPX"
+  const btnAnalyze = document.getElementById('btnParseGPX');
+  if (!fileInput || !btnAnalyze) return;
+
+  // evita doppi click automatici se l'utente ricarica lo stesso file al volo
+  let lastAutoAt = 0;
+
+  fileInput.addEventListener('change', ()=>{
+    // se non c'è davvero un file, esci
+    if (!fileInput.files || fileInput.files.length === 0) return;
+
+    const now = Date.now();
+    if (now - lastAutoAt < 300) return; // guard anti–spam
+    lastAutoAt = now;
+
+    // lascia che eventuali handler interni leggano il file, poi clicca
+    requestAnimationFrame(()=> {
+      // un ulteriore micro–delay evita condizioni di gara con altri listener "change"
+      setTimeout(()=> { btnAnalyze.click(); }, 0);
+    });
+  }, { capture:false });
+})();
+
+// === Headless clone del Tab 3: TRK → RTE → WPT, stessi helper/rounding, cap 25 ===
+// Requisiti: parseGPXText, partsFromPoints, optimizeTo25 devono essere già definiti (Tab 3).
+// → Sono quelli che costruiscono i token con blank iniziale e fanno il campionamento identico.
+window.gpxToMapsLink_Tab3Auto = function gpxToMapsLink_Tab3Auto(xml) {
+  try {
+    // parsing con rounding/fmt6s come Tab 3
+    const g = parseGPXText(xml);     // ← Tab 3: parse GPX, lat/lon già arrotondati
+    // priorità: TRK → RTE → WPT (come richiesto)
+    const pts = (g.trk && g.trk.length) ? g.trk
+              : (g.rte && g.rte.length) ? g.rte
+              : (g.wpt || []);
+    if (!pts.length) return '';
+
+    // costruzione token e dedupe adiacente (identici al Tab 3)
+    let parts = partsFromPoints(pts); // ['','lat,lon', ...] con blank iniziale
+    if (parts.length > 25) parts = optimizeTo25(parts); // stesso sampler del Tab 3
+
+    return 'https://www.google.com/maps/dir/' + parts.join('/');
+  } catch {
+    return '';
+  }
+};
+
+<!-- === Tab 4: "Scegli file" → pulisci PRIMA della dialog + auto–click "Sanitizza GPX" === -->
+(function(){
+  const fileInput   = document.getElementById('sanitizeFile');   // input type="file" del Tab 4
+  const btnClear    = document.getElementById('btnClear4');      // bottone "Pulisci"
+  const btnSanitize = document.getElementById('btnSanitize');    // bottone "Sanitizza GPX"
+  if (!fileInput || !btnClear || !btnSanitize) return;
+
+  // 1) PULIZIA PRIMA DI APRIRE LA DIALOG
+  let firedForThisOpen = false;
+  const preClear = () => {
+    if (firedForThisOpen) return;
+    firedForThisOpen = true;
+    btnClear.click();
+    // safety reset se l’utente chiude la dialog senza scegliere
+    setTimeout(()=>{ firedForThisOpen = false; }, 2000);
+  };
+  fileInput.addEventListener('pointerdown', preClear, { capture:true });
+  fileInput.addEventListener('mousedown',   preClear, { capture:true });
+  fileInput.addEventListener('touchstart',  preClear, { capture:true, passive:true });
+
+  // 2) DOPO LA SCELTA DEL FILE → AUTO "Sanitizza GPX" QUANDO LA TEXTAREA È PIENA
+  let lastAutoAt = 0;
+  fileInput.addEventListener('change', ()=>{
+    // reset del guard di apertura
+    firedForThisOpen = false;
+
+    if (!fileInput.files || fileInput.files.length === 0) return;
+
+    const now = Date.now();
+    if (now - lastAutoAt < 300) return; // piccolo guard anti-doppio
+    lastAutoAt = now;
+
+    const inEl = document.getElementById('sanitizeInput'); // tua textarea
+    const start = performance.now();
+
+    (function waitForText(){
+      const hasText = !!(inEl && inEl.value && inEl.value.trim().length > 0);
+      if (hasText) {
+        // lascia un micro-tick ai listener, poi clicca
+        requestAnimationFrame(()=> setTimeout(()=> btnSanitize.click(), 0));
+        return;
+      }
+      if (performance.now() - start > 1500) {
+        // timeout: clicchiamo comunque (come comportamento attuale)
+        requestAnimationFrame(()=> setTimeout(()=> btnSanitize.click(), 0));
+        return;
+      }
+      setTimeout(waitForText, 50);
+    })();
+  }, { capture:false });
+})();
+
+/* === TAB 5: Upload GPX → genera link Maps (auto: TRK→RTE→WPT, max 25 punti) === */
+(function(){
+  const fileInput = document.getElementById('meteoGpxFile');
+  const txtInput  = document.getElementById('meteoInput');
+  const btnClear  = document.getElementById('btnClearMeteo');
+  const outBox    = document.querySelector('#tab-meteo .out .bd') || document.getElementById('meteoOut');
+  let   shareBtn  = document.getElementById('btnShareMeteoLink');
+
+  if (!fileInput || !txtInput || !outBox) return;
+
+  // ——— Tab 5: pulisci PRIMA di aprire la dialog file ———
+  {
+    // evitiamo più clear mentre la dialog è aperta
+    let firedForThisOpen = false;
+  
+    const preClear = () => {
+      if (firedForThisOpen) return;
+      firedForThisOpen = true;
+  
+      // fai la stessa pulizia del bottone "Pulisci"
+      btnClear && btnClear.click();
+  
+      // se l'utente chiude la dialog senza scegliere, resetta il flag dopo un po'
+      setTimeout(() => { firedForThisOpen = false; }, 2000);
+    };
+  
+    // pulisci *prima* che il browser apra la dialog di scelta file
+    fileInput.addEventListener('pointerdown', preClear, { capture: true });
+    fileInput.addEventListener('mousedown',   preClear, { capture: true });
+    fileInput.addEventListener('touchstart',  preClear, { capture: true, passive: true });
+  }
+
+  // assicurati che il bottone Condividi link Maps esista (come da tua logica attuale)
+  if (!shareBtn){
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.style.marginTop = '10px';
+    row.innerHTML = `<button id="btnShareMeteoLink" class="btn small" style="display:none;">Condividi link Maps</button>`;
+    outBox.appendChild(row);
+    shareBtn = row.querySelector('#btnShareMeteoLink');
+  }
+
+  // Nascondi inizialmente
+  shareBtn.style.display = 'none';
+  
+  // Click "Condividi link Maps" → condividi SOLO il link presente nella textarea
+  shareBtn.addEventListener('click', async ()=>{
+    const url = (txtInput.value || '').trim();
+    if (!url) { toastCenter && toastCenter('Niente da condividere'); return; }
+    if (window.__shareClickTab5) return;         // anti-doppio
+    window.__shareClickTab5 = true;
+    try {
+      await sharePayloadTextOnly(url);            // usa la tua share SOLO TESTO
+    } finally {
+      window.__shareClickTab5 = false;
+    }
+  });
+  
+  // PULISCI → nascondi il bottone
+  btnClear?.addEventListener('click', ()=>{
+    shareBtn.style.display = 'none';
+  }, { capture:true });
+
+  // ------- helper headless: parse + dedupe + sample + build URL (clone Tab3) -------
+  const bankers6 = (typeof window.bankers6 === 'function')
+    ? window.bankers6
+    : (n)=>Number(n).toFixed(6);
+
+  function parseGPXAll(xml){
+    const doc = new DOMParser().parseFromString(xml, 'application/xml');
+    if (doc.querySelector('parsererror')) return {trk:[], rte:[], wpt:[]};
+    const trk=[], rte=[], wpt=[];
+    doc.querySelectorAll('trk trkseg trkpt').forEach(pt=>{
+      const la = parseFloat(pt.getAttribute('lat'));
+      const lo = parseFloat(pt.getAttribute('lon'));
+      if (isFinite(la) && isFinite(lo)) trk.push([la,lo]);
+    });
+    doc.querySelectorAll('rte rtept').forEach(pt=>{
+      const la = parseFloat(pt.getAttribute('lat'));
+      const lo = parseFloat(pt.getAttribute('lon'));
+      if (isFinite(la) && isFinite(lo)) rte.push([la,lo]);
+    });
+    doc.querySelectorAll('wpt').forEach(pt=>{
+      const la = parseFloat(pt.getAttribute('lat'));
+      const lo = parseFloat(pt.getAttribute('lon'));
+      if (isFinite(la) && isFinite(lo)) wpt.push([la,lo]);
+    });
+    return {trk, rte, wpt};
+  }
+
+  function pickPriority(g){           // TRK → RTE → WPT
+    if (g.trk && g.trk.length) return g.trk;
+    if (g.rte && g.rte.length) return g.rte;
+    return g.wpt || [];
+  }
+
+  function dedupeAdjacent(points){    // dedupe adiacente con rounding identico
+    const out=[]; let prev='';
+    for (const [la,lo] of points){
+      const cur = `${bankers6(la)},${bankers6(lo)}`;
+      if (cur!==prev) out.push([la,lo]), prev=cur;
+    }
+    return out;
+  }
+
+  // campionamento uniforme con estremi fissati; “maxInterior = 24” → totale 25 con “//”
+  function sampleKeepEnds(points, maxInterior){
+    if (points.length <= maxInterior) return points.slice();
+    const head = points[0], tail = points[points.length-1];
+    const innerNeed = Math.max(0, maxInterior - 2);
+    const inner = points.slice(1, -1);
+    if (innerNeed <= 0) return [head, tail];
+
+    const chosen = [];
+    for (let i=0; i<innerNeed; i++){
+      const idx = Math.round((i+1) * inner.length / (innerNeed+1)) - 1;
+      chosen.push(inner[Math.max(0, Math.min(idx, inner.length-1))]);
+    }
+    return [head, ...chosen, tail];
+  }
+
+  function buildMapsDirURL(coords){
+    const segs=['']; // primo vuoto = “LA TUA POSIZIONE”
+    for (const [lat,lon] of coords){
+      segs.push(`${bankers6(lat)},${bankers6(lon)}`);
+    }
+    return 'https://www.google.com/maps/dir/'+segs.join('/');
+  }
+
+  async function headlessBuildUrl(xml){
+    const g = parseGPXAll(xml);
+    let pts = pickPriority(g);
+    if (!pts || !pts.length) return '';
+    pts = dedupeAdjacent(pts);
+    pts = sampleKeepEnds(pts, 24); // 24 + “//” = 25 totali
+    return buildMapsDirURL(pts);
+  }
+
+  // ------- “best effort”: prima provo la funzione del Tab 3 con prefer forzata, poi headless -------
+  async function resolveMapsUrlFromGpx(xml){
+    // attendo un attimo se gpxToMapsLink non è ancora definita
+    const waitFor = (cond, tries=12, delay=50) =>
+      new Promise(async (res)=>{ for (let i=0;i<tries;i++){ if (cond()) break; await new Promise(r=>setTimeout(r,delay)); } res(); });
+
+    await waitFor(()=> typeof window.gpxToMapsLink === 'function');
+
+    const callTab3 = (prefer) => {
+      try{
+        if (typeof window.gpxToMapsLink !== 'function') return '';
+        // NB: forceOptimized:true, prefer:<trk|rte|wpt> — nessuna UI
+        return window.gpxToMapsLink(xml, { forceOptimized:true, prefer }) || '';
+      }catch(_){ return ''; }
+    };
+
+    // TRK → RTE → WPT
+    let url = callTab3('trk') || callTab3('rte') || callTab3('wpt');
+    if (url) return url;
+
+    // fallback headless (stessa arrotondatura, 25 punti)
+    return await headlessBuildUrl(xml);
+  }
+
+  // ------- listener upload GPX (sostituisce il tuo attuale del Tab 5) -------
+  fileInput.addEventListener('change', async ()=>{
+    const f = fileInput.files && fileInput.files[0];
+    if (!f) return;
+
+    // pulisci prima
+    btnClear?.click();
+    
+    try {
+      const xml = await (fileInput.files && fileInput.files[0] ? fileInput.files[0].text() : Promise.resolve(''));
+    
+      // 100% clone Tab 3, auto-priority + cap 25
+      const url = (typeof window.gpxToMapsLink_Tab3Auto === 'function')
+        ? window.gpxToMapsLink_Tab3Auto(xml)
+        : '';
+    
+      if (!url) {
+        toastCenter && toastCenter('GPX non valido o nessun punto utile');
+        return;
+      }
+    
+      // Scrivi nella textarea e notifica eventuali listener
+      txtInput.value = url;
+      txtInput.dispatchEvent(new Event('input', { bubbles:true }));
+    
+      // Mostra “Condividi link Maps”
+      shareBtn.style.display = '';
+      toastCenter && toastCenter('Link Maps generato dal GPX');
+    
+      // Auto-start del meteo (dopo 1 frame per evitare race)
+      const btn = document.getElementById('btnGenMeteo');
+      requestAnimationFrame(()=>{ btn && btn.click(); });
+    
+    } catch (e) {
+      console.error(e);
+      toastCenter && toastCenter('Errore nella lettura del GPX');
+    } finally {
+      try { fileInput.value = ''; } catch {}
+    }
+  });
+})();
+    (function(){
+      const tab   = document.getElementById('tab-meteo');
+      const file  = document.getElementById('meteoGpxFile');
+      const gen   = document.getElementById('btnGenMeteo');
+      const clear = document.getElementById('btnClearMeteo');
+      if (!tab || !file || !gen || !clear) return;
+    
+      // crea la riga orizzontale
+      const line = document.createElement('div');
+      line.className = 'row actions-line';
+    
+      // dove inserirla: usa il contenitore dove oggi vivono i controlli
+      const host = file.parentElement; // va benissimo anche se era su una "row"
+      host.insertBefore(line, file);   // metti la linea al posto giusto
+    
+      // sposta i 3 controlli dentro la riga, nell'ordine desiderato
+      line.appendChild(file);
+    
+      // elimina eventuali <br> o spazi forti tra i controlli originali
+      function stripBreaks(fromEl, untilEl){
+        let n = fromEl.nextSibling;
+        while (n && n !== untilEl){
+          const rm = n;
+          n = n.nextSibling;
+          if (rm.nodeType === 3 || (rm.nodeType === 1 && rm.tagName === 'BR')) rm.remove();
+        }
+      }
+      stripBreaks(file, gen);
+      line.appendChild(gen);
+      stripBreaks(gen, clear);
+      line.appendChild(clear);
+    })();
+</script> 
 </body>
 </html>
