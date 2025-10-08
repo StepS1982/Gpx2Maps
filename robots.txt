@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
 Sitemap: https://gpx2maps.pages.dev/sitemap.xml
+Sitemap: https://gpx2maps.pages.dev/sitemap.txt
 Disallow: /test.html
