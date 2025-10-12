@@ -1,12 +1,12 @@
 <!doctype html>
 <html lang="it">
 <head>
+  <meta name="robots" content="noindex, nofollow">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://gpx2maps.pages.dev/">
   <title>GPX2MAPS Web-APP</title>
   <meta name="google-site-verification" content="Sn6U8QFAM6SWtcwZI100_ng2bAGE6a3eYRuwQMtC2Bc" />
+  <link rel="canonical" href="https://gpx2maps.pages.dev/">
   <link rel="icon" href="/gpx2maps_icon_1024.png" sizes="any">
   <meta name="description" content="Software per gestire al 100% itinerari con Google Maps in modalità navigabile">
   <meta property="og:locale" content="it_IT">
@@ -281,7 +281,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
         
           <!-- pulsanti SOTTO la textarea, come nel tab Sanitizza -->
           <div class="row" style="margin-top:12px;">
-            <input id="gpxFile" type="file" accept=".gpx,.GPX,application/gpx+xml,application/octet-stream,application/xml,text/xml,text/plain" />
+            <input id="gpxFile" type="file" accept=".gpx,application/gpx+xml,text/xml" />
             <button id="btnParseGPX" class="btn">Analizza GPX</button>
             <button id="btnClear3" class="btn ghost">Pulisci</button>
           </div>
@@ -315,7 +315,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
           <label for="sanitizeInput" style="font-weight:800;">Carica un file GPX (o incolla il testo del GPX)</label>
           <textarea id="sanitizeInput" placeholder="Inserisci/incolla QUI il contenuto GPX o carica un file dall'apposito pulsante sottostante"></textarea>
           <div class="row" style="margin-top:12px;">
-            <input id="sanitizeFile" type="file" accept=".gpx,.GPX,application/gpx+xml,application/octet-stream,application/xml,text/xml,text/plain" />
+            <input id="sanitizeFile" type="file" accept=".gpx,application/gpx+xml" />
             <button id="btnSanitize" class="btn">Sanitizza GPX</button>
             <button id="btnClear4" class="btn ghost">Pulisci</button>
           </div>
@@ -342,9 +342,8 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
       <div class="hd">5) Meteo + Info percorso</div>
       <div class="bd grid grid-2">
         <div>
-          <label for="meteoInput" style="font-weight:800;">Inserisci/incolla UN SOLO link Google Maps (itinerario) o una lista di indirizzi/coordinate (uno per riga). Puoi anche caricare un file GPX.</label>
+          <label for="meteoInput" style="font-weight:800;">Inserisci/incolla UN SOLO link Google Maps (itinerario) o una lista di indirizzi/coordinate (uno per riga)</label>
           <textarea id="meteoInput" placeholder="Inserisci/incolla QUI il tuo link google maps, per visualizzare il meteo di ogni località e per avere tutte le informazioni sul percorso in ordine di località.
-E' anche possibile estrarre il meteo da un file GPX, selezionandolo con l'apposito pulsante 'Scegli file' in basso.
 Funziona anche se inserisci le località per esteso con la loro provincia per esteso. Esempio:
 arluno milano
 chiavari genova
@@ -352,7 +351,7 @@ Funziona anche con le coordinate di latitudine e longitudine
 NOTA BENE: Per avere la certezza assoluta di leggere precisamente i punti da un link google maps, sarebbe meglio che per ogni località cercata e messa come tappa su Maps, si prendesse con il mouse quel punto e lo si spostasse leggermente in avanti o indietro sul percorso della mappa.
 Con questa strategia, Maps trasformerà la località come coordinate e non come 'nome punto', per avere una precisione al 100%"></textarea>
           <div class="row" style="margin-top:12px;">
-            <input id="meteoGpxFile" type="file" accept=".gpx,.GPX,application/gpx+xml,application/octet-stream,application/xml,text/xml,text/plain" />
+            <input id="meteoGpxFile" type="file" accept=".gpx,application/gpx+xml" />
           </div>
           <div class="row" style="margin-top:12px;">
             <button id="btnGenMeteo" class="btn">Genera Meteo + Info percorso</button>
@@ -416,7 +415,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
     
         <h4>5) Meteo + Info percorso</h4>
         <ul>
-          <li>Inserisci un link Maps oppure delle località (minimo due e una per riga). E' anche possibile estrarre il meteo direttamente da un file GPX selezionandolo con l'apposito pulsante "Scegli file". Se il link dovesse contenere come primo punto, un punto vuoto, che il cellulare traduce con: "LA TUA POSIZIONE GPS", ti verrà richiesto di inserire la prima località di partenza non potendo estrarre da questa WEB-APP la posizione GPS.</li>
+          <li>Inserisci un link Maps oppure delle località (minimo due e una per riga). Se il link dovesse contenere come primo punto, un punto vuoto, che il cellulare traduce con: "LA TUA POSIZIONE GPS", ti verrà richiesto di inserire la prima località di partenza non potendo estrarre da questa WEB-APP la posizione GPS.</li>
           <li>Si generano 4 file: due HTML (vista settimanale e vista giorno-per-giorno), un TXT e un CSV con distanze/tempi totali e parziali.</li>
         </ul>
     
