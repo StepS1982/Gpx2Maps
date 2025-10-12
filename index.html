@@ -281,7 +281,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
         
           <!-- pulsanti SOTTO la textarea, come nel tab Sanitizza -->
           <div class="row" style="margin-top:12px;">
-            <input id="gpxFile" type="file" accept=".gpx,application/gpx+xml,text/xml" />
+            <input id="gpxFile" type="file" accept=".gpx,.GPX,application/gpx+xml,application/octet-stream,application/xml,text/xml,text/plain" />
             <button id="btnParseGPX" class="btn">Analizza GPX</button>
             <button id="btnClear3" class="btn ghost">Pulisci</button>
           </div>
@@ -315,7 +315,7 @@ Con questa strategia, Maps trasformerà la località come coordinate e non come 
           <label for="sanitizeInput" style="font-weight:800;">Carica un file GPX (o incolla il testo del GPX)</label>
           <textarea id="sanitizeInput" placeholder="Inserisci/incolla QUI il contenuto GPX o carica un file dall'apposito pulsante sottostante"></textarea>
           <div class="row" style="margin-top:12px;">
-            <input id="sanitizeFile" type="file" accept=".gpx,application/gpx+xml" />
+            <input id="sanitizeFile" type="file" accept=".gpx,.GPX,application/gpx+xml,application/octet-stream,application/xml,text/xml,text/plain" />
             <button id="btnSanitize" class="btn">Sanitizza GPX</button>
             <button id="btnClear4" class="btn ghost">Pulisci</button>
           </div>
@@ -352,7 +352,7 @@ Funziona anche con le coordinate di latitudine e longitudine
 NOTA BENE: Per avere la certezza assoluta di leggere precisamente i punti da un link google maps, sarebbe meglio che per ogni località cercata e messa come tappa su Maps, si prendesse con il mouse quel punto e lo si spostasse leggermente in avanti o indietro sul percorso della mappa.
 Con questa strategia, Maps trasformerà la località come coordinate e non come 'nome punto', per avere una precisione al 100%"></textarea>
           <div class="row" style="margin-top:12px;">
-            <input id="meteoGpxFile" type="file" accept=".gpx,application/gpx+xml" />
+            <input id="meteoGpxFile" type="file" accept=".gpx,.GPX,application/gpx+xml,application/octet-stream,application/xml,text/xml,text/plain" />
           </div>
           <div class="row" style="margin-top:12px;">
             <button id="btnGenMeteo" class="btn">Genera Meteo + Info percorso</button>
