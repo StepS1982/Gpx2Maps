@@ -2956,6 +2956,43 @@ async function sharePayloadTextOnly(text) {
   }
 }
 
+/* === openMapsSmart: apre il link Maps in modo “furbo” (iOS Safari -> app) === */
+function openMapsSmart(googleDirUrl){
+  try{
+    const ua   = navigator.userAgent || '';
+    const iOS  = /iP(hone|od|ad)/.test(ua);
+    const saf  = /^((?!chrome|crios|fxios).)*safari/i.test(ua); // Safari “vero” (no Chrome/FF iOS)
+
+    // Estrai i waypoint (manteniamo SEMPRE il segmento vuoto iniziale)
+    // Segments: ['', 'lat,lon', 'lat,lon', ...]
+    const parts = (googleDirUrl.split('/dir/')[1] || '').split('/');
+    if (!parts.length) { window.open(googleDirUrl, '_blank'); return; }
+
+    // Ricostruisci l’elenco destinazioni (senza il primo segmento vuoto) per deep-link
+    const coords = parts
+      .filter((seg, idx) => idx > 0 && seg && /^[+-]?\d+(\.\d+)?,[+-]?\d+(\.\d+)?$/.test(seg))
+      .map(seg => seg.replace(/,/g,',')); // già ok
+
+    // Deep link per Google Maps App (iOS): saddr vuoto => “posizione attuale”
+    const daddr   = encodeURIComponent(coords.join(' to: ')); // formato “A to: B to: C …”
+    const scheme  = `comgooglemaps://?saddr=&daddr=${daddr}&directionsmode=driving`;
+
+    if (iOS && saf){
+      // iOS + Safari: prova la app, poi fallback al link web
+      const t = setTimeout(()=>{ window.location.href = googleDirUrl; }, 800);
+      window.location.href = scheme;
+      // se la app prende il focus, il timeout non riuscirà a far partire il fallback
+      return;
+    }
+
+    // Tutto il resto (iOS Chrome compreso): il link web funziona bene
+    window.open(googleDirUrl, '_blank');
+  }catch{
+    // Qualsiasi problema -> apri il link web normale
+    window.open(googleDirUrl, '_blank');
+  }
+}
+
 /* GPX -> Maps (headless): TRK > RTE > WPT, dedupe adiacente, ottimizza a 25 totali
    (24 punti + primo segmento vuoto “//”), rounding a 6 decimali */
 
