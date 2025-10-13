@@ -1197,7 +1197,7 @@ function focusResultsSection(sel){
         bCopy.addEventListener('click', async()=>{ await navigator.clipboard.writeText(u); toast('URL copiato'); });
     
         const bOpen=document.createElement('button'); bOpen.className='btn small'; bOpen.textContent='Apri';
-        bOpen.addEventListener('click', async()=>{ const ok=await confirmAction('Aprire il link in una nuova scheda?'); if(ok) openMapsSmart(url); /*window.open(u,'_blank','noopener');*/ });
+        bOpen.addEventListener('click', async()=>{ const ok=await confirmAction('Aprire il link in una nuova scheda?'); if(ok) openMapsSmart(u); /*window.open(u,'_blank','noopener');*/ });
     
         btns.append(bCopy,bOpen); line.append(mono,btns); wrap.append(line); out.append(wrap);
       });
@@ -1753,7 +1753,7 @@ function focusResultsSection(sel){
         bCopy.addEventListener('click', async()=>{ await navigator.clipboard.writeText(u); toast('URL copiato'); });
     
         const bOpen=document.createElement('button'); bOpen.className='btn small'; bOpen.textContent='Apri';
-        bOpen.addEventListener('click', async()=>{ const ok=await confirmAction('Aprire il link in una nuova scheda?'); if(ok) openMapsSmart(url); /*window.open(u,'_blank','noopener');*/ });
+        bOpen.addEventListener('click', async()=>{ const ok=await confirmAction('Aprire il link in una nuova scheda?'); if(ok) openMapsSmart(u); /*window.open(u,'_blank','noopener');*/ });
     
         btns.append(bCopy,bOpen); line.append(mono,btns); wrap.append(line); out.append(wrap);
       });
