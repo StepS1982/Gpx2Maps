@@ -3345,6 +3345,42 @@ window.gpxToMapsLink_Tab3Auto = function gpxToMapsLink_Tab3Auto(xml) {
     shareBtn.style.display = 'none';
   }, { capture:true });
 
+  // === Tab 5 — Aggiunta bottone "Apri" accanto a "Condividi link Maps" ===
+  (function(){
+    const txtInput  = document.getElementById('meteoInput');
+    const shareBtn  = document.getElementById('btnShareMeteoLink');
+    if (!shareBtn || !txtInput) return;
+  
+    // Crea il bottone "Apri" solo se non esiste
+    let openBtn = document.getElementById('btnOpenMeteoLink');
+    if (!openBtn){
+      openBtn = document.createElement('button');
+      openBtn.id = 'btnOpenMeteoLink';
+      openBtn.className = 'btn small';
+      openBtn.textContent = 'Apri';
+  
+      // Inseriscilo subito PRIMA di "Condividi link Maps"
+      shareBtn.parentElement.insertBefore(openBtn, shareBtn);
+    }
+  
+    // Inizialmente nascosto come il tasto Condividi
+    openBtn.style.display = 'none';
+  
+    // Quando "Condividi" diventa visibile, mostra anche "Apri"
+    const observer = new MutationObserver(()=>{
+      openBtn.style.display = shareBtn.style.display === 'none' ? 'none' : '';
+    });
+    observer.observe(shareBtn, { attributes:true, attributeFilter:['style'] });
+  
+    // Click "Apri" → apri il link nella textarea via openMapsSmart
+    openBtn.addEventListener('click', (ev)=>{
+      ev.preventDefault();
+      const url = (txtInput.value || '').trim();
+      if (!url) { toastCenter && toastCenter('Nessun link Maps da aprire'); return; }
+      openMapsSmart(url);
+    });
+  })();
+
   // ------- helper headless: parse + dedupe + sample + build URL (clone Tab3) -------
   const bankers6 = (typeof window.bankers6 === 'function')
     ? window.bankers6
