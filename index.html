@@ -1196,8 +1196,8 @@ function focusResultsSection(sel){
         const bCopy=document.createElement('button'); bCopy.className='btn small ghost'; bCopy.textContent='Copia';
         bCopy.addEventListener('click', async()=>{ await navigator.clipboard.writeText(u); toast('URL copiato'); });
     
-        const bOpen=document.createElement('button'); bOpen.className='btn small'; bOpen.textContent='Apri';
-        bOpen.addEventListener('click', async()=>{ const ok=await confirmAction('Aprire il link in una nuova scheda?'); if(ok) openMapsSmart(u); /*window.open(u,'_blank','noopener');*/ });
+        const bOpen=document.createElement('button'); bOpen.className='btn small'; bOpen.textContent='Apri in Google Maps';
+        bOpen.addEventListener('click', async()=>{ const ok=await confirmAction('Aprire il link in Google Maps?'); if(ok) openMapsSmart(u); /*window.open(u,'_blank','noopener');*/ });
     
         btns.append(bCopy,bOpen); line.append(mono,btns); wrap.append(line); out.append(wrap);
       });
@@ -1752,8 +1752,8 @@ function focusResultsSection(sel){
         const bCopy=document.createElement('button'); bCopy.className='btn small ghost'; bCopy.textContent='Copia';
         bCopy.addEventListener('click', async()=>{ await navigator.clipboard.writeText(u); toast('URL copiato'); });
     
-        const bOpen=document.createElement('button'); bOpen.className='btn small'; bOpen.textContent='Apri';
-        bOpen.addEventListener('click', async()=>{ const ok=await confirmAction('Aprire il link in una nuova scheda?'); if(ok) openMapsSmart(u); /*window.open(u,'_blank','noopener');*/ });
+        const bOpen=document.createElement('button'); bOpen.className='btn small'; bOpen.textContent='Apri in Google Maps';
+        bOpen.addEventListener('click', async()=>{ const ok=await confirmAction('Aprire il link in Google Maps?'); if(ok) openMapsSmart(u); /*window.open(u,'_blank','noopener');*/ });
     
         btns.append(bCopy,bOpen); line.append(mono,btns); wrap.append(line); out.append(wrap);
       });
@@ -2742,7 +2742,7 @@ function focusResultsSection(sel){
       row.className='row'; row.style.marginTop='8px';
       row.innerHTML = `<div style="flex:1 1 auto;font-weight:700;">${label}</div>
         <div class="row" style="flex:0 0 auto;">
-          ${canOpen?'<button class="btn small ghost" data-open>Apri</button>':''}
+          ${canOpen?'<button class="btn small ghost" data-open>Apri in Google Maps</button>':''}
           <button class="btn small" data-dl>Scarica</button>
         </div>`;
     
@@ -3357,7 +3357,7 @@ window.gpxToMapsLink_Tab3Auto = function gpxToMapsLink_Tab3Auto(xml) {
       openBtn = document.createElement('button');
       openBtn.id = 'btnOpenMeteoLink';
       openBtn.className = 'btn small';
-      openBtn.textContent = 'Apri';
+      openBtn.textContent = 'Apri in Google Maps';
   
       // Inseriscilo subito PRIMA di "Condividi link Maps"
       shareBtn.parentElement.insertBefore(openBtn, shareBtn);
