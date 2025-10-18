@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "it.stefanovitro.gpx2maps",
+      "sha256_cert_fingerprints": [
+        "56:E5:27:D9:F6:C8:60:19:ED:80:B0:21:40:AB:D5:E6:7A:0A:D7:EE:FD:A0:34:51:AA:5F:E3:CD:D0:C5:01:70" 
+      ]
+    }
+  }
+]
