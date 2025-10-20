@@ -13,6 +13,15 @@
   Cache-Control: no-store
   Status: 301
 
+/index.html
+  Location: /
+  Status: 301
+  Cache-Control: no-store
+
+/test.html
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-store
+
 /resolve/*
   X-Robots-Tag: noindex, nofollow
 
