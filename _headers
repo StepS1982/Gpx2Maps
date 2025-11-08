@@ -15,8 +15,8 @@
 
 /index.html
   Location: /
-  Status: 301
   Cache-Control: no-store
+  Status: 301
 
 /test.html
   X-Robots-Tag: noindex, nofollow
@@ -26,6 +26,12 @@
   X-Robots-Tag: noindex, nofollow
 
 /geocode/*
+  X-Robots-Tag: noindex, nofollow
+
+/reverse/*
+  X-Robots-Tag: noindex, nofollow
+
+/osrm/*
   X-Robots-Tag: noindex, nofollow
 
 /url/*
